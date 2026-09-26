@@ -1,0 +1,20 @@
+{
+  "name": "Zenix POS",
+  "short_name": "Zenix POS",
+  "description": "Savdo, ombor, xodimlar va filiallarni boshqarish platformasi",
+  "lang": "uz",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#111315",
+  "theme_color": "#111315",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

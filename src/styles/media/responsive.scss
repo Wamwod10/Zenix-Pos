@@ -1,0 +1,464 @@
+@use "./breakpoints" as *;
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body.sidebar-open {
+  overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+.custom-select-trigger {
+  min-height: 40px;
+}
+
+.content > * {
+  min-width: 0;
+}
+
+.modal-overlay {
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.products-table-wrapper,
+.table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.products-table {
+  min-width: 920px;
+}
+
+.products-table th,
+.products-table td,
+.status,
+.status-badge,
+.payment-badge,
+.transaction-status,
+.inventory-payment-badge,
+.activity-type-badge {
+  white-space: nowrap;
+}
+
+.product-name,
+.product-actions,
+.supplier-top-actions,
+.inventory-card-actions,
+.expense-right,
+.qty-controls {
+  flex-shrink: 0;
+}
+
+.product-name > div,
+.product-name span,
+.product-name strong,
+.analytics-row strong,
+.seller-row strong,
+.history-sale-products span,
+.daily-products span,
+.transaction-product {
+  min-width: 0;
+}
+
+.product-icon,
+.card-icon,
+.summary-icon,
+.supplier-icon,
+.inventory-icon,
+.activity-summary-icon,
+.activity-node {
+  flex: 0 0 auto;
+}
+
+.dashboard-page,
+.sales-page,
+.products-page,
+.inventory-page,
+.suppliers-page,
+.expenses-page,
+.history-page,
+.analytics-page,
+.seller-analytics-page,
+.activity-log-page {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.dashboard-card,
+.analytics-card,
+.seller-card,
+.history-summary-card,
+.activity-summary-card,
+.inventory-card,
+.supplier-card,
+.expense-card,
+.product-card {
+  min-width: 0;
+}
+
+.dashboard-card h2,
+.analytics-card h2,
+.seller-card h2,
+.history-summary-card h2,
+.activity-summary-card h2,
+.inventory-stat-card h2,
+.expenses-summary h2,
+.total h2,
+.receipt-total h2 {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.12;
+}
+
+.dashboard-card span,
+.analytics-card span,
+.seller-card span,
+.history-summary-card span,
+.activity-summary-card span,
+.inventory-stat-card h3,
+.expenses-summary span {
+  line-height: 1.25;
+}
+
+.dashboard-card h2,
+.analytics-card h2,
+.seller-card h2,
+.history-summary-card h2,
+.activity-summary-card h2,
+.inventory-stat-card h2,
+.expenses-summary h2,
+.product-bottom strong,
+.total h2,
+.daily-sales-header strong,
+.daily-sale-top strong,
+.daily-product-row > strong,
+.history-total h2,
+.history-stats strong,
+.supplier-stats strong,
+.inventory-info strong,
+.inventory-supplier strong,
+.inventory-payment strong,
+.expense-right strong,
+.receipt-total h2,
+.return-history-amount strong {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 993px) and (max-width: 1440px) {
+  .content {
+    padding: 27px;
+  }
+
+  .dashboard-header h1,
+  .sales-header h1,
+  .products-header h1,
+  .inventory-header h1,
+  .suppliers-header h1,
+  .expenses-header h1,
+  .history-header h1,
+  .analytics-header h1,
+  .seller-analytics-header h1,
+  .activity-log-header h1 {
+    font-size: 30px;
+    line-height: 1.15;
+    margin-bottom: 7px;
+  }
+
+  .dashboard-grid,
+  .inventory-stats,
+  .analytics-summary,
+  .seller-summary,
+  .activity-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .history-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .history-grid,
+  .suppliers-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .dashboard-card,
+  .analytics-card,
+  .seller-card,
+  .history-summary-card,
+  .activity-summary-card,
+  .inventory-stat-card {
+    min-height: 108px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .dashboard-card {
+    gap: 14px;
+  }
+
+  .dashboard-card h2,
+  .analytics-card h2,
+  .seller-card h2,
+  .history-summary-card h2,
+  .activity-summary-card h2,
+  .inventory-stat-card h2 {
+    font-size: 24px;
+  }
+
+  .dashboard-card span,
+  .analytics-card span,
+  .seller-card span,
+  .history-summary-card span,
+  .activity-summary-card span,
+  .inventory-stat-card h3 {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .card-icon,
+  .summary-icon,
+  .supplier-icon,
+  .inventory-icon,
+  .activity-summary-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+    font-size: 21px;
+  }
+
+  .dashboard-profit-section,
+  .analytics-grid,
+  .seller-grid {
+    gap: 18px;
+  }
+
+  .dashboard-profit-card,
+  .dashboard-table,
+  .analytics-box,
+  .seller-box,
+  .seller-score-card,
+  .activity-panel,
+  .supplier-card,
+  .inventory-card,
+  .expenses-summary,
+  .expense-card {
+    border-radius: 22px;
+    padding: 20px;
+  }
+
+  .dashboard-profit-info h2 {
+    font-size: 44px;
+  }
+
+  .dashboard-mini-card {
+    min-height: 112px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .dashboard-mini-card h3 {
+    font-size: 25px;
+    line-height: 1.12;
+  }
+
+  .sales-page {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+  }
+
+  .sales-products,
+  .cart-section {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .product-card {
+    min-height: 170px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .product-card h3 {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .product-bottom strong {
+    font-size: 20px;
+    line-height: 1.12;
+  }
+
+  .cart-header h2 {
+    font-size: 24px;
+  }
+
+  .total h2 {
+    font-size: 28px;
+  }
+
+  .daily-sales-header h3 {
+    font-size: 19px;
+  }
+
+  .daily-sales-header strong,
+  .daily-sale-top strong,
+  .expense-right strong {
+    font-size: 18px;
+  }
+
+  .inventory-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .inventory-info {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventory-card h2,
+  .supplier-card h2 {
+    font-size: 21px;
+    line-height: 1.2;
+  }
+
+  .analytics-page,
+  .seller-analytics-page {
+    padding: 0;
+  }
+
+  .seller-score-card h2 {
+    font-size: 46px;
+    line-height: 1;
+  }
+
+  .seller-sub-scores,
+  .seller-ai-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 993px) and (max-width: 1100px) {
+  .sales-page {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-section {
+    position: static;
+  }
+
+  .products-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 769px) and (max-width: 992px) {
+  .dashboard-grid,
+  .inventory-stats,
+  .analytics-summary,
+  .seller-summary,
+  .activity-summary,
+  .history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .dashboard-card h2,
+  .analytics-card h2,
+  .seller-card h2,
+  .history-summary-card h2,
+  .activity-summary-card h2,
+  .inventory-stat-card h2 {
+    font-size: 22px;
+  }
+
+  .dashboard-profit-info h2 {
+    font-size: 40px;
+  }
+
+  .dashboard-mini-card h3 {
+    font-size: 23px;
+  }
+
+  .total h2,
+  .receipt-total h2 {
+    font-size: 28px;
+  }
+
+  .analytics-page,
+  .seller-analytics-page {
+    padding: 0;
+  }
+}
+
+@include down($bp-md) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  .custom-select-trigger {
+    min-height: 44px;
+  }
+
+  .analytics-card h2,
+  .seller-card h2,
+  .history-summary-card h2,
+  .activity-summary-card h2,
+  .inventory-stat-card h2 {
+    font-size: clamp(20px, 4.8vw, 25px);
+    line-height: 1.15;
+  }
+}
+
+@include down($bp-xs) {
+  .modal-overlay {
+    padding: 8px;
+  }
+}
