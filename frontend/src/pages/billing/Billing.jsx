@@ -13,6 +13,7 @@ import Modal from "../../components/Modal";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
+import { hasPendingBillingPayment, startBillingPaymentPolling } from "./billingPolling";
 
 const STATUS_LABELS={ACTIVE:"Faol",APPROVED:"Faol",REVIEW:"Tekshiruvda",REJECTED:"Rad etildi",EXPIRED:"Muddati tugagan",PAYMENT_REQUIRED:"To‘lov kutilmoqda",PENDING:"Kutilmoqda"};
 const statusTone=status=>["ACTIVE","APPROVED"].includes(status)?"success":status==="REJECTED"||status==="EXPIRED"?"danger":status==="REVIEW"?"warning":"neutral";
@@ -23,12 +24,13 @@ const daysUntil=value=>value?Math.max(0,Math.ceil((new Date(value).getTime()-Dat
 function Billing({activation=false}){
   const {currentUser,logout}=useAuth();
   const {notify}=useFeedback();
-  const {stores,payments,organizations,hasPermission,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission}=useStore();
+  const {stores,payments,organizations,hasPermission,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,reloadStore}=useStore();
   const currentOrg=organizations.find(org=>org.id===currentUser?.organizationId);
   const history=useMemo(()=>payments.filter(payment=>!currentUser?.organizationId||payment.organizationId===currentUser.organizationId).sort((a,b)=>new Date(b.submittedAt||0)-new Date(a.submittedAt||0)),[payments,currentUser?.organizationId]);
   const latestLicensePayment=history.find(payment=>payment.type!=="EXTRA");
   const pendingLicense=history.find(payment=>payment.type!=="EXTRA"&&payment.status==="REVIEW");
   const pendingExtra=history.find(payment=>payment.type==="EXTRA"&&payment.status==="REVIEW");
+  const hasPendingPayment=hasPendingBillingPayment(payments,currentUser?.organizationId);
   const expiry=currentOrg?.expiryDate||null;
   const storedStatus=String(currentOrg?.licenseStatus||latestLicensePayment?.status||(activation?"PAYMENT_REQUIRED":"ACTIVE")).toUpperCase();
   const status=(["ACTIVE","APPROVED"].includes(storedStatus)&&expiry&&new Date(expiry).getTime()<Date.now())?"EXPIRED":storedStatus;
@@ -75,6 +77,10 @@ function Billing({activation=false}){
     if(flow!=="renew")setRenewTargetDate(defaultRenewTargetDate);
   },[defaultRenewTargetDate,flow]);
   useEffect(()=>()=>{if(receiptUrl)URL.revokeObjectURL(receiptUrl)},[receiptUrl]);
+  useEffect(()=>{
+    if(!hasPendingPayment)return undefined;
+    return startBillingPaymentPolling(reloadStore);
+  },[hasPendingPayment,reloadStore]);
   useEffect(()=>{
     if(!canWrite)return;
     let active=true;
