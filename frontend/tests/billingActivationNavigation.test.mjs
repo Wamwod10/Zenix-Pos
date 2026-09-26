@@ -16,6 +16,16 @@ test("pending payment does not keep an already active organization locked", () =
   }).allowed, true);
 });
 
+test("review and payment-required organizations remain blocked", () => {
+  assert.equal(workspaceAccessState({ organization: { licenseStatus: "REVIEW" } }).allowed, false);
+  assert.equal(workspaceAccessState({ organization: { licenseStatus: "PAYMENT_REQUIRED" } }).allowed, false);
+});
+
+test("expired active organization remains blocked", () => {
+  const past = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  assert.deepEqual(workspaceAccessState({ organization: { licenseStatus: "ACTIVE", expiryDate: past } }).reason, "EXPIRED");
+});
+
 test("workspace hydration commits bootstrap entitlement even when settings refresh fails", () => {
   const source = fs.readFileSync(new URL("../src/context/StoreContext.jsx", import.meta.url), "utf8");
   assert.match(source, /Promise\.allSettled\(\[api\.get\("\/api\/bootstrap"\),api\.get\("\/api\/settings"\)\]\)/);

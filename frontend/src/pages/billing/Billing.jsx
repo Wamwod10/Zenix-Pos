@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiArrowLeft, FiCheck, FiClock, FiCopy, FiCreditCard, FiEye, FiFileText,
@@ -14,7 +14,7 @@ import Modal from "../../components/Modal";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
-import { hasPendingBillingPayment, startBillingPaymentPolling } from "./billingPolling";
+import { billingPaymentReviewState, hasPendingBillingPayment, startBillingPaymentPolling } from "./billingPolling";
 
 const STATUS_LABELS={ACTIVE:"Faol",APPROVED:"Faol",REVIEW:"Tekshiruvda",REJECTED:"Rad etildi",EXPIRED:"Muddati tugagan",PAYMENT_REQUIRED:"To‘lov kutilmoqda",PENDING:"Kutilmoqda"};
 const statusTone=status=>["ACTIVE","APPROVED"].includes(status)?"success":status==="REJECTED"||status==="EXPIRED"?"danger":status==="REVIEW"?"warning":"neutral";
@@ -30,6 +30,7 @@ function Billing({activation=false}){
   const currentOrg=organizations.find(org=>org.id===currentUser?.organizationId);
   const history=useMemo(()=>payments.filter(payment=>!currentUser?.organizationId||payment.organizationId===currentUser.organizationId).sort((a,b)=>new Date(b.submittedAt||0)-new Date(a.submittedAt||0)),[payments,currentUser?.organizationId]);
   const latestLicensePayment=history.find(payment=>payment.type!=="EXTRA");
+  const paymentReviewState=billingPaymentReviewState(payments,currentUser?.organizationId);
   const pendingLicense=history.find(payment=>payment.type!=="EXTRA"&&payment.status==="REVIEW");
   const pendingExtra=history.find(payment=>payment.type==="EXTRA"&&payment.status==="REVIEW");
   const hasPendingPayment=hasPendingBillingPayment(payments,currentUser?.organizationId);
@@ -47,7 +48,7 @@ function Billing({activation=false}){
   // Extra-store pricing must cover the whole real remaining service period.
   // Do not clamp to one plan cycle because an owner can renew multiple years ahead.
   const remainingDays=expiry?Math.max(1,daysUntil(expiry)):currentPlanDays;
-  const [flow,setFlow]=useState(()=>activation||["PAYMENT_REQUIRED","REJECTED"].includes(status)?"plans":status==="EXPIRED"?"renew":"overview");
+  const [flow,setFlow]=useState(()=>paymentReviewState==="waiting"?"waiting":activation||["PAYMENT_REQUIRED","REJECTED"].includes(status)?"plans":status==="EXPIRED"?"renew":"overview");
   const [plan,setPlan]=useState(currentPlan);
   const [licenseIntent,setLicenseIntent]=useState(()=>activation||!["ACTIVE","APPROVED","EXPIRED"].includes(status)?"ACTIVATE":"RENEW");
   const renewalBaseDate=billingDateISO(expiry&&new Date(expiry).getTime()>Date.now()?expiry:new Date());
@@ -67,6 +68,7 @@ function Billing({activation=false}){
   const [receiptView,setReceiptView]=useState(null);
   const [receiptUrl,setReceiptUrl]=useState("");
   const [receiptLoading,setReceiptLoading]=useState(false);
+  const handledPaymentIdRef=useRef("");
   const billingColumnDefs=[{id:"purpose",label:"Maqsad"},{id:"period",label:"Davr"},{id:"amount",label:"Summa"},{id:"status",label:"Holat"},{id:"receipt",label:"Chek"}];
   const {visible:billingColumns,toggle:toggleBillingColumn,show:showBillingColumn}=usePersistentColumns("zenix_billing_history_columns",billingColumnDefs);
   const preview=useMemo(()=>file&&file.type.startsWith("image/")?URL.createObjectURL(file):null,[file]);
@@ -81,30 +83,28 @@ function Billing({activation=false}){
   useEffect(()=>()=>{if(receiptUrl)URL.revokeObjectURL(receiptUrl)},[receiptUrl]);
   useEffect(()=>{
     if(!hasPendingPayment)return undefined;
-    return startBillingPaymentPolling(reloadStore);
-  },[hasPendingPayment,reloadStore]);
-  useEffect(()=>{
-    if(flow!=="waiting"||!hasPendingPayment)return undefined;
-    const timer=window.setInterval(()=>reloadStore(),2000);
-    return()=>window.clearInterval(timer);
+    return startBillingPaymentPolling(reloadStore,{intervalMs:flow==="waiting"?2000:8000});
   },[flow,hasPendingPayment,reloadStore]);
   useEffect(()=>{
     if(flow!=="waiting")return;
-    if(["ACTIVE","APPROVED"].includes(status)){
+    const paymentId=String(latestLicensePayment?.id||latestLicensePayment?.orderId||"");
+    if(paymentReviewState==="approved"&&handledPaymentIdRef.current!==paymentId){
+      handledPaymentIdRef.current=paymentId;
       notify({tone:"success",title:"To‘lov tasdiqlandi",message:"Platforma ochildi."});
       const timer=window.setTimeout(()=>navigate("/",{replace:true}),250);
       return()=>window.clearTimeout(timer);
     }
-    if(status==="REJECTED"){
+    if(paymentReviewState==="rejected"&&handledPaymentIdRef.current!==paymentId){
+      handledPaymentIdRef.current=paymentId;
       setFlow("plans");
       setError(latestLicensePayment?.rejectReason||"To‘lov rad etildi. Chekni tekshirib qayta yuboring.");
     }
-  },[flow,status,navigate,notify,latestLicensePayment?.rejectReason]);
+  },[flow,paymentReviewState,navigate,notify,latestLicensePayment?.id,latestLicensePayment?.orderId,latestLicensePayment?.rejectReason]);
   useEffect(()=>{
     if(!canWrite)return;
     let active=true;
     void loadBillingDraft().then((result)=>{
-      const draft=result?.draft;if(!active||!draft)return;
+      const draft=result?.draft;if(!active||!draft||pendingLicense)return;
       setCheckoutDraft(draft);setPaymentType(draft.type||"LICENSE");setPlan(draft.plan||currentPlan);setLicenseIntent(draft.intent||draft.metadata?.intent||"RENEW");
       if(draft.type==="EXTRA")setExtraStores(Math.max(1,Number(draft.extraStoreCount||1)));
       if(draft.type==="LICENSE"&&(draft.intent||draft.metadata?.intent)==="RENEW"){setRenewTargetDate(draft.selectedEndDate||defaultRenewTargetDate);setRenewExtraStores(Math.max(0,Number(draft.extraStoreCount||0)));}
@@ -246,6 +246,7 @@ function Billing({activation=false}){
   const plans=flow==="plans"&&<section className="pricing-section pro-card billing-flow-card">
     <div className="billing-flow-head"><button className="billing-back" onClick={()=>activation?null:leaveToOverview()} disabled={activation}><FiArrowLeft/></button><div><h2>{["ACTIVE","APPROVED","EXPIRED"].includes(status)?"Tarifni o‘zgartirish":"Tarifni tanlang"}</h2><p>Keyingi davr uchun tarifni tanlang. Joriy tarifni faqat muddatini uzaytirish uchun “Tarifni uzaytirish” oqimidan foydalaning.</p></div></div>
     {pendingLicense&&<div className="pro-alert warning">Tarif bo‘yicha to‘lov allaqachon tekshiruvda. Yangi to‘lov yuborish shart emas.</div>}
+    {error&&<div className="pro-alert danger">{error}</div>}
     <div className="pricing-grid">
       <button type="button" className={`pricing-card ${plan==="MONTHLY"?"selected":""}`} onClick={()=>{if(canWrite){setCheckoutDraft(null);setPlan("MONTHLY")}}}><div className="pricing-top"><span>Oylik</span>{plan==="MONTHLY"&&<FiCheck/>}</div><strong>{billingPrice(BILLING_CONFIG.monthly.amount)}</strong><small>/ oy</small><ul><li><FiCheck/> {BILLING_CONFIG.monthly.includedStores} ta filial</li><li><FiCheck/> Barcha asosiy modullar</li><li><FiCheck/> Har oy yangilanadi</li></ul></button>
       <button type="button" className={`pricing-card featured ${plan==="ANNUAL"?"selected":""}`} onClick={()=>{if(canWrite){setCheckoutDraft(null);setPlan("ANNUAL")}}}><span className="best-badge"><FiGift/> Tejamkor</span><div className="pricing-top"><span>Yillik</span>{plan==="ANNUAL"&&<FiCheck/>}</div><strong>{billingPrice(BILLING_CONFIG.annual.amount)}</strong><small>/ 12 oy · oyiga {billingPrice(annualMonthlyEquivalent)}</small><div className="saving-pill">{billingPrice(BILLING_CONFIG.annual.saving)} tejaysiz</div><ul><li><FiCheck/> {BILLING_CONFIG.annual.includedStores} ta filial</li><li><FiCheck/> Barcha asosiy modullar</li><li><FiCheck/> 12 oyga bitta to‘lov</li></ul></button>
@@ -276,9 +277,9 @@ function Billing({activation=false}){
     <h2>To‘lovingiz tekshirilmoqda</h2>
     <p>Chek muvaffaqiyatli yuborildi. Administrator tasdiqlashi bilan Zenix POS avtomatik ravishda ochiladi.</p>
     <div className="billing-wait-steps">
-      <div className="done"><span><FiCheck/></span><div><strong>Chek qabul qilindi</strong><small>To‘lov ma’lumotlari yuborildi</small></div></div>
-      <div className="active"><span><FiClock/></span><div><strong>Administrator tekshirmoqda</strong><small>Holat avtomatik yangilanadi</small></div></div>
-      <div><span><FiCheckCircle/></span><div><strong>Platformaga kirish</strong><small>Tasdiqlangach avtomatik ochiladi</small></div></div>
+      <div className="done"><span><FiCheck/></span><div><strong>1. Chek yuborildi</strong><small>To‘lov ma’lumotlari qabul qilindi</small></div></div>
+      <div className="active"><span><FiClock/></span><div><strong>2. To‘lov tekshirilmoqda</strong><small>Holat avtomatik yangilanadi</small></div></div>
+      <div><span><FiCheckCircle/></span><div><strong>3. Tasdiqlash kutilmoqda</strong><small>Tasdiqlangach platforma avtomatik ochiladi</small></div></div>
     </div>
     <div className="billing-wait-live"><span className="billing-wait-dot"/> Sahifani yopmang — holat har 2 soniyada tekshirilmoqda</div>
   </section>;

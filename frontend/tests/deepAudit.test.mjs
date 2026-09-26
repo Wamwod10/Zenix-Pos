@@ -381,7 +381,7 @@ test('mobile app shell stays touch-safe and PWA-ready',()=>{
   assert.match(html,/manifest\.webmanifest/);
   assert.match(manifest,/"display": "standalone"/);
   assert.match(serviceWorker,/CACHE_NAME/);
-  assert.match(main,/serviceWorker\.register\("\/sw\.js"\)/);
+  assert.match(main,/serviceWorker\.register\("\/sw\.js",\{updateViaCache:"none"\}\)/);
 });
 
 test('DOCX XML text extraction keeps visible paragraphs for conservative import parsing',async()=>{

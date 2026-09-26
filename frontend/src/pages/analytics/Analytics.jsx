@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 import { FiBarChart2, FiCreditCard, FiDollarSign, FiDownload, FiPackage, FiRefreshCw, FiShoppingCart, FiTrendingUp } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
 import { formatPrice } from "../../utils/formatPrice";
@@ -9,6 +9,7 @@ import {
   saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale,
 } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
+import ResponsiveChart from "../../components/ResponsiveChart";
 import "./analytics.scss";
 
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
@@ -187,12 +188,12 @@ function Analytics() {
     </div>
 
     <div className="analytics-grid-main">
-      <section className="pro-card chart-card wide"><div className="pro-card-head"><div><h2>Savdo va foyda trendi</h2><p>{period} · {storeLabel}</p></div></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><LineChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" tick={{fontSize:10}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value/1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/><Line type="monotone" dataKey="sales" name="Sof savdo" stroke="var(--primary)" strokeWidth={2.2}/><Line type="monotone" dataKey="profit" name="Yalpi foyda" stroke="#16a34a" strokeWidth={2}/>{canCalculateNet && <Line type="monotone" dataKey="expenses" name="Xarajat" stroke="#ef4444" strokeWidth={1.5}/>}</LineChart></ResponsiveContainer></div></section>
-      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Qaytarishdan keyingi sof taqsimot</p></div></div><div className="chart-wrap pie">{paymentData.length ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={paymentData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={78}>{paymentData.map((_,index) => <Cell key={index} fill={["#3b82f6","#8b5cf6","#f59e0b"][index % 3]}/>)}</Pie><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/></PieChart></ResponsiveContainer> : <div className="pro-empty">To‘lov ma’lumoti yo‘q</div>}</div></section>
+      <section className="pro-card chart-card wide"><div className="pro-card-head"><div><h2>Savdo va foyda trendi</h2><p>{period} · {storeLabel}</p></div></div><div className="chart-wrap"><ResponsiveChart><LineChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" tick={{fontSize:10}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value/1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/><Line type="monotone" dataKey="sales" name="Sof savdo" stroke="var(--primary)" strokeWidth={2.2}/><Line type="monotone" dataKey="profit" name="Yalpi foyda" stroke="#16a34a" strokeWidth={2}/>{canCalculateNet && <Line type="monotone" dataKey="expenses" name="Xarajat" stroke="#ef4444" strokeWidth={1.5}/>}</LineChart></ResponsiveChart></div></section>
+      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Qaytarishdan keyingi sof taqsimot</p></div></div><div className="chart-wrap pie">{paymentData.length ? <ResponsiveChart><PieChart><Pie data={paymentData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={78}>{paymentData.map((_,index) => <Cell key={index} fill={["#3b82f6","#8b5cf6","#f59e0b"][index % 3]}/>)}</Pie><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/></PieChart></ResponsiveChart> : <div className="pro-empty">To‘lov ma’lumoti yo‘q</div>}</div></section>
     </div>
 
     <div className="analytics-grid-2">
-      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>Filiallar taqqoslash</h2><p>Tanlangan davr va filterlar bo‘yicha</p></div></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={compare}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="store" tick={{fontSize:9}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value/1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Bar dataKey="sales" name="Sof savdo" fill="var(--primary)" radius={[7,7,0,0]}/><Bar dataKey="profit" name="Yalpi foyda" fill="#16a34a" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer></div></section>
+      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>Filiallar taqqoslash</h2><p>Tanlangan davr va filterlar bo‘yicha</p></div></div><div className="chart-wrap"><ResponsiveChart><BarChart data={compare}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="store" tick={{fontSize:9}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value/1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Bar dataKey="sales" name="Sof savdo" fill="var(--primary)" radius={[7,7,0,0]}/><Bar dataKey="profit" name="Yalpi foyda" fill="#16a34a" radius={[7,7,0,0]}/></BarChart></ResponsiveChart></div></section>
       <section className="pro-card analytics-summary"><div className="pro-card-head"><div><h2>Biznes holati</h2><p>Tanlangan scope bo‘yicha</p></div></div><div className="insight-list"><div><FiPackage/><span><strong>Ombor qiymati</strong><small>{formatPrice(stockValue)}</small></span></div><div><FiRefreshCw/><span><strong>Qaytarishlar</strong><small>{returnedSales} ta savdo · {formatPrice(returnTotal)}</small></span></div><div><FiBarChart2/><span><strong>Qaytarish darajasi</strong><small>{revenue + returnTotal ? `${(returnTotal/(revenue + returnTotal)*100).toFixed(1)}%` : "0%"}</small></span></div></div></section>
     </div>
 

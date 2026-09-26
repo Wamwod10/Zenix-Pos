@@ -380,7 +380,7 @@ function MainLayout(){
         </div>
       </header>
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
-      <main className="content"><Outlet key={location.pathname}/></main>
+      <main className="content"><Outlet/></main>
     </div>
 
     <nav className="mobile-bottom-nav" aria-label="Mobil navigatsiya">

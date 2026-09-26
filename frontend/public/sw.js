@@ -1,5 +1,22 @@
-const CACHE_NAME = "zenix-shell-v1";
+const CACHE_PREFIX = "zenix-shell-";
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest"];
+
+const offlineResponse = (request) => {
+  const acceptsHtml = request.mode === "navigate";
+  return new Response(
+    acceptsHtml
+      ? "<!doctype html><html lang=\"uz\"><meta charset=\"utf-8\"><title>Zenix POS</title><body><main>Zenix POS hozir offline. Internet ulanishini tekshiring.</main></body></html>"
+      : "Zenix POS is offline",
+    { status: 503, headers: { "Content-Type": acceptsHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8" } },
+  );
+};
+
+const persist = (event, key, response) => {
+  if (!response?.ok) return;
+  const write = caches.open(CACHE_NAME).then((cache) => cache.put(key, response.clone())).catch(() => undefined);
+  event.waitUntil(write);
+};
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -8,7 +25,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -26,27 +43,29 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", copy));
+          persist(event, "/index.html", response);
           return response;
         })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/index.html")) || (await caches.match("/"))),
+        .catch(async () => (
+          (await caches.match(request))
+          || (await caches.match("/index.html"))
+          || (await caches.match("/"))
+          || offlineResponse(request)
+        )),
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
+    caches.match(request).then(async (cached) => {
+      if (cached) return cached;
+      try {
+        const response = await fetch(request);
+        persist(event, request, response);
+        return response;
+      } catch {
+        return offlineResponse(request);
+      }
     }),
   );
 });

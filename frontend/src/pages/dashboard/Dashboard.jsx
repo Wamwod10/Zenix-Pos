@@ -3,7 +3,7 @@ import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
   FiShoppingBag, FiTrendingDown, FiTrendingUp, FiTruck, FiRotateCcw, FiActivity,
 } from "react-icons/fi";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext";
 import { formatPrice } from "../../utils/formatPrice";
@@ -12,6 +12,7 @@ import { saleNetPaymentBreakdown, returnedAmountForSale } from "../../utils/repo
 import { formatWorkspaceDate, workspaceDateISO } from "../../utils/workspaceDate";
 import { supplierOpenDebt } from "../../utils/supplierLedger";
 import { PageHeader, PremiumSelect, StatCard, StatusBadge } from "../../components/Ui";
+import ResponsiveChart from "../../components/ResponsiveChart";
 import "./dashboard.scss";
 
 const dayKey=(value,timezone="Asia/Tashkent")=>{if(/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return String(value);const d=value?new Date(value):new Date();if(Number.isNaN(d.getTime()))return "";return workspaceDateISO(d,timezone)};
@@ -171,7 +172,7 @@ function Dashboard(){
     <div className="dashboard-main-grid">
       <section className="pro-card dashboard-chart">
         <div className="pro-card-head"><div><h2>Savdo dinamikasi</h2><p>{period==="all"?"Barcha davr summalari · grafik oxirgi 14 kunni ko‘rsatadi.":"Kunlik savdo va yalpi foyda o‘zgarishi."}</p></div><div className="chart-legend"><span><i className="sales"/>Savdo</span><span><i className="profit"/>Foyda</span></div></div>
-        <div className="dashboard-chart-area"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend} margin={{left:2,right:4,top:10,bottom:0}}><defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".18"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient><linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6c927b" stopOpacity=".12"/><stop offset="100%" stopColor="#6c927b" stopOpacity="0"/></linearGradient></defs><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 7"/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill:"var(--muted)",fontSize:11}}/><YAxis tickFormatter={v=>`${Math.round(v/1000)}k`} tickLine={false} axisLine={false} width={48} tick={{fill:"var(--muted)",fontSize:10}}/><Tooltip formatter={v=>formatPrice(v)} contentStyle={{border:"1px solid var(--border)",borderRadius:14,background:"var(--card-bg)",boxShadow:"var(--shadow-soft)"}}/><Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesFill)" strokeWidth={2.3} dot={false}/><Area type="monotone" dataKey="profit" stroke="#6c927b" fill="url(#profitFill)" strokeWidth={1.8} dot={false}/></AreaChart></ResponsiveContainer></div>
+        <div className="dashboard-chart-area"><ResponsiveChart><AreaChart data={trend} margin={{left:2,right:4,top:10,bottom:0}}><defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".18"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient><linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6c927b" stopOpacity=".12"/><stop offset="100%" stopColor="#6c927b" stopOpacity="0"/></linearGradient></defs><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 7"/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill:"var(--muted)",fontSize:11}}/><YAxis tickFormatter={v=>`${Math.round(v/1000)}k`} tickLine={false} axisLine={false} width={48} tick={{fill:"var(--muted)",fontSize:10}}/><Tooltip formatter={v=>formatPrice(v)} contentStyle={{border:"1px solid var(--border)",borderRadius:14,background:"var(--card-bg)",boxShadow:"var(--shadow-soft)"}}/><Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesFill)" strokeWidth={2.3} dot={false}/><Area type="monotone" dataKey="profit" stroke="#6c927b" fill="url(#profitFill)" strokeWidth={1.8} dot={false}/></AreaChart></ResponsiveChart></div>
       </section>
 
       <section className="pro-card dashboard-payment"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Tanlangan davrdagi to‘lov tarkibi.</p></div><FiCreditCard/></div>{[["Naqd",payment.cash,"cash"],["Karta",payment.card,"card"],["O‘tkazma",payment.transfer,"transfer"]].map(([label,value,tone])=><div className="pay-row" key={label}><div><span>{label}</span><strong>{formatPrice(value)}</strong></div><div className="pay-bar"><i className={tone} style={{width:`${Math.round(value/paymentTotal*100)}%`}}/></div><small>{Math.round(value/paymentTotal*100)}%</small></div>)}<div className="payment-insight"><span>Eng faol vaqt</span><strong>{peakHour}</strong></div></section>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { FiAward, FiCreditCard, FiSearch, FiShoppingCart, FiTrendingUp, FiUserCheck } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
@@ -10,6 +10,7 @@ import { matchesStore, recordInPeriod, returnedAmountForSale, saleNetPaymentBrea
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, ColumnPicker } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import usePersistentColumns from "../../utils/usePersistentColumns";
+import ResponsiveChart from "../../components/ResponsiveChart";
 import "./sellerAnalytics.scss";
 
 function SellerAnalytics() {
@@ -128,7 +129,7 @@ function SellerAnalytics() {
     <div className="seller-layout">
       <section className="pro-card seller-chart-card">
         <div className="pro-card-head"><div><h2>Savdo va foyda</h2><p>{periodLabel} · {storeLabel}</p></div></div>
-        <div className="seller-chart">{chart.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="name" tick={{fontSize:10}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value / 1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Bar dataKey="sales" name="Sof savdo" fill="var(--primary)" radius={[7,7,0,0]}/><Bar dataKey="profit" name="Yalpi foyda" fill="#16a34a" radius={[7,7,0,0]}/></BarChart></ResponsiveContainer> : <div className="pro-empty">Tanlangan davrda savdo yo‘q</div>}</div>
+        <div className="seller-chart">{chart.length ? <ResponsiveChart><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="name" tick={{fontSize:10}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value / 1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Bar dataKey="sales" name="Sof savdo" fill="var(--primary)" radius={[7,7,0,0]}/><Bar dataKey="profit" name="Yalpi foyda" fill="#16a34a" radius={[7,7,0,0]}/></BarChart></ResponsiveChart> : <div className="pro-empty">Tanlangan davrda savdo yo‘q</div>}</div>
       </section>
 
       {!isCashier && <section className="pro-card leaderboard">
