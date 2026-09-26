@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FiArrowLeft, FiCheck, FiClock, FiCopy, FiCreditCard, FiEye, FiFileText,
-  FiGift, FiMapPin, FiPlus, FiShield,
+  FiGift, FiMapPin, FiPlus, FiShield, FiCheckCircle,
 } from "react-icons/fi";
 import { BILLING_CONFIG, BILLING_PLANS, addBillingDays, addBillingMonths, billingDateISO, billingDaysBetween } from "../../config/billing";
 import { paymentService } from "../../services/paymentService";
@@ -23,6 +24,7 @@ const daysUntil=value=>value?Math.max(0,Math.ceil((new Date(value).getTime()-Dat
 
 function Billing({activation=false}){
   const {currentUser,logout}=useAuth();
+  const navigate=useNavigate();
   const {notify}=useFeedback();
   const {stores,payments,organizations,hasPermission,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,reloadStore}=useStore();
   const currentOrg=organizations.find(org=>org.id===currentUser?.organizationId);
@@ -81,6 +83,23 @@ function Billing({activation=false}){
     if(!hasPendingPayment)return undefined;
     return startBillingPaymentPolling(reloadStore);
   },[hasPendingPayment,reloadStore]);
+  useEffect(()=>{
+    if(flow!=="waiting"||!hasPendingPayment)return undefined;
+    const timer=window.setInterval(()=>reloadStore(),2000);
+    return()=>window.clearInterval(timer);
+  },[flow,hasPendingPayment,reloadStore]);
+  useEffect(()=>{
+    if(flow!=="waiting")return;
+    if(["ACTIVE","APPROVED"].includes(status)){
+      notify({tone:"success",title:"To‘lov tasdiqlandi",message:"Platforma ochildi."});
+      const timer=window.setTimeout(()=>navigate("/",{replace:true}),250);
+      return()=>window.clearTimeout(timer);
+    }
+    if(status==="REJECTED"){
+      setFlow("plans");
+      setError(latestLicensePayment?.rejectReason||"To‘lov rad etildi. Chekni tekshirib qayta yuboring.");
+    }
+  },[flow,status,navigate,notify,latestLicensePayment?.rejectReason]);
   useEffect(()=>{
     if(!canWrite)return;
     let active=true;
@@ -174,8 +193,8 @@ function Billing({activation=false}){
       const result=await commitBillingSubmission({draftId:draft.id,file});
       if(!result?.success){setError(result?.message||"To‘lovni yuborib bo‘lmadi.");return}
       const isExtra=paymentType==="EXTRA";
-      setFile(null);setCheckoutDraft(null);setFlow("overview");
-      notify({tone:"success",title:"To‘lov yuborildi",message:isExtra?"Filial limiti to‘lovi tekshiruvga yuborildi.":"Tarif to‘lovi tekshiruvga yuborildi."});
+      setFile(null);setCheckoutDraft(null);setFlow(isExtra?"overview":"waiting");
+      notify({tone:"success",title:"To‘lov yuborildi",message:isExtra?"Filial limiti to‘lovi tekshiruvga yuborildi.":"Chek qabul qilindi. Tasdiqlanishi kutilmoqda."});
     }finally{setSubmitting(false)}
   };
 
@@ -251,6 +270,19 @@ function Billing({activation=false}){
     </div>
   </section>;
 
+  const waiting=flow==="waiting"&&<section className="pro-card billing-wait-card">
+    <div className="billing-wait-icon"><FiClock/></div>
+    <StatusBadge tone="warning">Tasdiqlash kutilmoqda</StatusBadge>
+    <h2>To‘lovingiz tekshirilmoqda</h2>
+    <p>Chek muvaffaqiyatli yuborildi. Administrator tasdiqlashi bilan Zenix POS avtomatik ravishda ochiladi.</p>
+    <div className="billing-wait-steps">
+      <div className="done"><span><FiCheck/></span><div><strong>Chek qabul qilindi</strong><small>To‘lov ma’lumotlari yuborildi</small></div></div>
+      <div className="active"><span><FiClock/></span><div><strong>Administrator tekshirmoqda</strong><small>Holat avtomatik yangilanadi</small></div></div>
+      <div><span><FiCheckCircle/></span><div><strong>Platformaga kirish</strong><small>Tasdiqlangach avtomatik ochiladi</small></div></div>
+    </div>
+    <div className="billing-wait-live"><span className="billing-wait-dot"/> Sahifani yopmang — holat har 2 soniyada tekshirilmoqda</div>
+  </section>;
+
   const content=<div className="pro-page billing-pro">
     <PageHeader title={activation?"Tarifni aktivlashtirish":"Tarif va to‘lovlar"} subtitle={activation?"Tarifni tanlang va to‘lov chekini yuboring.":"Joriy tarif, filial limiti va to‘lovlar tarixi."} actions={!activation&&<StatusBadge tone={statusTone(status)}>{statusLabel}</StatusBadge>}/>
     {status==="EXPIRED"&&<div className="pro-alert danger"><FiClock/><div><strong>Tarif muddati tugagan</strong><span>Platformadan foydalanishni davom ettirish uchun tarifni uzaytiring.</span></div></div>}
@@ -260,7 +292,7 @@ function Billing({activation=false}){
     {pendingExtra&&<div className="pro-alert info"><FiClock/><div><strong>Filial limiti to‘lovi tekshiruvda</strong><span>Tasdiqlangach limit avtomatik oshadi.</span></div></div>}
     {readonly&&!activation&&<div className="pro-alert info">Siz tarif va to‘lov ma’lumotlarini ko‘ra olasiz. To‘lov yuborish uchun “Tarif va to‘lovlarni boshqarish” ruxsati kerak.</div>}
 
-    {overview}{renew}{plans}{payment}
+    {waiting||<>{overview}{renew}{plans}{payment}</>}
 
     {!activation&&<section className="pro-card billing-history"><div className="pro-card-head"><div><h2>To‘lovlar tarixi</h2><p>Tarif va filial limiti bo‘yicha yuborilgan to‘lovlar.</p></div><ColumnPicker columns={billingColumnDefs} visible={billingColumns} onToggle={toggleBillingColumn}/></div><div className="pro-table-wrap mobile-card-wrap"><table className="pro-table mobile-card-table"><thead><tr><th>Buyurtma</th><th>Sana</th>{showBillingColumn("purpose")&&<th>Maqsad</th>}{showBillingColumn("period")&&<th>Davr</th>}{showBillingColumn("amount")&&<th>Summa</th>}{showBillingColumn("status")&&<th>Holat</th>}{showBillingColumn("receipt")&&<th>Chek</th>}</tr></thead><tbody>{history.length?history.map(item=><tr key={item.id||item.orderId}><td data-label="Buyurtma"><strong>{item.orderId||item.id}</strong></td><td data-label="Sana">{fmtDate(item.submittedAt)}</td>{showBillingColumn("purpose")&&<td data-label="Maqsad">{item.purpose}</td>}{showBillingColumn("period")&&<td data-label="Davr">{item.servicePeriodFrom&&item.servicePeriodTo?<><strong>{fmtDate(item.servicePeriodFrom)}</strong><small>→ {fmtDate(item.servicePeriodTo)}</small></>:"—"}</td>}{showBillingColumn("amount")&&<td data-label="Summa">{billingPrice(item.amount)}</td>}{showBillingColumn("status")&&<td data-label="Holat"><StatusBadge tone={statusTone(item.status)}>{STATUS_LABELS[item.status]||item.status}</StatusBadge></td>}{showBillingColumn("receipt")&&<td data-label="Chek">{item.receiptName?<button className="pro-btn ghost" onClick={()=>openReceipt(item)}><FiEye/> Ko‘rish</button>:"—"}</td>}</tr>):<tr><td colSpan={billingColumns.length+2}><div className="pro-empty"><FiFileText/><strong>To‘lovlar hali yo‘q</strong><span>Birinchi to‘lov yuborilgach shu yerda ko‘rinadi.</span></div></td></tr>}</tbody></table></div></section>}
 

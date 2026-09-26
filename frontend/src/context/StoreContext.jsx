@@ -148,7 +148,11 @@ export const StoreProvider = ({ children }) => {
     }
     if(!org){setWorkspaceReady(true);return;}
     try{
-      const [base,settingsData]=await Promise.all([api.get("/api/bootstrap"),api.get("/api/settings").catch(()=>null)]);
+      const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
+      if(baseResult.status!=="fulfilled")throw baseResult.reason;
+      const base=baseResult.value;
+      const settingsData=settingsResult.status==="fulfilled"?(settingsResult.value||{}):{};
+      const settingsLoaded=settingsResult.status==="fulfilled";
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
       setStores(nextStores);
@@ -166,7 +170,7 @@ export const StoreProvider = ({ children }) => {
       const tgConnections={};
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});
-      if(settingsData){
+      if(settingsLoaded){
         const rawWorkspace=settingsData.workspaceSettings||{};
         const nextWorkspaceSettings={
           ...DEFAULT_WORKSPACE_SETTINGS,...rawWorkspace,

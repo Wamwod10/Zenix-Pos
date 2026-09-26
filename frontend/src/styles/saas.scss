@@ -869,3 +869,20 @@ body.dark-mode .billing-renewal-extra{
 .pro-btn.ghost,.saas-btn.ghost{background:transparent;border-color:transparent;color:var(--muted);box-shadow:none}
 .pro-btn.ghost:hover,.saas-btn.ghost:hover{background:var(--surface);border-color:var(--border);color:var(--text)}
 .field-hint{display:block;margin-top:6px;color:var(--muted);font-size:11.5px;line-height:1.35}
+
+
+/* Billing approval waiting state */
+.billing-wait-card{max-width:680px;margin:28px auto;padding:38px 42px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.billing-wait-icon{width:68px;height:68px;border-radius:20px;display:grid;place-items:center;background:var(--surface-soft,#f3f6f8);border:1px solid var(--border);font-size:28px;color:var(--primary)}
+.billing-wait-card h2{font-size:22px;font-weight:650;letter-spacing:-.02em;margin-top:4px}
+.billing-wait-card>p{max-width:520px;color:var(--muted);font-size:13.5px;line-height:1.65}
+.billing-wait-steps{width:100%;margin-top:12px;text-align:left;border:1px solid var(--border);border-radius:14px;padding:8px 18px;background:var(--surface-soft,#fafbfc)}
+.billing-wait-steps>div{display:flex;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid var(--border)}
+.billing-wait-steps>div:last-child{border-bottom:0}
+.billing-wait-steps>div>span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--border);color:var(--muted);background:var(--surface,#fff)}
+.billing-wait-steps .done>span{color:var(--success);border-color:color-mix(in srgb,var(--success) 30%,var(--border));background:color-mix(in srgb,var(--success) 8%,var(--surface))}
+.billing-wait-steps .active>span{color:var(--primary);border-color:color-mix(in srgb,var(--primary) 35%,var(--border));background:color-mix(in srgb,var(--primary) 8%,var(--surface))}
+.billing-wait-steps strong,.billing-wait-steps small{display:block}.billing-wait-steps strong{font-size:13px}.billing-wait-steps small{margin-top:3px;color:var(--muted);font-size:11.5px}
+.billing-wait-live{margin-top:8px;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.billing-wait-dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 0 4px color-mix(in srgb,var(--success) 12%,transparent)}
+@media(max-width:700px){.billing-wait-card{margin:14px 0;padding:28px 18px}.billing-wait-card h2{font-size:20px}}
