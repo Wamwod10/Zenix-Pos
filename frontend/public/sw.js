@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "zenix-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest"];
 
 const offlineResponse = (request) => {
@@ -10,6 +10,11 @@ const offlineResponse = (request) => {
       : "Zenix POS is offline",
     { status: 503, headers: { "Content-Type": acceptsHtml ? "text/html; charset=utf-8" : "text/plain; charset=utf-8" } },
   );
+};
+
+const requireResponse = (value) => {
+  if (!(value instanceof Response)) throw new TypeError("Service Worker fetch did not return a Response");
+  return value;
 };
 
 const persist = (event, key, response) => {
@@ -43,8 +48,9 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          persist(event, "/index.html", response);
-          return response;
+          const validResponse = requireResponse(response);
+          persist(event, "/index.html", validResponse);
+          return validResponse;
         })
         .catch(async () => (
           (await caches.match(request))
@@ -60,7 +66,7 @@ self.addEventListener("fetch", (event) => {
     caches.match(request).then(async (cached) => {
       if (cached) return cached;
       try {
-        const response = await fetch(request);
+        const response = requireResponse(await fetch(request));
         persist(event, request, response);
         return response;
       } catch {

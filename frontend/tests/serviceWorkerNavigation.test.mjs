@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const source = fs.readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 
-function loadWorker({ fetchImpl, cacheEntries = new Map(), cacheNames = ["zenix-shell-v1", "other-app-cache"] } = {}) {
+function loadWorker({ fetchImpl, cacheEntries = new Map(), cacheNames = ["zenix-shell-v1", "zenix-shell-v2", "other-app-cache"] } = {}) {
   const listeners = new Map();
   const deleted = [];
   const puts = [];
@@ -50,6 +50,13 @@ test("offline SPA navigation always resolves to a valid Response", async () => {
   assert.equal(response.status, 503);
 });
 
+test("malformed navigation fetch results fall back to a valid Response", async () => {
+  const worker = loadWorker({ fetchImpl: async () => undefined });
+  const response = await dispatchFetch(worker, { method: "GET", mode: "navigate", url: "https://zenix-pos.test/analytics" });
+  assert.ok(response instanceof Response);
+  assert.equal(response.status, 503);
+});
+
 test("offline SPA navigation falls back to the cached app shell", async () => {
   const shell = new Response("<main>Zenix POS</main>", { status: 200, headers: { "Content-Type": "text/html" } });
   const worker = loadWorker({
@@ -66,11 +73,17 @@ test("failed uncached asset requests still resolve to a valid Response", async (
   assert.ok(response instanceof Response);
 });
 
+test("malformed uncached asset fetch results fall back to a valid Response", async () => {
+  const worker = loadWorker({ fetchImpl: async () => null });
+  const response = await dispatchFetch(worker, { method: "GET", mode: "cors", url: "https://zenix-pos.test/assets/products.js" });
+  assert.ok(response instanceof Response);
+  assert.equal(response.status, 503);
+});
+
 test("activation removes only obsolete Zenix caches", async () => {
   const worker = loadWorker({ fetchImpl: async () => new Response("ok") });
   let activation;
   worker.listeners.get("activate")({ waitUntil(value) { activation = Promise.resolve(value); } });
   await activation;
-  assert.deepEqual(worker.deleted, ["zenix-shell-v1"]);
+  assert.deepEqual(worker.deleted, ["zenix-shell-v1", "zenix-shell-v2"]);
 });
-

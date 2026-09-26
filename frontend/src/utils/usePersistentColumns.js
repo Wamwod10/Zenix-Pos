@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../context/StoreContext";
+import { columnIdsKey, columnValuesKey } from "./columnLayout";
 
 const normalizeOrder = (order, ids) => {
   const known = Array.isArray(order) ? order.filter((id) => ids.includes(id)) : [];
@@ -48,18 +49,24 @@ const buildState = (stored, ids, requiredIds, fallback) => {
 
 export default function usePersistentColumns(storageKey, definitions = [], { required = [], initialVisible = null } = {}) {
   const { uiPreferences, setUiPreferences, workspaceReady } = useStore();
-  const ids = useMemo(() => definitions.map((column) => column.id), [definitions]);
-  const requiredIds = useMemo(() => required.filter((id) => ids.includes(id)), [required, ids]);
+  const idsKey = columnIdsKey(definitions);
+  const requiredKey = columnValuesKey(required);
+  const initialVisibleKey = initialVisible == null ? "null" : columnValuesKey(initialVisible);
+  const ids = useMemo(() => definitions.map((column) => column.id), [idsKey]);
+  const requiredIds = useMemo(() => required.filter((id) => ids.includes(id)), [requiredKey, ids]);
   const fallback = useMemo(() => {
     const initial = Array.isArray(initialVisible) ? initialVisible.filter((id) => ids.includes(id)) : ids;
     return [...new Set([...requiredIds, ...(initial.length ? initial : ids)])];
-  }, [requiredIds, ids, initialVisible]);
+  }, [requiredIds, ids, initialVisibleKey]);
   const storedLayout=uiPreferences?.tableLayouts?.[storageKey]||null;
   const [state, setState] = useState(() => buildState(storedLayout,ids,requiredIds,fallback));
 
   useEffect(()=>{
     if(!workspaceReady)return;
-    setState(buildState(storedLayout,ids,requiredIds,fallback));
+    setState((current)=>{
+      const next=buildState(storedLayout,ids,requiredIds,fallback);
+      return JSON.stringify(current)===JSON.stringify(next)?current:next;
+    });
   },[workspaceReady,storageKey,storedLayout,ids,requiredIds,fallback]);
 
   const persist = (patch) => {
