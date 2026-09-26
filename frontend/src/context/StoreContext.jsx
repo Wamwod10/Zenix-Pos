@@ -148,19 +148,14 @@ export const StoreProvider = ({ children }) => {
     }
     if(!org){setWorkspaceReady(true);return;}
     try{
-      // Billing approval changes the authoritative organization entitlement in /api/bootstrap.
-      // Do not let an unrelated settings request keep a stale PAYMENT_REQUIRED/REVIEW
-      // organization in memory: that made React Router change the URL while WorkspaceAccess
-      // kept rendering/redirecting back to Billing after a Telegram approval.
-      const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
-      if(baseResult.status!=="fulfilled")throw baseResult.reason;
-      const base=baseResult.value||{};
-      const settingsData=settingsResult.status==="fulfilled"?(settingsResult.value||{}):{};
+      const [base,settingsData]=await Promise.all([api.get("/api/bootstrap"),api.get("/api/settings").catch(()=>null)]);
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
       setStores(nextStores);
-      const preferred=settingsData.selectedStoreId;
-      setSelectedStoreId(nextStores.some((store)=>store.id===preferred&&store.active!==false)?preferred:(nextStores[0]?.id||""));
+      setSelectedStoreId((current)=>{
+        const preferred=settingsData?.selectedStoreId||current;
+        return nextStores.some((store)=>store.id===preferred&&store.active!==false)?preferred:(nextStores[0]?.id||"");
+      });
       setInventoryState((base.inventory||[]).map((item)=>productFromApi(item,storeIds)));
       setDailySales(base.dailySales||[]);setSalesHistory(base.salesHistory||[]);setSuppliers(base.suppliers||[]);setExpenses(base.expenses||[]);setReturns(base.returns||[]);
       setActiveShifts(base.activeShifts||{});setShiftHistory(base.shiftHistory||[]);setActivityLogs(base.activityLogs||[]);setInventoryTransfers(base.inventoryTransfers||[]);
@@ -171,25 +166,27 @@ export const StoreProvider = ({ children }) => {
       const tgConnections={};
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});
-      const rawWorkspace=settingsData.workspaceSettings||{};
-      const nextWorkspaceSettings={
-        ...DEFAULT_WORKSPACE_SETTINGS,...rawWorkspace,
-        organization:{...DEFAULT_WORKSPACE_SETTINGS.organization,...(settingsData.organization||{}),...(rawWorkspace.organization||{}),businessName:settingsData.organization?.businessName||currentUser.organizationName||""},
-        pos:{...DEFAULT_WORKSPACE_SETTINGS.pos,...(rawWorkspace.pos||{})},inventory:{...DEFAULT_WORKSPACE_SETTINGS.inventory,...(rawWorkspace.inventory||{})},
-        businessDay:{...DEFAULT_WORKSPACE_SETTINGS.businessDay,...(rawWorkspace.businessDay||{})},receipt:{...DEFAULT_WORKSPACE_SETTINGS.receipt,...(rawWorkspace.receipt||{})},
-        notifications:{...DEFAULT_WORKSPACE_SETTINGS.notifications,...(rawWorkspace.notifications||{})},storeOverrides:{...(rawWorkspace.storeOverrides||{})},
-      };
-      const nextBusinessFeatures={...DEFAULT_BUSINESS_FEATURES,...(settingsData.businessFeatures||{})};
-      const nextRolePermissions=Object.fromEntries(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role,defaults])=>[role,{...defaults,...(settingsData.rolePermissions?.[role]||{})}]));
-      settingsBaselineRef.current={
-        workspaceSettings:JSON.stringify(nextWorkspaceSettings),
-        businessFeatures:JSON.stringify(nextBusinessFeatures),
-        rolePermissions:JSON.stringify(nextRolePermissions),
-      };
-      setWorkspaceSettings(nextWorkspaceSettings);
-      setBusinessFeatures(nextBusinessFeatures);
-      setRolePermissions(nextRolePermissions);
-      setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{})});
+      if(settingsData){
+        const rawWorkspace=settingsData.workspaceSettings||{};
+        const nextWorkspaceSettings={
+          ...DEFAULT_WORKSPACE_SETTINGS,...rawWorkspace,
+          organization:{...DEFAULT_WORKSPACE_SETTINGS.organization,...(settingsData.organization||{}),...(rawWorkspace.organization||{}),businessName:settingsData.organization?.businessName||currentUser.organizationName||""},
+          pos:{...DEFAULT_WORKSPACE_SETTINGS.pos,...(rawWorkspace.pos||{})},inventory:{...DEFAULT_WORKSPACE_SETTINGS.inventory,...(rawWorkspace.inventory||{})},
+          businessDay:{...DEFAULT_WORKSPACE_SETTINGS.businessDay,...(rawWorkspace.businessDay||{})},receipt:{...DEFAULT_WORKSPACE_SETTINGS.receipt,...(rawWorkspace.receipt||{})},
+          notifications:{...DEFAULT_WORKSPACE_SETTINGS.notifications,...(rawWorkspace.notifications||{})},storeOverrides:{...(rawWorkspace.storeOverrides||{})},
+        };
+        const nextBusinessFeatures={...DEFAULT_BUSINESS_FEATURES,...(settingsData.businessFeatures||{})};
+        const nextRolePermissions=Object.fromEntries(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role,defaults])=>[role,{...defaults,...(settingsData.rolePermissions?.[role]||{})}]));
+        settingsBaselineRef.current={
+          workspaceSettings:JSON.stringify(nextWorkspaceSettings),
+          businessFeatures:JSON.stringify(nextBusinessFeatures),
+          rolePermissions:JSON.stringify(nextRolePermissions),
+        };
+        setWorkspaceSettings(nextWorkspaceSettings);
+        setBusinessFeatures(nextBusinessFeatures);
+        setRolePermissions(nextRolePermissions);
+        setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{})});
+      }
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
       setWorkspaceReady(true);
     }catch(error){
