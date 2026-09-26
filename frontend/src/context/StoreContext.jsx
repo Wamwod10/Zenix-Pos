@@ -148,7 +148,14 @@ export const StoreProvider = ({ children }) => {
     }
     if(!org){setWorkspaceReady(true);return;}
     try{
-      const [base,settingsData]=await Promise.all([api.get("/api/bootstrap"),api.get("/api/settings")]);
+      // Billing approval changes the authoritative organization entitlement in /api/bootstrap.
+      // Do not let an unrelated settings request keep a stale PAYMENT_REQUIRED/REVIEW
+      // organization in memory: that made React Router change the URL while WorkspaceAccess
+      // kept rendering/redirecting back to Billing after a Telegram approval.
+      const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
+      if(baseResult.status!=="fulfilled")throw baseResult.reason;
+      const base=baseResult.value||{};
+      const settingsData=settingsResult.status==="fulfilled"?(settingsResult.value||{}):{};
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
       setStores(nextStores);
