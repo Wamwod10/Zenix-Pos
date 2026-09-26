@@ -1,1 +1,0 @@
-var e=e=>e||typeof document<`u`&&document.documentElement.dataset.currency||`UZS`,t=(t,n)=>{let r=Number(t||0),i=e(n);return i===`UZS`?`${new Intl.NumberFormat(`uz-UZ`,{maximumFractionDigits:0}).format(r).replaceAll(`\xA0`,` `)} so‘m`:new Intl.NumberFormat(i===`EUR`?`de-DE`:`en-US`,{style:`currency`,currency:i,maximumFractionDigits:2}).format(r)};export{t};

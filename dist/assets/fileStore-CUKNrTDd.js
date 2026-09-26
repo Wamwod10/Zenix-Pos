@@ -1,1 +1,0 @@
-import{Ft as e}from"./fi-Bcr8X7Bi.js";var t=async t=>(await e.upload(`/api/files`,t))?.file?.id||``,n=async t=>t?e.blob(`/api/files/${encodeURIComponent(t)}`):null,r=async t=>{t&&await e.delete(`/api/files/${encodeURIComponent(t)}`)};export{n,t as r,r as t};
