@@ -42,3 +42,18 @@ test("preserves the Telegram settings tab in the platform return URL", async()=>
     "https://zenix-pos.vercel.app/settings?scope=store&tab=Telegram#notifications",
   );
 });
+
+test("Telegram handoff preserves the platform document in a separate window", async()=>{
+  const { openTelegramHandoff, sendTelegramHandoff }=await import("../src/pages/settings/telegramConnectState.js");
+  const navigations=[];
+  const popup={opener:{},closed:false,location:{replace:(url)=>navigations.push(url)}};
+
+  const target=openTelegramHandoff(()=>popup);
+  const sent=sendTelegramHandoff(target,"https://t.me/zenixposbot?startgroup=token");
+
+  assert.equal(target,popup);
+  assert.equal(popup.opener,null);
+  assert.equal(sent,true);
+  assert.deepEqual(navigations,["https://t.me/zenixposbot?startgroup=token"]);
+  assert.equal(sendTelegramHandoff(null,"https://t.me/zenixposbot?startgroup=token"),false);
+});

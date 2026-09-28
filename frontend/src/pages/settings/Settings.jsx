@@ -6,8 +6,7 @@ import { useStore } from "../../context/StoreContext";
 import { DEFAULT_BUSINESS_FEATURES } from "../../config/uiDefaults";
 import { BILLING_CONFIG } from "../../config/billing";
 import { ROLE_LABELS, ROLES, legacyRoleForAppRole } from "../../config/roles";
-import { createTelegramConnection, listTelegramConnections, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
-import { telegramConnectionForStore } from "../../services/telegramPolling";
+import { createTelegramConnection, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
 import { PageHeader, StatusBadge, PremiumSelect, PremiumTimeInput, ColumnPicker, PremiumCheckbox } from "../../components/Ui";
 import { formatUzPhone, isValidUzPhone, sameUzPhone } from "../../utils/phone";
 import Modal from "../../components/Modal";
@@ -15,9 +14,8 @@ import { ExportCenter, SystemDiagnostics } from "./SettingsTools";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
-import { isCurrentTelegramConnectAttempt, telegramConnectActionState } from "./telegramConnectState";
+import { isCurrentTelegramConnectAttempt, openTelegramHandoff, sendTelegramHandoff, telegramConnectActionState } from "./telegramConnectState";
 import { settingsSearchForTab, settingsTabFromSearch } from "./settingsNavigation";
-import { createTelegramReturnRefresh } from "./telegramReturnRefresh";
 
 const tabs=[
   ["Tashkilot",FiSettings],["Filiallar",FiMapPin],["Xodimlar",FiUsers],["Ruxsatlar",FiShield],["Chek",FiPrinter],["POS",FiCreditCard],["Ombor",FiLayers],["Ish kuni",FiClock],["Bildirishnomalar",FiBell],["Telegram",FiSmartphone],["Interfeys",FiSliders],["Funksiyalar",FiGrid],["Eksport",FiDownload],["Diagnostika",FiDatabase],["Tarix",FiClock],
@@ -106,16 +104,6 @@ function Settings(){
     const next=typeof updater==="function"?updater(previous):{...previous,...updater};
     return{...state,connections:{...(state.connections||{}),[currentStoreId]:next}};
   });
-  useEffect(()=>{
-    if(tab!=="Telegram"||!currentTelegram.connecting)return undefined;
-    const refresh=createTelegramReturnRefresh({
-      isVisible:()=>document.visibilityState==="visible",
-      loadConnection:async()=>telegramConnectionForStore(await listTelegramConnections(),currentStoreId),
-      applyConnection:(linked)=>updateTelegramConnection(prev=>({...prev,...linked,connecting:false,deepLink:""})),
-    });
-    window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);
-    return()=>{window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh)};
-  },[tab,currentTelegram.connecting,currentStoreId]);
   useEffect(()=>()=>{telegramConnectAttempt.current+=1;telegramConnectAbort.current?.abort()},[]);
   const includedStoreCount=currentOrg?.includedStores||BILLING_CONFIG.annual.includedStores;
   const storeLimit=Math.max(includedStoreCount,Number(currentOrg?.storeLimit||includedStoreCount));
@@ -245,17 +233,14 @@ function Settings(){
   };
   const startTelegramConnect=async()=>{
     if(!canWrite||telegramBusy)return;
+    const telegramWindow=typeof window!=="undefined"?openTelegramHandoff(window.open.bind(window)):null;
+    if(!telegramWindow){notify({tone:"warning",title:"Telegram oynasi bloklandi",message:"Brauzerda yangi oynaga ruxsat bering va qayta urinib ko‘ring."});return}
     const attempt=++telegramConnectAttempt.current;
     telegramConnectAbort.current?.abort();
     const controller=new AbortController();
     telegramConnectAbort.current=controller;
-    // Desktop browsers can block window.open after an awaited network request.
-    // Open a neutral tab synchronously from the user gesture, then navigate it
-    // after the one-time link is created. On mobile, same-tab navigation opens
-    // Telegram more reliably and only the connection status refreshes when the user returns.
-    const isMobile=typeof window!=="undefined"&&window.matchMedia?.("(max-width: 760px)").matches;
-    const telegramWindow=!isMobile&&typeof window!=="undefined"?window.open("about:blank","_blank"):null;
-    if(telegramWindow)telegramWindow.opener=null;
+    // Preserve the platform document on every device. The blank window is opened
+    // synchronously from the click, then receives the one-time Telegram link.
     let telegramNavigated=false;
     setTelegramBusy(true);
     try{
@@ -266,12 +251,10 @@ function Settings(){
       }
       navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,"Telegram")},{replace:true});
       updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:result.deepLink,botUsername:result.botUsername,connecting:true}));
-      if(telegramWindow&&!telegramWindow.closed)telegramWindow.location.replace(result.deepLink);
-      else if(typeof window!=="undefined")window.location.assign(result.deepLink);
+      if(!sendTelegramHandoff(telegramWindow,result.deepLink))throw new Error("Telegram oynasi yopilgan. Qayta urinib ko‘ring.");
       telegramNavigated=true;
       addActivityLog({type:"settings",title:"Telegram ulash boshlandi",description:`${currentStore?.name||"Filial"} uchun Telegram guruh tanlash oynasi ochildi`});
       if(telegramConnectAttempt.current===attempt)setTelegramBusy(false);
-      if(isMobile)return;
       const linked=await waitForTelegramConnection({storeId:currentStoreId,signal:controller.signal});
       if(!isCurrentTelegramConnectAttempt({signal:controller.signal,attempt,currentAttempt:telegramConnectAttempt.current}))return;
       updateTelegramConnection(prev=>({...prev,...linked,connecting:false,deepLink:linked.connected?"":result.deepLink}));
