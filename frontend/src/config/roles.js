@@ -20,6 +20,16 @@ export const ROLE_LABELS = {
 
 const VALID_ROLES = new Set(Object.values(ROLES));
 
+export const isOrganizationUser = (user) => Boolean(
+  user?.organizationId && user?.appRole !== ROLES.PLATFORM_ADMIN
+);
+
+export const runForOrganizationUser = (user, action) => {
+  if (!isOrganizationUser(user)) return false;
+  action();
+  return true;
+};
+
 export const legacyRoleForAppRole = (appRole) => {
   if (appRole === ROLES.CASHIER) return "cashier";
   if (appRole === ROLES.SALES) return "sales";

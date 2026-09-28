@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { DEFAULT_BUSINESS_FEATURES, DEFAULT_UI_PREFERENCES, DEFAULT_WORKSPACE_SETTINGS, DEFAULT_ROLE_PERMISSIONS } from "../config/uiDefaults";
-import { ROLES } from "../config/roles";
+import { ROLES, runForOrganizationUser } from "../config/roles";
 import { BILLING_PLANS, addBillingMonths, billingDateISO } from "../config/billing";
 import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../utils/workspaceDate";
 import { invoiceBalance } from "../utils/supplierLedger";
@@ -207,9 +207,9 @@ export const StoreProvider = ({ children }) => {
   },[currentUser?.organizationId,currentUser?.id,hydrateWorkspace]);
 
   useEffect(()=>{
-    if(!workspaceReady||!currentUser?.organizationId||!selectedStoreId||branchLockedRole)return;
-    api.patch("/api/settings/preferences",{selectedStoreId}).catch(()=>{});
-  },[workspaceReady,currentUser?.organizationId,selectedStoreId,branchLockedRole]);
+    if(!workspaceReady||!selectedStoreId||branchLockedRole)return;
+    runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{selectedStoreId}).catch(()=>{})});
+  },[workspaceReady,currentUser?.organizationId,currentUser?.appRole,selectedStoreId,branchLockedRole]);
 
   useEffect(()=>{
     if(!workspaceReady||!currentUser?.organizationId||!hasPermission("settingsWrite",currentUser?.appRole))return undefined;
@@ -239,11 +239,11 @@ export const StoreProvider = ({ children }) => {
   const setUiPreferences=useCallback((updater)=>{
     setUiPreferencesState((previous)=>{
       const patch=typeof updater==="function"?updater(previous):updater;const next={...previous,...(patch||{})};
-      api.patch("/api/settings/preferences",{uiPreferences:next}).catch((error)=>setPersistenceError(error?.message||"Interfeys sozlamalarini saqlab bo‘lmadi"));
+      runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:next}).catch((error)=>setPersistenceError(error?.message||"Interfeys sozlamalarini saqlab bo‘lmadi"))});
       return next;
     });
-  },[]);
-  const resetUiPreferences=useCallback(()=>{setUiPreferencesState(DEFAULT_UI_PREFERENCES);api.patch("/api/settings/preferences",{uiPreferences:DEFAULT_UI_PREFERENCES}).catch(()=>{})},[]);
+  },[currentUser?.organizationId,currentUser?.appRole]);
+  const resetUiPreferences=useCallback(()=>{setUiPreferencesState(DEFAULT_UI_PREFERENCES);runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:DEFAULT_UI_PREFERENCES}).catch(()=>{})})},[currentUser?.organizationId,currentUser?.appRole]);
 
   const generateBarcode = useCallback(async ({ reserved = [] } = {}) => {
     const blocked=new Set((reserved||[]).map((value)=>String(value||"").trim()).filter(Boolean));

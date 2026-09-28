@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { normalizeSessionUser, legacyRoleForAppRole } from "../config/roles";
+import { normalizeSessionUser, legacyRoleForAppRole, runForOrganizationUser } from "../config/roles";
 import { api, ApiError } from "../services/apiClient";
 import { formatUzPhone, isValidUzPhone } from "../utils/phone";
 
@@ -65,9 +65,12 @@ export const AuthProvider=({children})=>{
 
   useEffect(()=>{
     if(!currentUser){setWorkspaceAccounts([]);setSessions([]);return}
-    void refreshSessions();
-    void refreshWorkspaceAccounts();
-  },[currentUser?.id,refreshSessions,refreshWorkspaceAccounts]);
+    const started=runForOrganizationUser(currentUser,()=>{
+      void refreshSessions();
+      void refreshWorkspaceAccounts();
+    });
+    if(!started){setWorkspaceAccounts([]);setSessions([])}
+  },[currentUser?.id,currentUser?.organizationId,currentUser?.appRole,refreshSessions,refreshWorkspaceAccounts]);
 
   const login=async(username,password)=>{
     try{
