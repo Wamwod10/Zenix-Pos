@@ -6,7 +6,8 @@ import { useStore } from "../../context/StoreContext";
 import { DEFAULT_BUSINESS_FEATURES } from "../../config/uiDefaults";
 import { BILLING_CONFIG } from "../../config/billing";
 import { ROLE_LABELS, ROLES, legacyRoleForAppRole } from "../../config/roles";
-import { createTelegramConnection, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
+import { createTelegramConnection, listTelegramConnections, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
+import { telegramConnectionForStore } from "../../services/telegramPolling";
 import { PageHeader, StatusBadge, PremiumSelect, PremiumTimeInput, ColumnPicker, PremiumCheckbox } from "../../components/Ui";
 import { formatUzPhone, isValidUzPhone, sameUzPhone } from "../../utils/phone";
 import Modal from "../../components/Modal";
@@ -16,6 +17,7 @@ import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { isCurrentTelegramConnectAttempt, telegramConnectActionState } from "./telegramConnectState";
 import { settingsSearchForTab, settingsTabFromSearch } from "./settingsNavigation";
+import { createTelegramReturnRefresh } from "./telegramReturnRefresh";
 
 const tabs=[
   ["Tashkilot",FiSettings],["Filiallar",FiMapPin],["Xodimlar",FiUsers],["Ruxsatlar",FiShield],["Chek",FiPrinter],["POS",FiCreditCard],["Ombor",FiLayers],["Ish kuni",FiClock],["Bildirishnomalar",FiBell],["Telegram",FiSmartphone],["Interfeys",FiSliders],["Funksiyalar",FiGrid],["Eksport",FiDownload],["Diagnostika",FiDatabase],["Tarix",FiClock],
@@ -32,7 +34,7 @@ function Settings(){
   const location=useLocation();
   const navigate=useNavigate();
   const {notify,confirm,undo}=useFeedback();
-  const {stores,setStores,addStore:createStore,updateStore,currentStore,currentStoreId,telegramSettings,setTelegramSettings,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,employees,setEmployees,organizations,rolePermissions,setRolePermissions,activityLogs,addActivityLog,hasPermission,inventoryState,activeShifts,inventoryTransfers,inventoryCounts,reloadStore}=useStore();
+  const {stores,setStores,addStore:createStore,updateStore,currentStore,currentStoreId,telegramSettings,setTelegramSettings,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,employees,setEmployees,organizations,rolePermissions,setRolePermissions,activityLogs,addActivityLog,hasPermission,inventoryState,activeShifts,inventoryTransfers,inventoryCounts}=useStore();
   const canWrite=hasPermission("settingsWrite",currentUser?.appRole);
   const canManagePermissions=currentUser?.appRole===ROLES.OWNER;
   const tab=settingsTabFromSearch(location.search); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
@@ -106,10 +108,14 @@ function Settings(){
   });
   useEffect(()=>{
     if(tab!=="Telegram"||!currentTelegram.connecting)return undefined;
-    const refresh=()=>{if(document.visibilityState==="visible")reloadStore()};
+    const refresh=createTelegramReturnRefresh({
+      isVisible:()=>document.visibilityState==="visible",
+      loadConnection:async()=>telegramConnectionForStore(await listTelegramConnections(),currentStoreId),
+      applyConnection:(linked)=>updateTelegramConnection(prev=>({...prev,...linked,connecting:false,deepLink:""})),
+    });
     window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);
     return()=>{window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh)};
-  },[tab,currentTelegram.connecting,reloadStore]);
+  },[tab,currentTelegram.connecting,currentStoreId]);
   useEffect(()=>()=>{telegramConnectAttempt.current+=1;telegramConnectAbort.current?.abort()},[]);
   const includedStoreCount=currentOrg?.includedStores||BILLING_CONFIG.annual.includedStores;
   const storeLimit=Math.max(includedStoreCount,Number(currentOrg?.storeLimit||includedStoreCount));
@@ -246,7 +252,7 @@ function Settings(){
     // Desktop browsers can block window.open after an awaited network request.
     // Open a neutral tab synchronously from the user gesture, then navigate it
     // after the one-time link is created. On mobile, same-tab navigation opens
-    // Telegram more reliably and the connection is re-hydrated when the user returns.
+    // Telegram more reliably and only the connection status refreshes when the user returns.
     const isMobile=typeof window!=="undefined"&&window.matchMedia?.("(max-width: 760px)").matches;
     const telegramWindow=!isMobile&&typeof window!=="undefined"?window.open("about:blank","_blank"):null;
     if(telegramWindow)telegramWindow.opener=null;
