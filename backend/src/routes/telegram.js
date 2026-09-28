@@ -8,6 +8,7 @@ import { asyncRoute, HttpError, ok } from "../lib/http.js";
 import { requireAuth, requireOrganization, requirePermission, requireActiveLicense } from "../middleware/auth.js";
 import { isBranchLocked, scopedStoreId } from "../lib/storeScope.js";
 import { sendTelegramMessage } from "../services/telegram.js";
+import { normalizeTelegramWebhookSecret } from "../services/telegramWebhook.js";
 
 const router=Router();
 const protectedRouter=Router();protectedRouter.use(requireAuth,requireOrganization,requireActiveLicense);
@@ -68,7 +69,7 @@ protectedRouter.post("/connections/:id/test",requirePermission("settingsWrite"),
   ok(res,{sent:true});
 }));
 router.post("/webhook",asyncRoute(async(req,res)=>{
-  if(env.telegramWebhookSecret){const secret=req.get("x-telegram-bot-api-secret-token");if(secret!==env.telegramWebhookSecret)throw new HttpError(403,"Webhook secret noto‘g‘ri","BAD_WEBHOOK_SECRET");}
+  if(env.telegramWebhookSecret){const secret=req.get("x-telegram-bot-api-secret-token");if(secret!==normalizeTelegramWebhookSecret(env.telegramWebhookSecret))throw new HttpError(403,"Webhook secret noto‘g‘ri","BAD_WEBHOOK_SECRET");}
 
   // Telegram reports when the bot is removed from a group. Disable the connection
   // immediately so the notification worker does not keep retrying a dead chat.

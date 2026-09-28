@@ -1,4 +1,5 @@
 import { api } from "./apiClient";
+import { waitForTelegramConnection as pollForTelegramConnection } from "./telegramPolling";
 
 export const createTelegramConnection=async({storeId}={})=>{
   const result=await api.post("/api/telegram/link",{storeId:storeId||null});
@@ -10,16 +11,7 @@ export const listTelegramConnections=async()=>{
   return result.connections||[];
 };
 
-export const waitForTelegramConnection=async({storeId,timeoutMs=75_000,intervalMs=1500}={})=>{
-  const started=Date.now();
-  while(Date.now()-started<timeoutMs){
-    const connections=await listTelegramConnections();
-    const match=connections.find((item)=>item.enabled!==false&&(!storeId||String(item.store_id||item.storeId||"")===String(storeId)));
-    if(match)return {connected:true,connectionId:match.id,chatId:String(match.chat_id||match.chatId||""),groupName:match.chat_title||match.groupName||"Telegram guruhi",connectedAt:match.linked_at||match.connectedAt||new Date().toISOString()};
-    await new Promise((resolve)=>setTimeout(resolve,intervalMs));
-  }
-  return {connected:false,message:"Guruh hali ulanmagan. Telegram oynasida guruhni tanlab botni qo‘shing."};
-};
+export const waitForTelegramConnection=(options={})=>pollForTelegramConnection({...options,loadConnections:listTelegramConnections});
 
 export const disconnectTelegramGroup=async({connectionId}={})=>{
   if(!connectionId)throw new Error("Telegram ulanishi topilmadi");
