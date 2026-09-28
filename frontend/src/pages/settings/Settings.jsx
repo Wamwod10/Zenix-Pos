@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FiBell, FiCheck, FiChevronLeft, FiClock, FiCreditCard, FiDatabase, FiDownload, FiGrid, FiLayers, FiMapPin, FiMonitor, FiPrinter, FiRotateCcw, FiSearch, FiSettings, FiShield, FiSliders, FiSmartphone, FiUsers } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
@@ -14,7 +14,8 @@ import { ExportCenter, SystemDiagnostics } from "./SettingsTools";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
-import { isCurrentTelegramConnectAttempt, telegramConnectActionState, telegramReturnUrl } from "./telegramConnectState";
+import { isCurrentTelegramConnectAttempt, telegramConnectActionState } from "./telegramConnectState";
+import { settingsSearchForTab, settingsTabFromSearch } from "./settingsNavigation";
 
 const tabs=[
   ["Tashkilot",FiSettings],["Filiallar",FiMapPin],["Xodimlar",FiUsers],["Ruxsatlar",FiShield],["Chek",FiPrinter],["POS",FiCreditCard],["Ombor",FiLayers],["Ish kuni",FiClock],["Bildirishnomalar",FiBell],["Telegram",FiSmartphone],["Interfeys",FiSliders],["Funksiyalar",FiGrid],["Eksport",FiDownload],["Diagnostika",FiDatabase],["Tarix",FiClock],
@@ -29,11 +30,12 @@ const SwitchRow=({title,desc,checked,onChange,disabled=false})=><div className="
 function Settings(){
   const {currentUser,createWorkspaceUser,updateWorkspaceUser,resetWorkspaceUserPassword}=useAuth();
   const location=useLocation();
+  const navigate=useNavigate();
   const {notify,confirm,undo}=useFeedback();
   const {stores,setStores,addStore:createStore,updateStore,currentStore,currentStoreId,telegramSettings,setTelegramSettings,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,employees,setEmployees,organizations,rolePermissions,setRolePermissions,activityLogs,addActivityLog,hasPermission,inventoryState,activeShifts,inventoryTransfers,inventoryCounts,reloadStore}=useStore();
   const canWrite=hasPermission("settingsWrite",currentUser?.appRole);
   const canManagePermissions=currentUser?.appRole===ROLES.OWNER;
-  const [tab,setTab]=useState(()=>{const requested=new URLSearchParams(location.search).get("tab");return tabs.some(([name])=>name===requested)?requested:"Tashkilot"}); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
+  const [tab,setTab]=useState(()=>settingsTabFromSearch(location.search)); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
   const [settingsQuery,setSettingsQuery]=useState("");const [scope,setScope]=useState("global");const [saveState,setSaveState]=useState("saved");
   const saveTimer=useRef(null);const auditTimers=useRef(new Map());const storeNameBaselines=useRef(new Map());const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
   const [employeeModal,setEmployeeModal]=useState(false);const [employeeBusy,setEmployeeBusy]=useState(false);const [employeeError,setEmployeeError]=useState("");
@@ -48,7 +50,8 @@ function Settings(){
     {id:"phone",label:"Telefon"},{id:"login",label:"Kirish nomi"},{id:"role",label:"Rol"},{id:"store",label:"Filial"},{id:"status",label:"Holat"},{id:"account",label:"Hisob"},{id:"permissions",label:"Shaxsiy ruxsat"},
   ];
   const {visible:employeeColumns,toggle:toggleEmployeeColumn,show:showEmployeeColumn}=usePersistentColumns("zenix_settings_employee_columns",employeeColumnDefs);
-  useEffect(()=>{const requested=new URLSearchParams(location.search).get("tab");if(requested&&tabs.some(([name])=>name===requested)){setTab(requested);setMobileSectionOpen(true)}},[location.search]);
+  useEffect(()=>{const requested=settingsTabFromSearch(location.search);setTab(requested);if(new URLSearchParams(location.search).has("tab"))setMobileSectionOpen(true)},[location.search]);
+  const selectTab=(name)=>{setTab(name);setMobileSectionOpen(true);if(!STORE_SCOPED_TABS.has(name))setScope("global");navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,name)},{replace:true})};
   const employeeFormInitial=useRef(null);
   const employeeFormDirty=!!employeeModal&&!!employeeFormInitial.current&&JSON.stringify(employeeForm)!==JSON.stringify(employeeFormInitial.current);
   const guardEmployeeClose=useUnsavedGuard(employeeFormDirty,"Yangi xodim uchun kiritilgan ma’lumotlar hali saqlanmagan. Chiqsangiz, ular yo‘qoladi.");
@@ -255,7 +258,7 @@ function Settings(){
         if(telegramWindow&&!telegramWindow.closed)telegramWindow.close();
         return;
       }
-      if(typeof window!=="undefined"&&window.history?.replaceState)window.history.replaceState(window.history.state,"",telegramReturnUrl(window.location.href));
+      navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,"Telegram")},{replace:true});
       updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:result.deepLink,botUsername:result.botUsername,connecting:true}));
       if(telegramWindow&&!telegramWindow.closed)telegramWindow.location.replace(result.deepLink);
       else if(typeof window!=="undefined")window.location.assign(result.deepLink);
@@ -348,8 +351,8 @@ function Settings(){
   };
   return <div className="pro-page settings-pro"><PageHeader title="Sozlamalar" subtitle="Tashkilot, xodimlar, POS, ombor va platforma qoidalarini boshqaring." actions={<><span className={`settings-autosave ${saveState}`}><FiCheck/> {saveState==="saving"?"Saqlanmoqda...":"Saqlandi"}</span><Link className="pro-btn secondary" to="/billing"><FiCreditCard/> Tarif va to‘lovlar</Link></>}/>
     <div className="settings-controlbar"><div className="settings-search"><FiSearch/><input value={settingsQuery} onChange={e=>setSettingsQuery(e.target.value)} placeholder="Sozlamani qidiring..."/>{settingsQuery&&<button type="button" onClick={()=>setSettingsQuery("")}>×</button>}</div>{STORE_SCOPED_TABS.has(tab)&&<div className="settings-scope"><button className={scope==="global"?"active":""} onClick={()=>setScope("global")}>Barcha filiallar</button><button className={scope==="store"?"active":""} onClick={()=>setScope("store")}>{currentStore?.name||"Joriy filial"}</button>{scope==="store"&&<button className="settings-scope-reset" onClick={clearCurrentStoreOverrides}><FiRotateCcw/> Umumiy sozlamaga qaytarish</button>}</div>}</div>
-    {settingsQuery&&<div className="settings-search-results">{filteredTabs.length?filteredTabs.map(([name,Icon])=><button key={name} onClick={()=>{setTab(name);setSettingsQuery("");setMobileSectionOpen(true)}}><Icon/><span><strong>{name}</strong><small>Sozlamalar bo‘limini ochish</small></span></button>):<span>Hech narsa topilmadi</span>}</div>}
-    <div className={`settings-layout ${mobileSectionOpen?"mobile-section-open":""}`}><aside className="settings-nav">{(settingsQuery?filteredTabs:tabs).map(([name,Icon])=><button key={name} className={tab===name?"active":""} onClick={()=>{setTab(name);setMobileSectionOpen(true);if(!STORE_SCOPED_TABS.has(name))setScope("global")}}><Icon/><span>{name}</span></button>)}</aside>
+    {settingsQuery&&<div className="settings-search-results">{filteredTabs.length?filteredTabs.map(([name,Icon])=><button key={name} onClick={()=>{selectTab(name);setSettingsQuery("")}}><Icon/><span><strong>{name}</strong><small>Sozlamalar bo‘limini ochish</small></span></button>):<span>Hech narsa topilmadi</span>}</div>}
+    <div className={`settings-layout ${mobileSectionOpen?"mobile-section-open":""}`}><aside className="settings-nav">{(settingsQuery?filteredTabs:tabs).map(([name,Icon])=><button key={name} className={tab===name?"active":""} onClick={()=>selectTab(name)}><Icon/><span>{name}</span></button>)}</aside>
       <section className="pro-card settings-content"><button type="button" className="settings-mobile-back" onClick={()=>setMobileSectionOpen(false)}><FiChevronLeft/><span>Sozlamalar</span><strong>{tab}</strong></button>
         {tab==="Tashkilot"&&<><div className="pro-card-head"><div><h2>Tashkilot sozlamalari</h2><p>Chek, hisobot va platformada ishlatiladigan asosiy ma’lumotlar.</p></div></div><div className="pro-form-grid"><label className="pro-field"><span>Biznes nomi</span><input disabled={!canWrite} value={org.businessName} onChange={e=>updateSection("organization","businessName",e.target.value)}/></label><label className="pro-field"><span>Telefon</span><input disabled={!canWrite} value={org.phone} onChange={e=>updateSection("organization","phone",e.target.value)}/></label><label className="pro-field full"><span>Manzil</span><input disabled={!canWrite} value={org.address} onChange={e=>updateSection("organization","address",e.target.value)}/></label><label className="pro-field"><span>Biznes turi</span><PremiumSelect disabled={!canWrite} value={org.businessType||"universal"} onChange={e=>applyPreset(e.target.value)}><option value="universal">Universal savdo</option><option value="grocery">Oziq-ovqat</option><option value="clothing">Kiyim</option><option value="electronics">Elektronika</option><option value="cosmetics">Kosmetika</option></PremiumSelect></label><label className="pro-field"><span>Valyuta</span><PremiumSelect disabled={!canWrite} value={org.currency} onChange={e=>updateSection("organization","currency",e.target.value)}><option>UZS</option><option>USD</option><option>EUR</option></PremiumSelect></label><label className="pro-field"><span>Vaqt zonasi</span><PremiumSelect disabled={!canWrite} value={org.timezone} onChange={e=>updateSection("organization","timezone",e.target.value)}><option>Asia/Tashkent</option><option>Asia/Almaty</option><option>Europe/Moscow</option></PremiumSelect></label><label className="pro-field"><span>Sana formati</span><PremiumSelect disabled={!canWrite} value={org.dateFormat||"DD.MM.YYYY"} onChange={e=>updateSection("organization","dateFormat",e.target.value)}><option>DD.MM.YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></PremiumSelect></label><label className="pro-field"><span>Vaqt formati</span><PremiumSelect disabled={!canWrite} value={org.timeFormat||"24"} onChange={e=>updateSection("organization","timeFormat",e.target.value)}><option value="24">24 soat</option><option value="12">12 soat</option></PremiumSelect></label></div></>}
         {tab==="Filiallar"&&<><div className="pro-card-head"><div><h2>Filiallar</h2><p>Filial nomi, holati va asosiy tashkilot tuzilmasini boshqaring. Asosiy tarifga {includedStoreCount} ta filial kiradi. Joriy limit: {storeLimit} ta.</p></div>{activeStores.length<storeLimit?<button className="pro-btn primary" disabled={!canWrite} onClick={addStore}>+ Filial qo‘shish</button>:<Link className="pro-btn primary" to="/billing">+ Qo‘shimcha filial</Link>}</div><div className="settings-list">{stores.map((s,i)=><div className="settings-store-row" key={s.id}><div className="store-index">{i+1}</div><label className="pro-field"><span>Filial nomi</span><input disabled={!canWrite} value={s.name} onFocus={()=>storeNameBaselines.current.set(s.id,s.name)} onChange={e=>canWrite&&setStores(items=>items.map(x=>x.id===s.id?{...x,name:e.target.value}:x))} onBlur={()=>finishStoreRename(s)}/></label><StatusBadge tone={s.active!==false?"success":"neutral"}>{s.active!==false?"Faol":"Arxivda"}</StatusBadge><button className="pro-btn secondary" disabled={!canWrite||(s.active!==false&&activeStores.length<=1)||(s.active===false&&activeStores.length>=storeLimit)} onClick={()=>toggleStore(s.id)}>{s.active!==false?"Arxivlash":"Tiklash"}</button></div>)}</div></>}
