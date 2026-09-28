@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { workspaceRouteDecision } from "../src/utils/workspaceReadiness.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -45,10 +46,9 @@ test("known browser-default and mixed-language UI copy does not regress", () => 
 });
 
 test("refresh routing waits for workspace hydration before billing redirect", () => {
-  const app = read("src/App.jsx");
-  assert.match(app, /workspaceReady/);
-  assert.match(app, /if \(!workspaceReady\) return <Fallback\/>/);
-  assert.match(app, /state\.allowed \? children : <Navigate to="\/billing" replace\/>/);
+  assert.equal(workspaceRouteDecision({workspaceReady:false,organization:null,licenseAllowed:false}),"loading");
+  assert.equal(workspaceRouteDecision({workspaceReady:true,organization:null,licenseAllowed:false}),"error");
+  assert.equal(workspaceRouteDecision({workspaceReady:true,organization:{id:"org-1"},licenseAllowed:false}),"billing");
 });
 
 test("POS quantity is button-only and insufficient cash is explicit", () => {

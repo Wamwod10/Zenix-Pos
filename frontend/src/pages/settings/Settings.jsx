@@ -35,7 +35,7 @@ function Settings(){
   const {stores,setStores,addStore:createStore,updateStore,currentStore,currentStoreId,telegramSettings,setTelegramSettings,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,employees,setEmployees,organizations,rolePermissions,setRolePermissions,activityLogs,addActivityLog,hasPermission,inventoryState,activeShifts,inventoryTransfers,inventoryCounts,reloadStore}=useStore();
   const canWrite=hasPermission("settingsWrite",currentUser?.appRole);
   const canManagePermissions=currentUser?.appRole===ROLES.OWNER;
-  const [tab,setTab]=useState(()=>settingsTabFromSearch(location.search)); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
+  const tab=settingsTabFromSearch(location.search); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
   const [settingsQuery,setSettingsQuery]=useState("");const [scope,setScope]=useState("global");const [saveState,setSaveState]=useState("saved");
   const saveTimer=useRef(null);const auditTimers=useRef(new Map());const storeNameBaselines=useRef(new Map());const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
   const [employeeModal,setEmployeeModal]=useState(false);const [employeeBusy,setEmployeeBusy]=useState(false);const [employeeError,setEmployeeError]=useState("");
@@ -50,8 +50,8 @@ function Settings(){
     {id:"phone",label:"Telefon"},{id:"login",label:"Kirish nomi"},{id:"role",label:"Rol"},{id:"store",label:"Filial"},{id:"status",label:"Holat"},{id:"account",label:"Hisob"},{id:"permissions",label:"Shaxsiy ruxsat"},
   ];
   const {visible:employeeColumns,toggle:toggleEmployeeColumn,show:showEmployeeColumn}=usePersistentColumns("zenix_settings_employee_columns",employeeColumnDefs);
-  useEffect(()=>{const requested=settingsTabFromSearch(location.search);setTab(requested);if(new URLSearchParams(location.search).has("tab"))setMobileSectionOpen(true)},[location.search]);
-  const selectTab=(name)=>{setTab(name);setMobileSectionOpen(true);if(!STORE_SCOPED_TABS.has(name))setScope("global");navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,name)},{replace:true})};
+  useEffect(()=>{if(new URLSearchParams(location.search).has("tab"))setMobileSectionOpen(true)},[location.search]);
+  const selectTab=(name)=>{setMobileSectionOpen(true);if(!STORE_SCOPED_TABS.has(name))setScope("global");navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,name)},{replace:true})};
   const employeeFormInitial=useRef(null);
   const employeeFormDirty=!!employeeModal&&!!employeeFormInitial.current&&JSON.stringify(employeeForm)!==JSON.stringify(employeeFormInitial.current);
   const guardEmployeeClose=useUnsavedGuard(employeeFormDirty,"Yangi xodim uchun kiritilgan ma’lumotlar hali saqlanmagan. Chiqsangiz, ular yo‘qoladi.");

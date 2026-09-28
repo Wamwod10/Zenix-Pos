@@ -5,7 +5,7 @@ import { ROLES, runForOrganizationUser } from "../config/roles";
 import { BILLING_PLANS, addBillingMonths, billingDateISO } from "../config/billing";
 import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../utils/workspaceDate";
 import { invoiceBalance } from "../utils/supplierLedger";
-import { isWorkspaceReadyFor, shouldHydrateWorkspace, workspaceIdentity } from "../utils/workspaceReadiness";
+import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspace, workspaceIdentity } from "../utils/workspaceReadiness";
 import { api, ApiError } from "../services/apiClient";
 
 const StoreContext = createContext(null);
@@ -98,9 +98,13 @@ export const StoreProvider = ({ children }) => {
   const currentWorkspaceIdentity=workspaceIdentity(currentUser);
   const [loadedWorkspaceIdentity,setLoadedWorkspaceIdentity]=useState(null);
   const [workspaceLoading,setWorkspaceLoading]=useState(false);
+  const [workspaceLoadError,setWorkspaceLoadError]=useState("");
   const workspaceReady=!workspaceLoading&&isWorkspaceReadyFor(currentWorkspaceIdentity,loadedWorkspaceIdentity);
   const [persistenceError, setPersistenceError] = useState("");
   const lastWorkspaceIdentity = useRef(undefined);
+  const currentWorkspaceIdentityRef=useRef(currentWorkspaceIdentity);
+  const hydrationRequestRef=useRef(0);
+  currentWorkspaceIdentityRef.current=currentWorkspaceIdentity;
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
 
   const activeStores = stores.filter((store) => store.active !== false);
@@ -136,8 +140,11 @@ export const StoreProvider = ({ children }) => {
   const hydrateWorkspace = useCallback(async()=>{
     const org=currentUser?.organizationId||null;
     const hydrationIdentity=workspaceIdentity(currentUser);
+    const requestId=++hydrationRequestRef.current;
+    const isCurrent=()=>isCurrentWorkspaceHydration({currentIdentity:currentWorkspaceIdentityRef.current,hydrationIdentity,currentRequestId:hydrationRequestRef.current,requestId});
     setWorkspaceLoading(true);
     setLoadedWorkspaceIdentity(null);
+    setWorkspaceLoadError("");
     setPersistenceError("");
     if(!currentUser){
       setStores([]);setInventoryState([]);setDailySales([]);setSalesHistory([]);setSuppliers([]);setExpenses([]);setReturns([]);
@@ -148,13 +155,20 @@ export const StoreProvider = ({ children }) => {
     if(currentUser.appRole===ROLES.PLATFORM_ADMIN){
       try{
         const data=await api.get("/api/platform/bootstrap");
+        if(!isCurrent())return;
         setOrganizationsState(data.organizations||[]);setPaymentsState(data.payments||[]);setBillingDraft(null);
-      }catch(error){setPersistenceError(error instanceof ApiError?error.message:"Platforma ma’lumotlarini yuklab bo‘lmadi")}
-      setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;
+        setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
+      }catch(error){
+        if(!isCurrent())return;
+        const message=error instanceof ApiError?error.message:"Platforma ma’lumotlarini yuklab bo‘lmadi";
+        setPersistenceError(message);setWorkspaceLoadError(message);setWorkspaceLoading(false);
+      }
+      return;
     }
     if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;}
     try{
       const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
+      if(!isCurrent())return;
       if(baseResult.status!=="fulfilled")throw baseResult.reason;
       const base=baseResult.value;
       const settingsData=settingsResult.status==="fulfilled"?(settingsResult.value||{}):{};
@@ -200,8 +214,9 @@ export const StoreProvider = ({ children }) => {
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
       setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
     }catch(error){
-      setPersistenceError(error instanceof ApiError?error.message:"Serverdan ish maydonini yuklab bo‘lmadi");
-      setWorkspaceLoading(false);
+      if(!isCurrent())return;
+      const message=error instanceof ApiError?error.message:"Serverdan ish maydonini yuklab bo‘lmadi";
+      setPersistenceError(message);setWorkspaceLoadError(message);setWorkspaceLoading(false);
     }
   },[currentUser]);
 
@@ -598,8 +613,8 @@ export const StoreProvider = ({ children }) => {
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
-    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [inventory,generateBarcode,saveProduct,setProductArchived,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,persistenceError,reloadStore]);
+    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
+  }), [inventory,generateBarcode,saveProduct,setProductArchived,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

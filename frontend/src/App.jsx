@@ -5,6 +5,7 @@ import { useAuth } from "./context/AuthContext";
 import { useStore } from "./context/StoreContext";
 import { ROLES } from "./config/roles";
 import { workspaceAccessState } from "./utils/license";
+import { workspaceRouteDecision } from "./utils/workspaceReadiness";
 import Forbidden from "./components/Forbidden";
 import { PageSkeleton } from "./components/Ui";
 import AppErrorBoundary from "./components/AppErrorBoundary";
@@ -64,16 +65,22 @@ function FeatureAccess({children,feature}){
   return children;
 }
 
+export function WorkspaceLoadFailure({message,onRetry}){
+  return <div className="pro-empty" role="alert"><strong>Ish maydonini yuklab bo‘lmadi</strong><span>{message}</span><button type="button" className="pro-btn primary" onClick={onRetry}>Qayta urinish</button></div>;
+}
+
 function WorkspaceAccess({children}){
   const { currentUser } = useAuth();
-  const { organizations, payments, workspaceReady, branchAssignmentValid } = useStore();
+  const { organizations, payments, workspaceReady, workspaceLoadError, branchAssignmentValid, reloadStore } = useStore();
   if (currentUser?.appRole === ROLES.PLATFORM_ADMIN) return children;
-  if (!workspaceReady) return <Fallback/>;
-  if (!branchAssignmentValid) return <Forbidden/>;
   const organization = organizations.find((item)=>item.id===currentUser?.organizationId);
   const orgPayments = payments.filter((item)=>item.organizationId===currentUser?.organizationId);
-  const state = workspaceAccessState({ organization, payments: orgPayments });
-  return state.allowed ? children : <Navigate to="/billing" replace/>;
+  const access = organization ? workspaceAccessState({ organization, payments: orgPayments }) : { allowed:false };
+  const decision=workspaceRouteDecision({workspaceReady,workspaceLoadError,organization,licenseAllowed:access.allowed});
+  if(decision==="error")return <WorkspaceLoadFailure message={workspaceLoadError||"Tashkilot ma’lumotlari topilmadi."} onRetry={reloadStore}/>;
+  if(decision==="loading")return <Fallback/>;
+  if (!branchAssignmentValid) return <Forbidden/>;
+  return decision==="allowed" ? children : <Navigate to="/billing" replace/>;
 }
 const W=({children})=><WorkspaceAccess>{children}</WorkspaceAccess>;
 const Fallback=()=> <PageSkeleton/>;
