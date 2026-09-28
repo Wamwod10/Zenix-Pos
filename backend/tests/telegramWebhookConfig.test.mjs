@@ -80,3 +80,12 @@ test("rejects malformed public API URLs and Telegram webhook secrets", async()=>
     await assert.rejects(configureTelegramWebhook({config:{...base,telegramWebhookSecret,publicApiUrl:"https://zenix-api.example.com"},request:async()=>true}),/TELEGRAM_WEBHOOK_SECRET/);
   }
 });
+
+test("blocks group linking when the Telegram webhook cannot be configured", async()=>{
+  const { assertTelegramWebhookReady }=await import("../src/services/telegramWebhook.js");
+
+  await assert.rejects(
+    assertTelegramWebhookReady({configure:async()=>{throw new Error("Telegram API unavailable")}}),
+    (error)=>error?.code==="TELEGRAM_WEBHOOK_UNAVAILABLE"&&error?.message==="Telegram ulash xizmati hozir tayyor emas",
+  );
+});

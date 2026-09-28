@@ -8,7 +8,7 @@ import { asyncRoute, HttpError, ok } from "../lib/http.js";
 import { requireAuth, requireOrganization, requirePermission, requireActiveLicense } from "../middleware/auth.js";
 import { isBranchLocked, scopedStoreId } from "../lib/storeScope.js";
 import { sendTelegramMessage } from "../services/telegram.js";
-import { normalizeTelegramWebhookSecret } from "../services/telegramWebhook.js";
+import { assertTelegramWebhookReady, normalizeTelegramWebhookSecret } from "../services/telegramWebhook.js";
 
 const router=Router();
 const protectedRouter=Router();protectedRouter.use(requireAuth,requireOrganization,requireActiveLicense);
@@ -30,6 +30,8 @@ protectedRouter.post("/link",requirePermission("settingsWrite"),asyncRoute(async
     const store=await pool.query("SELECT 1 FROM stores WHERE id=$1 AND organization_id=$2 AND active=true",[effectiveStoreId,req.user.organizationId]);
     if(!store.rowCount)throw new HttpError(404,"Faol filial topilmadi","STORE_NOT_FOUND");
   }
+  try{await assertTelegramWebhookReady()}
+  catch(error){console.error(`[telegram] link preflight failed: ${error.cause?.message||error.message}`);throw new HttpError(503,error.message,error.code)}
   const raw=randomToken(18);
   await withTransaction(async(client)=>{
     // A user should never have several valid group-link URLs at once. Invalidating

@@ -33,3 +33,12 @@ test("rejects an aborted or superseded Telegram connection attempt before side e
   assert.equal(isCurrentTelegramConnectAttempt({signal:aborted.signal,attempt:3,currentAttempt:3}),false);
   assert.equal(isCurrentTelegramConnectAttempt({signal:active.signal,attempt:2,currentAttempt:3}),false);
 });
+
+test("preserves the Telegram settings tab in the platform return URL", async()=>{
+  const { telegramReturnUrl }=await import("../src/pages/settings/telegramConnectState.js");
+
+  assert.equal(
+    telegramReturnUrl("https://zenix-pos.vercel.app/settings?scope=store#notifications"),
+    "https://zenix-pos.vercel.app/settings?scope=store&tab=Telegram#notifications",
+  );
+});

@@ -14,7 +14,7 @@ import { ExportCenter, SystemDiagnostics } from "./SettingsTools";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
-import { isCurrentTelegramConnectAttempt, telegramConnectActionState } from "./telegramConnectState";
+import { isCurrentTelegramConnectAttempt, telegramConnectActionState, telegramReturnUrl } from "./telegramConnectState";
 
 const tabs=[
   ["Tashkilot",FiSettings],["Filiallar",FiMapPin],["Xodimlar",FiUsers],["Ruxsatlar",FiShield],["Chek",FiPrinter],["POS",FiCreditCard],["Ombor",FiLayers],["Ish kuni",FiClock],["Bildirishnomalar",FiBell],["Telegram",FiSmartphone],["Interfeys",FiSliders],["Funksiyalar",FiGrid],["Eksport",FiDownload],["Diagnostika",FiDatabase],["Tarix",FiClock],
@@ -255,6 +255,7 @@ function Settings(){
         if(telegramWindow&&!telegramWindow.closed)telegramWindow.close();
         return;
       }
+      if(typeof window!=="undefined"&&window.history?.replaceState)window.history.replaceState(window.history.state,"",telegramReturnUrl(window.location.href));
       updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:result.deepLink,botUsername:result.botUsername,connecting:true}));
       if(telegramWindow&&!telegramWindow.closed)telegramWindow.location.replace(result.deepLink);
       else if(typeof window!=="undefined")window.location.assign(result.deepLink);

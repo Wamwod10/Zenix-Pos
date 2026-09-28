@@ -33,3 +33,12 @@ export async function configureTelegramWebhook({ config=env, request=telegramReq
   return {configured:true,url};
 }
 
+export async function assertTelegramWebhookReady({configure=configureTelegramWebhook}={}){
+  try{return await configure()}
+  catch(cause){
+    const error=new Error("Telegram ulash xizmati hozir tayyor emas",{cause});
+    error.code="TELEGRAM_WEBHOOK_UNAVAILABLE";
+    throw error;
+  }
+}
+
