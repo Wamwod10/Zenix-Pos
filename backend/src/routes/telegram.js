@@ -18,6 +18,21 @@ const connectionScope=(req)=>isBranchLocked(req.user)?scopedStoreId(req.user,nul
 const connectionScopeSql=(req,paramIndex)=>isBranchLocked(req.user)?` AND store_id=$${paramIndex}`:"";
 const connectionScopeParams=(req)=>isBranchLocked(req.user)?[connectionScope(req)]:[];
 
+export function parseTelegramLinkCommand(value){
+  const match=String(value||"").trim().match(/^\/(start|connect)(?:@\w+)?(?:\s+([A-Za-z0-9_-]{1,64}))?$/i);
+  return match?{command:match[1].toLowerCase(),token:match[2]||""}:null;
+}
+
+export function telegramLinkPayload({raw,botUsername}){
+  const username=String(botUsername||"").trim().replace(/^@/,"");
+  return {
+    deepLink:`https://t.me/${username}?startgroup=${encodeURIComponent(raw)}`,
+    fallbackCommand:`/connect@${username} ${raw}`,
+    botUsername:`@${username}`,
+    expiresInSeconds:900,
+  };
+}
+
 protectedRouter.get("/connections",requirePermission("moduleSettings"),asyncRoute(async(req,res)=>{
   const scopeParams=connectionScopeParams(req);
   const {rows}=await pool.query(`SELECT * FROM telegram_connections WHERE organization_id=$1 AND enabled=true${connectionScopeSql(req,2)} ORDER BY linked_at DESC`,[req.user.organizationId,...scopeParams]);
@@ -39,8 +54,7 @@ protectedRouter.post("/link",requirePermission("settingsWrite"),asyncRoute(async
     await client.query("UPDATE telegram_link_tokens SET consumed_at=now() WHERE organization_id=$1 AND created_by=$2 AND consumed_at IS NULL",[req.user.organizationId,req.user.id]);
     await client.query(`INSERT INTO telegram_link_tokens(organization_id,store_id,created_by,token_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval '15 minutes')`,[req.user.organizationId,effectiveStoreId,req.user.id,sha256(raw)]);
   });
-  const deepLink=`https://t.me/${env.telegramBotUsername}?startgroup=${encodeURIComponent(raw)}`;
-  ok(res,{deepLink,expiresInSeconds:900,botUsername:`@${env.telegramBotUsername}`},201);
+  ok(res,telegramLinkPayload({raw,botUsername:env.telegramBotUsername}),201);
 }));
 protectedRouter.post("/connections/:id/disconnect",requirePermission("settingsWrite"),asyncRoute(async(req,res)=>{
   const params=[req.params.id,req.user.organizationId,...connectionScopeParams(req)];
@@ -112,8 +126,8 @@ router.post("/webhook",asyncRoute(async(req,res)=>{
     });
     return ok(res,{accepted:true});
   }
-  const start=text.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);const token=start?.[1]?.trim();
-  if(start&&["group","supergroup"].includes(chat.type)&&token){
+  const linkCommand=parseTelegramLinkCommand(text);const token=linkCommand?.token;
+  if(linkCommand&&["group","supergroup"].includes(chat.type)&&token){
     const linked=await withTransaction(async(client)=>{
       const tokenHash=sha256(token);
       const link=(await client.query("SELECT * FROM telegram_link_tokens WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>now() FOR UPDATE",[tokenHash])).rows[0];
@@ -143,7 +157,7 @@ router.post("/webhook",asyncRoute(async(req,res)=>{
     if(linked)await sendTelegramMessage(chat.id,`✅ <b>Zenix POS muvaffaqiyatli ulandi</b>\n\nGuruh: <b>${escapeHtml(chat.title||"Telegram guruhi")}</b>\nEndi Zenix POS bildirishnomalari shu guruhga keladi.`);else await sendTelegramMessage(chat.id,"⚠️ Ulanish havolasi eskirgan yoki allaqachon ishlatilgan. Zenix POS ichidan yangi ulash havolasini oching.");
     return ok(res,{accepted:true});
   }
-  if(start&&chat.type==="private")await sendTelegramMessage(chat.id,`<b>Zenix POS</b>\n\nGuruh ulash uchun Zenix POS → Sozlamalar → Telegram bo‘limidagi “Guruhni ulash” tugmasidan foydalaning.`);
+  if(linkCommand?.command==="start"&&chat.type==="private")await sendTelegramMessage(chat.id,`<b>Zenix POS</b>\n\nGuruh ulash uchun Zenix POS → Sozlamalar → Telegram bo‘limidagi “Guruhni ulash” tugmasidan foydalaning.`);
   return ok(res,{accepted:true});
 }));
 

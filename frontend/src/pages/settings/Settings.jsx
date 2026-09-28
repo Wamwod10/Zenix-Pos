@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FiBell, FiCheck, FiChevronLeft, FiClock, FiCreditCard, FiDatabase, FiDownload, FiGrid, FiLayers, FiMapPin, FiMonitor, FiPrinter, FiRotateCcw, FiSearch, FiSettings, FiShield, FiSliders, FiSmartphone, FiUsers } from "react-icons/fi";
+import { FiBell, FiCheck, FiChevronLeft, FiClock, FiCopy, FiCreditCard, FiDatabase, FiDownload, FiGrid, FiLayers, FiMapPin, FiMonitor, FiPrinter, FiRotateCcw, FiSearch, FiSettings, FiShield, FiSliders, FiSmartphone, FiUsers } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import { DEFAULT_BUSINESS_FEATURES } from "../../config/uiDefaults";
@@ -14,7 +14,7 @@ import { ExportCenter, SystemDiagnostics } from "./SettingsTools";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
-import { isCurrentTelegramConnectAttempt, openTelegramHandoff, sendTelegramHandoff, telegramConnectActionState } from "./telegramConnectState";
+import { isCurrentTelegramConnectAttempt, openTelegramHandoff, sendTelegramHandoff, telegramConnectActionState, telegramFallbackPollWindow, telegramFallbackState } from "./telegramConnectState";
 import { settingsSearchForTab, settingsTabFromSearch } from "./settingsNavigation";
 
 const tabs=[
@@ -35,7 +35,7 @@ function Settings(){
   const {stores,setStores,addStore:createStore,updateStore,currentStore,currentStoreId,telegramSettings,setTelegramSettings,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,employees,setEmployees,organizations,rolePermissions,setRolePermissions,activityLogs,addActivityLog,hasPermission,inventoryState,activeShifts,inventoryTransfers,inventoryCounts}=useStore();
   const canWrite=hasPermission("settingsWrite",currentUser?.appRole);
   const canManagePermissions=currentUser?.appRole===ROLES.OWNER;
-  const tab=settingsTabFromSearch(location.search); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [advancedUi,setAdvancedUi]=useState(false);
+  const tab=settingsTabFromSearch(location.search); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [telegramClock,setTelegramClock]=useState(()=>Date.now()); const [advancedUi,setAdvancedUi]=useState(false);
   const [settingsQuery,setSettingsQuery]=useState("");const [scope,setScope]=useState("global");const [saveState,setSaveState]=useState("saved");
   const saveTimer=useRef(null);const auditTimers=useRef(new Map());const storeNameBaselines=useRef(new Map());const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
   const [employeeModal,setEmployeeModal]=useState(false);const [employeeBusy,setEmployeeBusy]=useState(false);const [employeeError,setEmployeeError]=useState("");
@@ -99,12 +99,21 @@ function Settings(){
   const legacyTelegram=!Object.keys(telegramConnections).length&&(telegramSettings.connected||telegramSettings.connectionCode)?telegramSettings:null;
   const currentTelegram=telegramConnections[currentStoreId]||legacyTelegram||{connected:false,connectionCode:"",groupName:"",chatId:""};
   const telegramConnectAction=telegramConnectActionState({canWrite,busy:telegramBusy,connecting:currentTelegram.connecting});
+  const telegramFallback=telegramFallbackState({...currentTelegram,now:telegramClock});
   const updateTelegramConnection=(updater)=>setTelegramSettings(state=>{
     const previous=(state.connections||{})[currentStoreId]||(!Object.keys(state.connections||{}).length&&(state.connected||state.connectionCode)?state:{});
     const next=typeof updater==="function"?updater(previous):{...previous,...updater};
     return{...state,connections:{...(state.connections||{}),[currentStoreId]:next}};
   });
   useEffect(()=>()=>{telegramConnectAttempt.current+=1;telegramConnectAbort.current?.abort()},[]);
+  useEffect(()=>{
+    const expiresAt=Number(currentTelegram.fallbackExpiresAt||0);
+    const now=Date.now();
+    setTelegramClock(now);
+    if(currentTelegram.connected||!Number.isFinite(expiresAt)||expiresAt<=now)return;
+    const timer=setTimeout(()=>setTelegramClock(Date.now()),Math.max(0,expiresAt-now+25));
+    return()=>clearTimeout(timer);
+  },[currentStoreId,currentTelegram.connected,currentTelegram.fallbackExpiresAt]);
   const includedStoreCount=currentOrg?.includedStores||BILLING_CONFIG.annual.includedStores;
   const storeLimit=Math.max(includedStoreCount,Number(currentOrg?.storeLimit||includedStoreCount));
   const addStore=async()=>{if(!canWrite||activeStores.length>=storeLimit)return;let index=stores.length+1;let name=`Yangi filial ${index}`;while(stores.some(store=>String(store.name||"").trim().toLowerCase()===name.toLowerCase())){index+=1;name=`Yangi filial ${index}`}const result=await createStore({name});if(!result?.success){notify({tone:"danger",title:"Filial qo‘shilmadi",message:result?.message||"Server xatosi"});return}addActivityLog({type:"settings",title:"Filial qo‘shildi",description:result.store.name,storeId:result.store.id,storeName:result.store.name,changes:[{field:"active",label:"Holat",before:"—",after:"Faol"}]})};
@@ -242,6 +251,8 @@ function Settings(){
     // Preserve the platform document on every device. The blank window is opened
     // synchronously from the click, then receives the one-time Telegram link.
     let telegramNavigated=false;
+    setTelegramClock(Date.now());
+    updateTelegramConnection(prev=>({...prev,connected:false,deepLink:"",fallbackCommand:"",fallbackExpiresAt:0,connecting:true}));
     setTelegramBusy(true);
     try{
       const result=await createTelegramConnection({storeId:currentStoreId});
@@ -250,14 +261,16 @@ function Settings(){
         return;
       }
       navigate({pathname:location.pathname,search:settingsSearchForTab(location.search,"Telegram")},{replace:true});
-      updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:result.deepLink,botUsername:result.botUsername,connecting:true}));
+      const fallbackExpiresAt=Date.now()+Number(result.expiresInSeconds||0)*1000;
+      setTelegramClock(Date.now());
+      updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:result.deepLink,fallbackCommand:result.fallbackCommand,fallbackExpiresAt,botUsername:result.botUsername,connecting:true}));
       if(!sendTelegramHandoff(telegramWindow,result.deepLink))throw new Error("Telegram oynasi yopilgan. Qayta urinib ko‘ring.");
       telegramNavigated=true;
       addActivityLog({type:"settings",title:"Telegram ulash boshlandi",description:`${currentStore?.name||"Filial"} uchun Telegram guruh tanlash oynasi ochildi`});
       if(telegramConnectAttempt.current===attempt)setTelegramBusy(false);
       const linked=await waitForTelegramConnection({storeId:currentStoreId,signal:controller.signal});
       if(!isCurrentTelegramConnectAttempt({signal:controller.signal,attempt,currentAttempt:telegramConnectAttempt.current}))return;
-      updateTelegramConnection(prev=>({...prev,...linked,connecting:false,deepLink:linked.connected?"":result.deepLink}));
+      updateTelegramConnection(prev=>({...prev,...linked,connecting:false,deepLink:linked.connected?"":result.deepLink,fallbackCommand:linked.connected?"":result.fallbackCommand,fallbackExpiresAt:linked.connected?0:fallbackExpiresAt}));
       if(linked.connected){
         addActivityLog({type:"settings",title:"Telegram guruhi ulandi",description:`${currentStore?.name||"Filial"} · ${linked.groupName||"Telegram guruhi"}`});
         notify({tone:"success",title:"Telegram ulandi",message:`${linked.groupName||"Telegram guruhi"} muvaffaqiyatli bog‘landi.`});
@@ -270,12 +283,35 @@ function Settings(){
       notify({tone:"danger",title:"Telegram ulanmadi",message:error?.message||"Telegram ulanishini boshlash mumkin bo‘lmadi."});
     }finally{if(telegramConnectAbort.current===controller)telegramConnectAbort.current=null;if(telegramConnectAttempt.current===attempt)setTelegramBusy(false)}
   };
+  const copyTelegramFallback=async()=>{
+    if(!telegramFallback.command)return;
+    try{await navigator.clipboard.writeText(telegramFallback.command);notify({tone:"success",title:"Ulash kodi nusxalandi",message:"Telegram guruhiga yuboring."})}
+    catch{notify({tone:"warning",title:"Nusxalab bo‘lmadi",message:"Buyruqni belgilab qo‘lda nusxalang."})}
+    const timeoutMs=telegramFallbackPollWindow({fallbackExpiresAt:currentTelegram.fallbackExpiresAt});
+    if(!timeoutMs)return;
+    const attempt=++telegramConnectAttempt.current;
+    telegramConnectAbort.current?.abort();
+    const controller=new AbortController();
+    telegramConnectAbort.current=controller;
+    updateTelegramConnection(prev=>({...prev,connecting:true}));
+    try{
+      const linked=await waitForTelegramConnection({storeId:currentStoreId,signal:controller.signal,timeoutMs});
+      if(!isCurrentTelegramConnectAttempt({signal:controller.signal,attempt,currentAttempt:telegramConnectAttempt.current}))return;
+      updateTelegramConnection(prev=>({...prev,...linked,connecting:false,fallbackCommand:linked.connected?"":prev.fallbackCommand,fallbackExpiresAt:linked.connected?0:prev.fallbackExpiresAt}));
+      if(linked.connected)notify({tone:"success",title:"Telegram ulandi",message:`${linked.groupName||"Telegram guruhi"} muvaffaqiyatli bog‘landi.`});
+    }catch(error){
+      if(isCurrentTelegramConnectAttempt({signal:controller.signal,attempt,currentAttempt:telegramConnectAttempt.current})){
+        updateTelegramConnection(prev=>({...prev,connecting:false}));
+        notify({tone:"warning",title:"Ulanish holati tekshirilmadi",message:error?.message||"Qayta urinib ko‘ring."});
+      }
+    }finally{if(telegramConnectAbort.current===controller)telegramConnectAbort.current=null}
+  };
   const disconnectTelegram=async()=>{
     if(!canWrite||telegramBusy)return;
     setTelegramBusy(true);
     try{
       await disconnectTelegramGroup({connectionId:currentTelegram.connectionId});
-      updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:"",connecting:false,connectedAt:""}));
+      updateTelegramConnection(prev=>({...prev,connected:false,connectionId:"",groupName:"",chatId:"",deepLink:"",fallbackCommand:"",fallbackExpiresAt:0,connecting:false,connectedAt:""}));
       addActivityLog({type:"settings",title:"Telegram uzildi",description:`${currentStore?.name||"Filial"} Telegram guruhidan uzildi`});
     }catch(error){notify({tone:"danger",title:"Telegramni uzib bo‘lmadi",message:error?.message||"Qayta urinib ko‘ring."})}
     finally{setTelegramBusy(false)}
@@ -343,6 +379,7 @@ function Settings(){
     {settingsQuery&&<div className="settings-search-results">{filteredTabs.length?filteredTabs.map(([name,Icon])=><button key={name} onClick={()=>{selectTab(name);setSettingsQuery("")}}><Icon/><span><strong>{name}</strong><small>Sozlamalar bo‘limini ochish</small></span></button>):<span>Hech narsa topilmadi</span>}</div>}
     <div className={`settings-layout ${mobileSectionOpen?"mobile-section-open":""}`}><aside className="settings-nav">{(settingsQuery?filteredTabs:tabs).map(([name,Icon])=><button key={name} className={tab===name?"active":""} onClick={()=>selectTab(name)}><Icon/><span>{name}</span></button>)}</aside>
       <section className="pro-card settings-content"><button type="button" className="settings-mobile-back" onClick={()=>setMobileSectionOpen(false)}><FiChevronLeft/><span>Sozlamalar</span><strong>{tab}</strong></button>
+        {tab==="Telegram"&&telegramFallback.visible&&<div className="telegram-fallback"><span><strong>Avtomatik tasdiqlanmadimi?</strong><small>Quyidagi bir martalik buyruqni Telegram guruhiga yuboring.</small><code>{telegramFallback.command}</code></span><button type="button" className="pro-btn secondary" onClick={copyTelegramFallback}><FiCopy/> Kodni nusxalash</button></div>}
         {tab==="Tashkilot"&&<><div className="pro-card-head"><div><h2>Tashkilot sozlamalari</h2><p>Chek, hisobot va platformada ishlatiladigan asosiy ma’lumotlar.</p></div></div><div className="pro-form-grid"><label className="pro-field"><span>Biznes nomi</span><input disabled={!canWrite} value={org.businessName} onChange={e=>updateSection("organization","businessName",e.target.value)}/></label><label className="pro-field"><span>Telefon</span><input disabled={!canWrite} value={org.phone} onChange={e=>updateSection("organization","phone",e.target.value)}/></label><label className="pro-field full"><span>Manzil</span><input disabled={!canWrite} value={org.address} onChange={e=>updateSection("organization","address",e.target.value)}/></label><label className="pro-field"><span>Biznes turi</span><PremiumSelect disabled={!canWrite} value={org.businessType||"universal"} onChange={e=>applyPreset(e.target.value)}><option value="universal">Universal savdo</option><option value="grocery">Oziq-ovqat</option><option value="clothing">Kiyim</option><option value="electronics">Elektronika</option><option value="cosmetics">Kosmetika</option></PremiumSelect></label><label className="pro-field"><span>Valyuta</span><PremiumSelect disabled={!canWrite} value={org.currency} onChange={e=>updateSection("organization","currency",e.target.value)}><option>UZS</option><option>USD</option><option>EUR</option></PremiumSelect></label><label className="pro-field"><span>Vaqt zonasi</span><PremiumSelect disabled={!canWrite} value={org.timezone} onChange={e=>updateSection("organization","timezone",e.target.value)}><option>Asia/Tashkent</option><option>Asia/Almaty</option><option>Europe/Moscow</option></PremiumSelect></label><label className="pro-field"><span>Sana formati</span><PremiumSelect disabled={!canWrite} value={org.dateFormat||"DD.MM.YYYY"} onChange={e=>updateSection("organization","dateFormat",e.target.value)}><option>DD.MM.YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></PremiumSelect></label><label className="pro-field"><span>Vaqt formati</span><PremiumSelect disabled={!canWrite} value={org.timeFormat||"24"} onChange={e=>updateSection("organization","timeFormat",e.target.value)}><option value="24">24 soat</option><option value="12">12 soat</option></PremiumSelect></label></div></>}
         {tab==="Filiallar"&&<><div className="pro-card-head"><div><h2>Filiallar</h2><p>Filial nomi, holati va asosiy tashkilot tuzilmasini boshqaring. Asosiy tarifga {includedStoreCount} ta filial kiradi. Joriy limit: {storeLimit} ta.</p></div>{activeStores.length<storeLimit?<button className="pro-btn primary" disabled={!canWrite} onClick={addStore}>+ Filial qo‘shish</button>:<Link className="pro-btn primary" to="/billing">+ Qo‘shimcha filial</Link>}</div><div className="settings-list">{stores.map((s,i)=><div className="settings-store-row" key={s.id}><div className="store-index">{i+1}</div><label className="pro-field"><span>Filial nomi</span><input disabled={!canWrite} value={s.name} onFocus={()=>storeNameBaselines.current.set(s.id,s.name)} onChange={e=>canWrite&&setStores(items=>items.map(x=>x.id===s.id?{...x,name:e.target.value}:x))} onBlur={()=>finishStoreRename(s)}/></label><StatusBadge tone={s.active!==false?"success":"neutral"}>{s.active!==false?"Faol":"Arxivda"}</StatusBadge><button className="pro-btn secondary" disabled={!canWrite||(s.active!==false&&activeStores.length<=1)||(s.active===false&&activeStores.length>=storeLimit)} onClick={()=>toggleStore(s.id)}>{s.active!==false?"Arxivlash":"Tiklash"}</button></div>)}</div></>}
         {tab==="Xodimlar"&&<>

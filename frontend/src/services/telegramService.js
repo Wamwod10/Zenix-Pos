@@ -3,7 +3,7 @@ import { waitForTelegramConnection as pollForTelegramConnection } from "./telegr
 
 export const createTelegramConnection=async({storeId}={})=>{
   const result=await api.post("/api/telegram/link",{storeId:storeId||null});
-  return {connected:false,deepLink:result.deepLink,botUsername:result.botUsername,expiresInSeconds:result.expiresInSeconds};
+  return {connected:false,deepLink:result.deepLink,fallbackCommand:result.fallbackCommand,botUsername:result.botUsername,expiresInSeconds:result.expiresInSeconds};
 };
 
 export const listTelegramConnections=async()=>{

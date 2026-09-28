@@ -57,3 +57,30 @@ test("Telegram handoff preserves the platform document in a separate window", as
   assert.deepEqual(navigations,["https://t.me/zenixposbot?startgroup=token"]);
   assert.equal(sendTelegramHandoff(null,"https://t.me/zenixposbot?startgroup=token"),false);
 });
+
+test("shows the copyable fallback command until Telegram connects",async()=>{
+  const state=await import("../src/pages/settings/telegramConnectState.js");
+
+  assert.equal(typeof state.telegramFallbackState,"function","Telegram settings must expose fallback visibility state");
+  assert.deepEqual(
+    state.telegramFallbackState({connected:false,fallbackCommand:"/connect@zenixposbot AbC_123-xYz",fallbackExpiresAt:20_000,now:10_000}),
+    {visible:true,command:"/connect@zenixposbot AbC_123-xYz"},
+  );
+  assert.deepEqual(
+    state.telegramFallbackState({connected:false,fallbackCommand:"/connect@zenixposbot AbC_123-xYz",fallbackExpiresAt:10_000,now:10_000}),
+    {visible:false,command:""},
+  );
+  assert.deepEqual(
+    state.telegramFallbackState({connected:true,fallbackCommand:"/connect@zenixposbot AbC_123-xYz",fallbackExpiresAt:20_000,now:10_000}),
+    {visible:false,command:""},
+  );
+});
+
+test("limits a restarted fallback poll to the remaining token lifetime",async()=>{
+  const state=await import("../src/pages/settings/telegramConnectState.js");
+
+  assert.equal(typeof state.telegramFallbackPollWindow,"function","Telegram fallback must expose its remaining poll window");
+  assert.equal(state.telegramFallbackPollWindow({fallbackExpiresAt:100_000,now:10_000}),75_000);
+  assert.equal(state.telegramFallbackPollWindow({fallbackExpiresAt:50_000,now:10_000}),40_000);
+  assert.equal(state.telegramFallbackPollWindow({fallbackExpiresAt:10_000,now:10_000}),0);
+});
