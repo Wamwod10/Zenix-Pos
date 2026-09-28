@@ -145,3 +145,6 @@ body.dark-mode .day-close-btn{background:color-mix(in srgb,var(--primary) 10%,va
   .pos-product-grid{margin-inline:0}
   .pos-product,.cart-item,.customer-row,.payment-grid,.cash-box,.split-box{min-width:0;max-width:100%}
 }
+
+.pos-search-row{display:flex;align-items:stretch;gap:8px}.pos-search-row .pos-search{flex:1;min-width:0}.pos-camera-scan{flex:0 0 auto;white-space:nowrap}.today-sale-return{min-height:34px!important;height:34px;padding:0 10px!important;font-size:11px!important}
+@media(max-width:760px){.pos-search-row{align-items:center}.pos-camera-scan{width:44px;min-width:44px;padding:0!important}.pos-camera-scan span{display:none}.pos-catalog{min-height:0!important;height:auto!important}.pos-product-grid{min-height:0!important;max-height:none!important;overflow:visible!important;padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))}.pos-product{min-height:74px}.pos-layout-pro{min-height:0!important;height:auto!important}.pos-page-pro{min-height:calc(100dvh - var(--mobile-shell-top,64px) - 84px)!important}}

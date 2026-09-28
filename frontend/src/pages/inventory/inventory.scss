@@ -165,3 +165,5 @@ body.dark-mode .pending-counts{
 }
 body.dark-mode .pending-counts>strong{color:color-mix(in srgb,var(--warning) 72%,var(--text))}
 body.dark-mode .pending-counts>div{background:var(--surface)}
+.barcode-receive-actions{display:flex;gap:8px;align-items:center}.quick-receive-row input::placeholder{color:var(--muted);opacity:.82}.quick-receive-row input:not(:disabled){color:var(--text);font-weight:520}.quick-barcode-cell button{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px;font-weight:600}.quick-barcode-cell button:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+@media(max-width:620px){.barcode-receive-actions{display:grid;grid-template-columns:1fr 1fr}.barcode-receive .field-action-row{display:grid;grid-template-columns:minmax(0,1fr) auto}.barcode-receive .field-action-row .pro-btn{padding-inline:10px}}

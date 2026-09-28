@@ -11,7 +11,7 @@ import { sendTelegramMessage } from "../services/telegram.js";
 
 const router=Router();
 const protectedRouter=Router();protectedRouter.use(requireAuth,requireOrganization,requireActiveLicense);
-const TELEGRAM_SETTING_KEYS=new Set(["sale","dailyReport","shiftClose","returns","expenses","transfers","inventoryReceived","lowStock","outOfStock","supplierDebt"]);
+const TELEGRAM_SETTING_KEYS=new Set(["sale","dailyReport","dailyReportTime","shiftClose","returns","expenses","transfers","inventoryReceived","lowStock","outOfStock","supplierDebt"]);
 const escapeHtml=(value)=>String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const connectionScope=(req)=>isBranchLocked(req.user)?scopedStoreId(req.user,null):null;
 const connectionScopeSql=(req,paramIndex)=>isBranchLocked(req.user)?` AND store_id=$${paramIndex}`:"";
@@ -46,9 +46,13 @@ protectedRouter.post("/connections/:id/disconnect",requirePermission("settingsWr
   ok(res,{connection:row});
 }));
 protectedRouter.patch("/connections/:id/settings",requirePermission("settingsWrite"),asyncRoute(async(req,res)=>{
-  const input=z.object({settings:z.record(z.string(),z.boolean())}).parse(req.body||{});
+  const input=z.object({settings:z.record(z.string(),z.union([z.boolean(),z.string()]))}).parse(req.body||{});
   const invalid=Object.keys(input.settings).filter((key)=>!TELEGRAM_SETTING_KEYS.has(key));
   if(invalid.length)throw new HttpError(400,"Noma’lum Telegram bildirishnoma sozlamasi","INVALID_TELEGRAM_SETTING",{keys:invalid});
+  for(const [key,value] of Object.entries(input.settings)){
+    if(key==="dailyReportTime"){if(typeof value!=="string"||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))throw new HttpError(400,"Kunlik hisobot vaqti HH:MM formatida bo‘lishi kerak","INVALID_TELEGRAM_SETTING");}
+    else if(typeof value!=="boolean")throw new HttpError(400,"Telegram bildirishnoma sozlamasi true/false bo‘lishi kerak","INVALID_TELEGRAM_SETTING");
+  }
   const scopeParams=connectionScopeParams(req);
   const settingsIndex=3+scopeParams.length;
   const params=[req.params.id,req.user.organizationId,...scopeParams,JSON.stringify(input.settings)];

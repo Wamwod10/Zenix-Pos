@@ -88,18 +88,19 @@ function Billing({activation=false}){
   useEffect(()=>{
     if(flow!=="waiting")return;
     const paymentId=String(latestLicensePayment?.id||latestLicensePayment?.orderId||"");
-    if(paymentReviewState==="approved"&&handledPaymentIdRef.current!==paymentId){
+    const authoritativeLicense=String(currentOrg?.licenseStatus||"").toUpperCase();
+    if(paymentReviewState==="approved"&&["ACTIVE","APPROVED"].includes(authoritativeLicense)&&handledPaymentIdRef.current!==paymentId){
       handledPaymentIdRef.current=paymentId;
       notify({tone:"success",title:"To‘lov tasdiqlandi",message:"Platforma ochildi."});
-      const timer=window.setTimeout(()=>navigate("/",{replace:true}),250);
-      return()=>window.clearTimeout(timer);
+      navigate("/",{replace:true});
+      return;
     }
     if(paymentReviewState==="rejected"&&handledPaymentIdRef.current!==paymentId){
       handledPaymentIdRef.current=paymentId;
       setFlow("plans");
       setError(latestLicensePayment?.rejectReason||"To‘lov rad etildi. Chekni tekshirib qayta yuboring.");
     }
-  },[flow,paymentReviewState,navigate,notify,latestLicensePayment?.id,latestLicensePayment?.orderId,latestLicensePayment?.rejectReason]);
+  },[flow,paymentReviewState,navigate,notify,latestLicensePayment?.id,latestLicensePayment?.orderId,latestLicensePayment?.rejectReason,currentOrg?.licenseStatus]);
   useEffect(()=>{
     if(!canWrite)return;
     let active=true;

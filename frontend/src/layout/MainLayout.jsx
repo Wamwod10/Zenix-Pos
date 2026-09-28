@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import { formatWorkspaceDate, workspaceTime } from "../utils/workspaceDate";
 import Modal from "../components/Modal";
+import AppErrorBoundary from "../components/AppErrorBoundary";
 import { useFeedback } from "../context/FeedbackContext";
 import "./mainlayout.scss";
 
@@ -380,7 +381,7 @@ function MainLayout(){
         </div>
       </header>
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
-      <main className="content"><Outlet/></main>
+      <main className="content"><AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary></main>
     </div>
 
     <nav className="mobile-bottom-nav" aria-label="Mobil navigatsiya">

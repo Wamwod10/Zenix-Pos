@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiClock, FiCreditCard, FiDollarSign, FiMinus, FiPackage, FiPause, FiPercent,
   FiPlus, FiPrinter, FiRefreshCw, FiSearch, FiShoppingBag, FiShoppingCart,
-  FiTrash2, FiUser, FiLayers,
+  FiTrash2, FiUser, FiLayers, FiCamera,
 } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -15,6 +15,7 @@ import { saleNetPaymentBreakdown, saleNetRevenue } from "../../utils/reporting";
 import { applyReturnToSale, getRefundAllocation, getRefundCashAdjustment, RETURN_REASONS } from "../../utils/returns";
 import { allocateTrackedStock, restoreTrackedStock } from "../../utils/stockTracking";
 import Modal from "../../components/Modal";
+import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import { useFeedback } from "../../context/FeedbackContext";
 import "./sales.scss";
 
@@ -41,6 +42,7 @@ function Sales(){
   const [heldModal,setHeldModal]=useState(false);
   const [holdToolsOpen,setHoldToolsOpen]=useState(false);
   const [todaySalesOpen,setTodaySalesOpen]=useState(false);
+  const [scannerOpen,setScannerOpen]=useState(false);
   const [closeDayModal,setCloseDayModal]=useState(false);
   const [holdName,setHoldName]=useState("");
   const [receipt,setReceipt]=useState(null);
@@ -314,7 +316,7 @@ function Sales(){
     <div className="pos-mobile-pane-tabs" role="tablist" aria-label="POS ko‘rinishi"><button type="button" role="tab" aria-selected={mobilePane==="catalog"} className={mobilePane==="catalog"?"active":""} onClick={()=>setMobilePane("catalog")}>Mahsulotlar</button><button type="button" role="tab" aria-selected={mobilePane==="cart"} className={mobilePane==="cart"?"active":""} onClick={()=>setMobilePane("cart")}>Savat <b>{cart.reduce((sum,item)=>sum+item.cartQty,0)}</b></button></div>
     <div className="pos-layout-pro">
       <section className={`pos-catalog pro-card ${mobilePane==="catalog"?"mobile-pane-active":"mobile-pane-hidden"}`}>
-        <div className="pos-search-row"><div className="pos-search"><FiSearch/><input ref={searchRef} value={search} onChange={event=>setSearch(event.target.value)} onKeyDown={handleSearchKey} placeholder="Mahsulot nomi, SKU yoki shtrix-kod..." aria-label="Mahsulot qidirish"/><span>Shtrix-kod skanerlash mumkin</span></div></div>
+        <div className="pos-search-row"><div className="pos-search"><FiSearch/><input ref={searchRef} value={search} onChange={event=>setSearch(event.target.value)} onKeyDown={handleSearchKey} placeholder="Mahsulot nomi, SKU yoki shtrix-kod..." aria-label="Mahsulot qidirish"/></div><button type="button" className="pro-btn secondary pos-camera-scan" onClick={()=>setScannerOpen(true)}><FiCamera/> <span>Skanerlash</span></button></div>
         <div className="pos-categories"><button className={category==="all"?"active":""} onClick={()=>setCategory("all")}>Barchasi</button>{categories.map(item=><button key={item} className={category===item?"active":""} onClick={()=>setCategory(item)}>{item}</button>)}</div>
         {!search&&topProducts.length>0&&<div className="quick-products"><span>Tezkor</span>{topProducts.map(product=><button key={product.id} onClick={()=>add(product)} disabled={blockNegative&&product.quantity<=0}>{product.name}</button>)}</div>}
         <div className="pos-product-grid">{products.length?products.map(product=><button className={`pos-product ${blockNegative&&product.quantity<=0?"disabled":""}`} key={product.id} onClick={()=>add(product)} disabled={blockNegative&&product.quantity<=0}><div className="pos-product-icon"><FiPackage/></div><span><strong>{product.name}</strong><small>{product.sku}{product.category?` · ${product.category}`:""}</small></span><div><b>{formatPrice(product.sellPrice||product.price)}</b><em className={product.quantity<=0?"out":product.quantity<=product.minStock?"low":""}>{product.quantity} {product.unit||"dona"}</em></div></button>):<div className="pro-empty"><FiPackage/><strong>Mahsulot topilmadi</strong><span>Shtrix-kod yoki nom bilan qayta qidiring.</span></div>}</div>
@@ -333,8 +335,9 @@ function Sales(){
       </aside>
     </div>
 
+    <BarcodeScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} title="Savdo uchun shtrix-kod" onDetected={(code)=>{const product=inventory.find(item=>!item.archived&&String(item.barcode||"").trim()===String(code).trim());if(product){add(product);setSearch("");setScannerOpen(false)}else{setSearch(String(code));setError(`Shtrix-kod ${code} bo‘yicha mahsulot topilmadi`);setScannerOpen(false);requestAnimationFrame(()=>searchRef.current?.focus())}}}/>
     <Modal open={todaySalesOpen} onClose={()=>setTodaySalesOpen(false)} title="Bugungi savdolar" subtitle={`${currentStore?.name||"Filial"} · ${storeDailySales.length} ta tranzaksiya`} size="lg">
-      <div className="today-sales-modal">{storeDailySales.length?<div className="today-sales-list">{storeDailySales.slice(0,30).map(sale=><article key={sale.id}><div className="today-sale-top"><span><strong>{sale.id}</strong><small>{sale.time} · {sale.items?.length||0} tur · {sale.sellerName||sale.seller||"Kassir"}</small></span><strong>{formatPrice(saleNetRevenue(sale))}</strong></div><div className="today-sale-meta"><StatusBadge tone="info">{payLabels[sale.paymentMethod]||sale.paymentMethod}</StatusBadge>{sale.returnedTotal>0&&<StatusBadge tone="warning">Qaytarilgan {formatPrice(sale.returnedTotal)}</StatusBadge>}{canReturn&&<button onClick={()=>{setTodaySalesOpen(false);setReturnSale(sale);setReturnItem(null);setReturnReason("");setReturnQty(1);setRefundMethod("original");setReturnError("")}}>Qaytarish</button>}</div></article>)}</div>:<div className="pro-empty"><FiClock/><strong>Bugun hali savdo yo‘q</strong><span>Birinchi savdo yakunlangach shu yerda ko‘rinadi.</span></div>}
+      <div className="today-sales-modal">{storeDailySales.length?<div className="today-sales-list">{storeDailySales.slice(0,30).map(sale=><article key={sale.id}><div className="today-sale-top"><span><strong>Chek #{String(sale.id||"").replace(/[^a-zA-Z0-9]/g,"").slice(-8).toUpperCase()||"—"}</strong><small>{sale.time} · {sale.items?.length||0} tur · {sale.sellerName||sale.seller||"Kassir"}</small></span><strong>{formatPrice(saleNetRevenue(sale))}</strong></div><div className="today-sale-meta"><StatusBadge tone="info">{payLabels[sale.paymentMethod]||sale.paymentMethod}</StatusBadge>{sale.returnedTotal>0&&<StatusBadge tone="warning">Qaytarilgan {formatPrice(sale.returnedTotal)}</StatusBadge>}{canReturn&&<button className="pro-btn secondary today-sale-return" onClick={()=>{setTodaySalesOpen(false);setReturnSale(sale);setReturnItem(null);setReturnReason("");setReturnQty(1);setRefundMethod("original");setReturnError("")}}><FiRefreshCw/> Qaytarish</button>}</div></article>)}</div>:<div className="pro-empty"><FiClock/><strong>Bugun hali savdo yo‘q</strong><span>Birinchi savdo yakunlangach shu yerda ko‘rinadi.</span></div>}
       {canCloseBusinessDay&&<div className="day-close-wrap"><button className="day-close-btn" disabled={!storeDailySales.length||!!activeShift} onClick={()=>{setTodaySalesOpen(false);setCloseDayModal(true)}}><FiClock/><span><strong>Kunlik savdoni yakunlash</strong><small>{activeShift?"Avval joriy smenani yoping":storeDailySales.length?`${storeDailySales.length} ta tranzaksiyani tarixga o‘tkazish`:"Bugun yakunlanadigan savdo yo‘q"}</small></span></button></div>}
       </div>
     </Modal>
