@@ -5,6 +5,7 @@ import { ROLES, runForOrganizationUser } from "../config/roles";
 import { BILLING_PLANS, addBillingMonths, billingDateISO } from "../config/billing";
 import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../utils/workspaceDate";
 import { invoiceBalance } from "../utils/supplierLedger";
+import { isWorkspaceReadyFor, shouldHydrateWorkspace, workspaceIdentity } from "../utils/workspaceReadiness";
 import { api, ApiError } from "../services/apiClient";
 
 const StoreContext = createContext(null);
@@ -94,9 +95,12 @@ export const StoreProvider = ({ children }) => {
   const [workspaceSettings, setWorkspaceSettings] = useState(DEFAULT_WORKSPACE_SETTINGS);
   const [employees, setEmployees] = useState([]);
   const [rolePermissions, setRolePermissions] = useState(DEFAULT_ROLE_PERMISSIONS);
-  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const currentWorkspaceIdentity=workspaceIdentity(currentUser);
+  const [loadedWorkspaceIdentity,setLoadedWorkspaceIdentity]=useState(null);
+  const [workspaceLoading,setWorkspaceLoading]=useState(false);
+  const workspaceReady=!workspaceLoading&&isWorkspaceReadyFor(currentWorkspaceIdentity,loadedWorkspaceIdentity);
   const [persistenceError, setPersistenceError] = useState("");
-  const lastOrg = useRef(undefined);
+  const lastWorkspaceIdentity = useRef(undefined);
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
 
   const activeStores = stores.filter((store) => store.active !== false);
@@ -131,22 +135,24 @@ export const StoreProvider = ({ children }) => {
 
   const hydrateWorkspace = useCallback(async()=>{
     const org=currentUser?.organizationId||null;
-    setWorkspaceReady(false);
+    const hydrationIdentity=workspaceIdentity(currentUser);
+    setWorkspaceLoading(true);
+    setLoadedWorkspaceIdentity(null);
     setPersistenceError("");
     if(!currentUser){
       setStores([]);setInventoryState([]);setDailySales([]);setSalesHistory([]);setSuppliers([]);setExpenses([]);setReturns([]);
       setActiveShifts({});setShiftHistory([]);setActivityLogs([]);setInventoryTransfers([]);setStockMovements([]);setInventoryCounts([]);
       setOrganizationsState([]);setPaymentsState([]);setBillingDraft(null);setEmployees([]);setTelegramSettings({connected:false,connections:{}});
-      setWorkspaceReady(true);return;
+      setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;
     }
     if(currentUser.appRole===ROLES.PLATFORM_ADMIN){
       try{
         const data=await api.get("/api/platform/bootstrap");
         setOrganizationsState(data.organizations||[]);setPaymentsState(data.payments||[]);setBillingDraft(null);
       }catch(error){setPersistenceError(error instanceof ApiError?error.message:"Platforma ma’lumotlarini yuklab bo‘lmadi")}
-      setWorkspaceReady(true);return;
+      setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;
     }
-    if(!org){setWorkspaceReady(true);return;}
+    if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;}
     try{
       const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
       if(baseResult.status!=="fulfilled")throw baseResult.reason;
@@ -192,19 +198,18 @@ export const StoreProvider = ({ children }) => {
         setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{})});
       }
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
-      setWorkspaceReady(true);
+      setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
     }catch(error){
       setPersistenceError(error instanceof ApiError?error.message:"Serverdan ish maydonini yuklab bo‘lmadi");
-      setWorkspaceReady(true);
+      setWorkspaceLoading(false);
     }
   },[currentUser]);
 
   useEffect(()=>{
-    const org=currentUser?.organizationId||null;
-    if(lastOrg.current===org)return;
-    lastOrg.current=org;
+    if(!shouldHydrateWorkspace(currentWorkspaceIdentity,lastWorkspaceIdentity.current))return;
+    lastWorkspaceIdentity.current=currentWorkspaceIdentity;
     void hydrateWorkspace();
-  },[currentUser?.organizationId,currentUser?.id,hydrateWorkspace]);
+  },[currentWorkspaceIdentity,hydrateWorkspace]);
 
   useEffect(()=>{
     if(!workspaceReady||!selectedStoreId||branchLockedRole)return;
