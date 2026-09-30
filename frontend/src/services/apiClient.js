@@ -1,3 +1,5 @@
+import { createRequestCoordinator } from "./requestCoordinator";
+
 const RAW_API_URL=String(import.meta.env.VITE_API_URL||"").trim().replace(/\/$/,"");
 export const API_URL=RAW_API_URL;
 
@@ -6,6 +8,8 @@ export class ApiError extends Error{
 }
 
 const ensureApi=()=>true;
+const requestCoordinator=createRequestCoordinator();
+const getKey=(path,headers={})=>`${path}::${JSON.stringify(headers||{})}`;
 const parseError=async(response)=>{
   const payload=await response.clone().json().catch(()=>null);
   const error=payload?.error||{};
@@ -45,10 +49,14 @@ export async function apiBlob(path,{signal}={}){
 }
 
 export const api={
-  get:(path,options={})=>apiRequest(path,{...options,method:"GET"}),
-  post:(path,body,options={})=>apiRequest(path,{...options,method:"POST",body}),
-  patch:(path,body,options={})=>apiRequest(path,{...options,method:"PATCH",body}),
-  delete:(path,options={})=>apiRequest(path,{...options,method:"DELETE"}),
+  get:(path,options={})=>{
+    if(options?.signal)return apiRequest(path,{...options,method:"GET"});
+    const key=getKey(path,options?.headers);
+    return requestCoordinator.get(key,()=>apiRequest(path,{...options,method:"GET"}));
+  },
+  post:(path,body,options={})=>requestCoordinator.mutate(()=>apiRequest(path,{...options,method:"POST",body})),
+  patch:(path,body,options={})=>requestCoordinator.mutate(()=>apiRequest(path,{...options,method:"PATCH",body})),
+  delete:(path,options={})=>requestCoordinator.mutate(()=>apiRequest(path,{...options,method:"DELETE"})),
   upload:apiUpload,
   blob:apiBlob,
 };

@@ -23,7 +23,7 @@ test("workspace persistence is server-authoritative and surfaces API failures",(
   const store=read("src/context/StoreContext.jsx");
   const apiClient=read("src/services/apiClient.js");
   assert.match(store,/api\.get\("\/api\/bootstrap"\)/);
-  assert.match(store,/setPersistenceError\(message\);setWorkspaceLoadError\(message\)/);
+  assert.match(store,/setPersistenceError\(message\);if\(!silent\)\{setWorkspaceLoadError\(message\);setWorkspaceLoading\(false\);\}/);
   assert.match(store,/const apiFailure=/);
   assert.match(apiClient,/credentials:"include"/);
   assert.doesNotMatch(store,/localStorage|sessionStorage|indexedDB/i);

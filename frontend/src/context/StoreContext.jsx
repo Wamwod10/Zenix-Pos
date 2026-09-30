@@ -6,6 +6,7 @@ import { BILLING_PLANS, addBillingMonths, billingDateISO } from "../config/billi
 import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../utils/workspaceDate";
 import { invoiceBalance } from "../utils/supplierLedger";
 import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspace, workspaceIdentity } from "../utils/workspaceReadiness";
+import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
 import { api, ApiError } from "../services/apiClient";
 
 const StoreContext = createContext(null);
@@ -119,6 +120,7 @@ export const StoreProvider = ({ children }) => {
     || (branchLockedRole ? stores.find((store)=>store.id===currentStoreId) : activeStores[0])
     || { id:DEFAULT_STORE_ID, name:"Asosiy filial" };
   const inventory = useMemo(()=>projectInventory(inventoryState,currentStoreId),[inventoryState,currentStoreId]);
+  const inventoryById = useMemo(()=>new Map(inventoryState.map((item)=>[String(item.id),item])),[inventoryState]);
   const activeShift = activeShifts[currentStoreId] || null;
   const hasPermission = useCallback((permission, role=currentUser?.appRole)=>{
     if(role===ROLES.OWNER)return true;
@@ -138,36 +140,38 @@ export const StoreProvider = ({ children }) => {
     };
   },[workspaceSettings,currentStoreId]);
 
-  const hydrateWorkspace = useCallback(async()=>{
+  const hydrateWorkspace = useCallback(async({ silent = false } = {})=>{
     const org=currentUser?.organizationId||null;
     const hydrationIdentity=workspaceIdentity(currentUser);
     const requestId=++hydrationRequestRef.current;
     const isCurrent=()=>isCurrentWorkspaceHydration({currentIdentity:currentWorkspaceIdentityRef.current,hydrationIdentity,currentRequestId:hydrationRequestRef.current,requestId});
-    setWorkspaceLoading(true);
-    setLoadedWorkspaceIdentity(null);
-    setWorkspaceLoadError("");
-    setPersistenceError("");
+    if(!silent){
+      setWorkspaceLoading(true);
+      setLoadedWorkspaceIdentity(null);
+      setWorkspaceLoadError("");
+      setPersistenceError("");
+    }
     if(!currentUser){
       setStores([]);setInventoryState([]);setDailySales([]);setSalesHistory([]);setSuppliers([]);setExpenses([]);setReturns([]);
       setActiveShifts({});setShiftHistory([]);setActivityLogs([]);setInventoryTransfers([]);setStockMovements([]);setInventoryCounts([]);
       setOrganizationsState([]);setPaymentsState([]);setBillingDraft(null);setEmployees([]);setTelegramSettings({connected:false,connections:{}});
       setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState(DEFAULT_UI_PREFERENCES);
-      setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;
+      setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);return;
     }
     if(currentUser.appRole===ROLES.PLATFORM_ADMIN){
       try{
         const data=await api.get("/api/platform/bootstrap");
         if(!isCurrent())return;
         setOrganizationsState(data.organizations||[]);setPaymentsState(data.payments||[]);setBillingDraft(null);
-        setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
+        setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);
       }catch(error){
         if(!isCurrent())return;
         const message=error instanceof ApiError?error.message:"Platforma ma’lumotlarini yuklab bo‘lmadi";
-        setPersistenceError(message);setWorkspaceLoadError(message);setWorkspaceLoading(false);
+        setPersistenceError(message);if(!silent){setWorkspaceLoadError(message);setWorkspaceLoading(false);}
       }
       return;
     }
-    if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;}
+    if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);return;}
     try{
       const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
       if(!isCurrent())return;
@@ -221,9 +225,19 @@ export const StoreProvider = ({ children }) => {
     }catch(error){
       if(!isCurrent())return;
       const message=error instanceof ApiError?error.message:"Serverdan ish maydonini yuklab bo‘lmadi";
-      setPersistenceError(message);setWorkspaceLoadError(message);setWorkspaceLoading(false);
+      setPersistenceError(message);if(!silent){setWorkspaceLoadError(message);setWorkspaceLoading(false);}
     }
   },[currentUser]);
+
+  const workspaceRefreshScheduler=useMemo(()=>createWorkspaceRefreshScheduler({
+    currentIdentity:()=>currentWorkspaceIdentityRef.current,
+    refresh:()=>hydrateWorkspace({silent:true}),
+  }),[hydrateWorkspace]);
+  const scheduleWorkspaceRefresh=useCallback(()=>{
+    workspaceRefreshScheduler.schedule(currentWorkspaceIdentityRef.current);
+  },[workspaceRefreshScheduler]);
+
+  useEffect(()=>()=>workspaceRefreshScheduler.cancel(),[workspaceRefreshScheduler]);
 
   useEffect(()=>{
     if(!shouldHydrateWorkspace(currentWorkspaceIdentity,lastWorkspaceIdentity.current))return;
@@ -319,15 +333,15 @@ export const StoreProvider = ({ children }) => {
   },[]);
 
   const getStoreStock = useCallback((productId,storeId=currentStoreId)=>{
-    const item=inventoryState.find((product)=>product.id===productId);
+    const item=inventoryById.get(String(productId));
     return Math.max(0,number(item?.stockByStore?.[storeId],0));
-  },[inventoryState,currentStoreId]);
+  },[inventoryById,currentStoreId]);
   const getStoreProduct = useCallback((productId,storeId=currentStoreId)=>{
-    const item=inventoryState.find((product)=>product.id===productId);
+    const item=inventoryById.get(String(productId));
     if(!item)return null;
     const quantity=Math.max(0,number(item?.stockByStore?.[storeId],number(item.quantity ?? item.stock,0)));
     return {...item,quantity,stock:quantity};
-  },[inventoryState,currentStoreId]);
+  },[inventoryById,currentStoreId]);
   const addActivityLog = useCallback(async (log) => {
     const now=new Date();
     const item = {
@@ -349,10 +363,10 @@ export const StoreProvider = ({ children }) => {
     if(!String(reason||"").trim())return {success:false,message:"Tuzatish sababini kiriting"};
     try{
       const data=await api.post("/api/inventory/adjust",{productId,storeId,delta:number(delta,0),reason:String(reason).trim(),allowNegative:Boolean(allowNegative)});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,movement:data};
     }catch(error){return apiFailure(error,"Qoldiqni yangilab bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace]);
+  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitInventoryReceipt = useCallback(async ({ lines = [], meta = {}, activity = null, storeId = currentStoreId } = {}) => {
     if(!storeId)return {success:false,message:"Filial topilmadi"};
@@ -374,11 +388,11 @@ export const StoreProvider = ({ children }) => {
         reference:String(meta.invoiceNo||"").trim(),note:String(meta.note||"").trim(),
       };
       const data=await api.post("/api/inventory/receive",body);
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       const products=(data.updated||[]).map((row)=>({id:row.productId||row.id,name:row.name,quantity:number(row.quantity,0),stock:number(row.quantity,0),costPrice:number(row.avgCost??row.costPrice,0),unit:sourceLines.find((line)=>String(line.productId||"")===String(row.productId||row.id))?.unit||"dona"}));
       return {success:true,accepted:products.length,products,purchaseItems:data.purchaseLines||[],supplier:data.supplier||null,invoice:data.invoice||null,total:number(data.total,0),settlement:data.settlement||{},movements:data.updated||[]};
     }catch(error){return apiFailure(error,"Kirimni saqlab bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace,workspaceSettings.inventory?.defaultLowStock]);
+  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh,workspaceSettings.inventory?.defaultLowStock]);
 
   const commitInventoryTransferCreate = useCallback(async ({ toStoreId, items = [], needsApproval = false } = {}) => {
     if(!toStoreId||toStoreId===currentStoreId)return {success:false,message:"Qabul qiluvchi filialni tanlang"};
@@ -386,10 +400,10 @@ export const StoreProvider = ({ children }) => {
     if(!clean.length)return {success:false,message:"Transferga mahsulot qo‘shing"};
     try{
       const data=await api.post("/api/inventory/transfers",{fromStoreId:currentStoreId,toStoreId,needsApproval:Boolean(needsApproval),items:clean});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,transfer:data.transfer||data};
     }catch(error){return apiFailure(error,"Transferni yaratib bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace]);
+  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitInventoryTransferTransition = useCallback(async ({ transferId, nextStatus, receivedQuantities = null, differenceReason = "" } = {}) => {
     if(!transferId)return {success:false,message:"Transfer topilmadi"};
@@ -402,29 +416,29 @@ export const StoreProvider = ({ children }) => {
         data=await api.post(`/api/inventory/transfers/${encodeURIComponent(transferId)}/receive`,{items,differenceReason:String(differenceReason||"").trim()});
       }else if(nextStatus==="REJECTED")data=await api.post(`/api/inventory/transfers/${encodeURIComponent(transferId)}/cancel`,{});
       else return {success:false,message:"Transfer holati noto‘g‘ri"};
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,transfer:data.transfer||data};
     }catch(error){return apiFailure(error,"Transfer holatini yangilab bo‘lmadi")}
-  },[inventoryTransfers,hydrateWorkspace]);
+  },[inventoryTransfers,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitInventoryCountSubmit = useCallback(async ({ changes = [], requireApproval = false, storeId = currentStoreId, storeName = currentStore?.name } = {}) => {
     const clean=(changes||[]).filter((change)=>change?.productId&&Number.isFinite(Number(change.after))).map((change)=>({productId:change.productId,before:Math.max(0,number(change.before,0)),after:Math.max(0,number(change.after,0))}));
     if(!clean.length)return {success:false,message:"Inventarizatsiya farqi topilmadi"};
     try{
       const data=await api.post("/api/inventory/counts",{storeId,requireApproval:Boolean(requireApproval),changes:clean});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,pending:Boolean(requireApproval),count:data.count||data,storeName};
     }catch(error){return apiFailure(error,"Inventarizatsiyani saqlab bo‘lmadi")}
-  },[currentStoreId,currentStore?.name,hydrateWorkspace]);
+  },[currentStoreId,currentStore?.name,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitInventoryCountReview = useCallback(async ({ countId, decision } = {}) => {
     if(!countId||!["approve","reject"].includes(decision))return {success:false,message:"Inventarizatsiya amali noto‘g‘ri"};
     try{
       const data=await api.post(`/api/inventory/counts/${encodeURIComponent(countId)}/review`,{decision});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,status:String(data.count?.status||decision).toUpperCase(),count:data.count||data};
     }catch(error){const result=apiFailure(error,"Inventarizatsiyani ko‘rib chiqib bo‘lmadi");if(error?.code==="INVENTORY_COUNT_CONFLICT")return {...result,conflict:true,conflicts:error?.details||[]};return result}
-  },[hydrateWorkspace]);
+  },[hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const loadSaleHolds = useCallback(async (storeId = currentStoreId) => {
     if(!storeId)return {success:true,holds:[]};
@@ -457,11 +471,11 @@ export const StoreProvider = ({ children }) => {
         payments,customer:typeof sale.customer==="object"&&sale.customer!==null?sale.customer:{name:String(sale.customer||"")},metadata:{note:sale.note||"",frontendSubtotal:number(sale.subtotal,0),frontendDiscountTotal:number(sale.discountTotal,0),paymentMethod:sale.paymentMethod||"cash"},
       });
       const server=data.sale||data;
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       const committed={...sale,id:server.id||sale.id,saleNumber:server.sale_number||server.saleNumber||sale.saleNumber,createdAt:server.created_at||server.createdAt||sale.createdAt};
       return {success:true,sale:committed};
     }catch(error){return apiFailure(error,"Savdoni saqlab bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace]);
+  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitReturnTransaction = useCallback(async ({ saleId, updatedSale, productUpdates = [], stockStoreId = currentStoreId, returnRecord, cashMovement = null, activity = null } = {}) => {
     if(!saleId||!returnRecord?.productId||number(returnRecord.quantity,0)<=0)return {success:false,message:"Qaytarish ma’lumotlari to‘liq emas"};
@@ -472,45 +486,45 @@ export const StoreProvider = ({ children }) => {
         clientReference:String(returnRecord.clientReference||returnRecord.id||""),
         metadata:{businessDateISO:returnRecord.businessDateISO||"",dateISO:returnRecord.dateISO||"",tracking:returnRecord.tracking||null},
       });
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount)}};
     }catch(error){return apiFailure(error,"Qaytarishni saqlab bo‘lmadi")}
-  },[currentStoreId,activeShift?.id,hydrateWorkspace]);
+  },[currentStoreId,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitBusinessDay = useCallback(async ({ day, storeId = currentStoreId, storeName = currentStore?.name, activity = null } = {}) => {
     if(!day?.businessDateISO&&!day?.dateISO)return {success:false,message:"Kunlik savdo sanasi topilmadi"};
     try{
       const data=await api.post("/api/sales/business-days/close",{storeId,businessDate:day.businessDateISO||day.dateISO,metadata:{clientReference:day.id||"",storeName:storeName||""}});
-      await hydrateWorkspace();return {success:true,day:data.day||data};
+      scheduleWorkspaceRefresh();return {success:true,day:data.day||data};
     }catch(error){return apiFailure(error,"Biznes kunini yakunlab bo‘lmadi")}
-  },[currentStoreId,currentStore?.name,hydrateWorkspace]);
+  },[currentStoreId,currentStore?.name,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const saveSupplier = useCallback(async ({ id = null, payload } = {}) => {
     if(!payload?.name)return {success:false,message:"Ta’minotchi nomini kiriting"};
     const body={name:String(payload.name||"").trim(),phone:String(payload.phone||"").trim(),contactName:String(payload.contact||payload.contactName||"").trim(),telegram:String(payload.telegram||"").trim(),metadata:{deadline:payload.deadline||"",notes:payload.notes||""}};
     try{
       const data=id?await api.patch(`/api/suppliers/${encodeURIComponent(id)}`,body):await api.post("/api/suppliers",body);
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,supplier:data.supplier||data};
     }catch(error){return apiFailure(error,"Ta’minotchini saqlab bo‘lmadi")}
-  },[hydrateWorkspace]);
+  },[hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const setSupplierArchived = useCallback(async (supplierId, archived) => {
     if(!supplierId)return {success:false,message:"Ta’minotchi topilmadi"};
     try{
       const data=await api.post(`/api/suppliers/${encodeURIComponent(supplierId)}/${archived?"archive":"restore"}`,{});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,supplier:data.supplier||data};
     }catch(error){return apiFailure(error,"Ta’minotchi holatini yangilab bo‘lmadi")}
-  },[hydrateWorkspace]);
+  },[hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitSupplierPayment = useCallback(async ({ supplierId, invoiceId = "", amount = 0, method = "cash", note = "", payFromRegister = false } = {}) => {
     if(!supplierId||number(amount,0)<=0)return {success:false,message:"To‘lov ma’lumotlari to‘liq emas"};
     try{
       const data=await api.post(`/api/suppliers/${encodeURIComponent(supplierId)}/payments`,{invoiceId:invoiceId||null,storeId:currentStoreId||null,shiftId:method==="cash"&&payFromRegister?(activeShift?.id||null):null,fromRegister:method==="cash"&&payFromRegister,amount:number(amount,0),method,note:String(note||"")});
-      await hydrateWorkspace();return {success:true,payment:data.payment||data,amount:number(amount,0)};
+      scheduleWorkspaceRefresh();return {success:true,payment:data.payment||data,amount:number(amount,0)};
     }catch(error){return apiFailure(error,"Ta’minotchi to‘lovini saqlab bo‘lmadi")}
-  },[currentStoreId,activeShift?.id,hydrateWorkspace]);
+  },[currentStoreId,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitExpenseTransaction = useCallback(async ({ expense, remove = false, activity = null } = {}) => {
     if(!expense)return {success:false,message:"Xarajat ma’lumotlari to‘liq emas"};
@@ -520,34 +534,40 @@ export const StoreProvider = ({ children }) => {
         const body={storeId:expense.storeId||currentStoreId,shiftId:expense.shiftId||null,title:expense.title||expense.name,category:expense.category||"",amount:number(expense.amount,0),paymentMethod:expense.paymentMethod||"cash",note:expense.note||"",metadata:{receiptKey:expense.receiptKey||"",receiptName:expense.receiptName||"",receiptType:expense.receiptType||"",dateISO:expense.dateISO||""}};
         if(expense.id&&expenses.some((item)=>String(item.id)===String(expense.id)))await api.patch(`/api/expenses/${encodeURIComponent(expense.id)}`,body);else await api.post("/api/expenses",body);
       }
-      await hydrateWorkspace();return {success:true,expense};
+      scheduleWorkspaceRefresh();return {success:true,expense};
     }catch(error){return apiFailure(error,remove?"Xarajatni o‘chirib bo‘lmadi":"Xarajatni saqlab bo‘lmadi")}
-  },[currentStoreId,expenses,hydrateWorkspace]);
+  },[currentStoreId,expenses,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitShiftOpen = useCallback(async ({ shift, activity = null } = {}) => {
     if(!shift?.storeId)return {success:false,message:"Smena ma’lumotlari to‘liq emas"};
+    const mutationIdentity=currentWorkspaceIdentityRef.current;
     try{
       const data=await api.post("/api/shifts/open",{storeId:shift.storeId,openingCash:number(shift.openingCash,0),registerKey:shift.registerKey||`user:${currentUser?.id}`,metadata:{businessDateISO:shift.businessDateISO||"",clientReference:shift.id||""}});
-      await hydrateWorkspace();return {success:true,shift:data.shift||data};
+      const openedShift=normalizeOpenedShift(data.shift||data,shift);
+      if(mutationIdentity===currentWorkspaceIdentityRef.current){
+        setActiveShifts((current)=>withOpenedShift(current,openedShift,shift.storeId));
+        scheduleWorkspaceRefresh();
+      }
+      return {success:true,shift:openedShift};
     }catch(error){return apiFailure(error,"Smenani ochib bo‘lmadi")}
-  },[hydrateWorkspace,currentUser?.id]);
+  },[scheduleWorkspaceRefresh,currentUser?.id]);
 
   const commitShiftMovement = useCallback(async ({ movement, storeId = currentStoreId, activity = null } = {}) => {
     const shift=activeShifts?.[storeId];if(!shift)return {success:false,message:"Avval smenani oching"};
     if(!movement||number(movement.amount,0)<=0)return {success:false,message:"Kassa harakati ma’lumotlari to‘liq emas"};
     try{
       const data=await api.post(`/api/shifts/${encodeURIComponent(shift.id)}/movements`,{type:movement.type,amount:number(movement.amount,0),reason:String(movement.reason||"").trim(),source:movement.source||"manual",referenceId:movement.referenceId||movement.id||""});
-      await hydrateWorkspace();return {success:true,movement:data.movement||data};
+      scheduleWorkspaceRefresh();return {success:true,movement:data.movement||data};
     }catch(error){return apiFailure(error,"Kassa harakatini saqlab bo‘lmadi")}
-  },[activeShifts,currentStoreId,hydrateWorkspace]);
+  },[activeShifts,currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitShiftClose = useCallback(async ({ closedShift, storeId = currentStoreId, activity = null } = {}) => {
     const current=activeShifts?.[storeId];if(!current||!closedShift)return {success:false,message:"Joriy smena topilmadi"};
     try{
       const data=await api.post(`/api/shifts/${encodeURIComponent(current.id)}/close`,{actualCash:number(closedShift.closingCash??closedShift.actualCash,0),metadata:{differenceReason:closedShift.differenceReason||"",denominationCounts:closedShift.denominationCounts||null,duration:closedShift.duration||""}});
-      await hydrateWorkspace();return {success:true,shift:data.shift||data};
+      scheduleWorkspaceRefresh();return {success:true,shift:data.shift||data};
     }catch(error){return apiFailure(error,"Smenani yopib bo‘lmadi")}
-  },[activeShifts,currentStoreId,hydrateWorkspace]);
+  },[activeShifts,currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const loadBillingDraft = useCallback(async () => {
     try{const data=await api.get("/api/billing/draft");const draft=data.draft||null;setBillingDraft(draft);return {success:true,draft}}
@@ -585,22 +605,22 @@ export const StoreProvider = ({ children }) => {
       if(!receiptId)return {success:false,message:"Chek serverga yuklanmadi"};
       const data=await api.post("/api/billing/payments",{draftId,receiptId});
       setBillingDraft(null);
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,payment:data.payment||data};
     }catch(error){
       if(receiptId)await api.delete(`/api/billing/receipts/${encodeURIComponent(receiptId)}`).catch(()=>undefined);
       return apiFailure(error,"To‘lovni yuborib bo‘lmadi");
     }
-  },[billingDraft?.id,hydrateWorkspace]);
+  },[billingDraft?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitBillingReview = useCallback(async ({ paymentId, status, reason = "" } = {}) => {
     if(!paymentId)return {success:false,message:"To‘lov topilmadi"};
     try{
       const data=await api.post(`/api/platform/payments/${encodeURIComponent(paymentId)}/review`,{status,reason});
-      await hydrateWorkspace();
+      scheduleWorkspaceRefresh();
       return {success:true,payment:data.payment||data};
     }catch(error){return apiFailure(error,"To‘lov holatini yangilab bo‘lmadi")}
-  },[hydrateWorkspace]);
+  },[hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   useEffect(() => {
     const organizationId = currentUser?.organizationId;

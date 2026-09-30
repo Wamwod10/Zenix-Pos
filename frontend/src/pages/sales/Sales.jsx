@@ -92,8 +92,10 @@ function Sales(){
     return()=>clearInterval(timer);
   },[activeShift?.id]);
 
-  const categories=[...new Set(inventory.filter(p=>!p.archived).map(p=>p.category).filter(Boolean))];
+  const categories=useMemo(()=>[...new Set(inventory.filter(p=>!p.archived).map(p=>p.category).filter(Boolean))],[inventory]);
   const filteredProducts=useMemo(()=>inventory.filter(p=>!p.archived&&(category==="all"||p.category===category)&&`${p.name} ${p.sku||""} ${p.barcode||""}`.toLowerCase().includes(search.toLowerCase())),[inventory,category,search]);
+  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
+  const productByBarcode=useMemo(()=>{const map=new Map();for(const item of inventory){const code=String(item.barcode||"").trim();if(code&&!item.archived)map.set(code,item)}return map},[inventory]);
   const products=useMemo(()=>filteredProducts.slice(0,productLimit),[filteredProducts,productLimit]);
   useEffect(()=>setProductLimit(40),[category,search]);
   const topProducts=useMemo(()=>inventory.filter(p=>!p.archived&&p.quantity>0).slice(0,5),[inventory]);
@@ -151,7 +153,7 @@ function Sales(){
     });
   };
   const qty=(id,next)=>{
-    const product=inventory.find(item=>item.id===id);
+    const product=productById.get(String(id));
     const value=Math.max(0,blockNegative?Math.min(Number(next||0),Number(product?.quantity||0)):Number(next||0));
     setCart(items=>items.map(item=>item.id===id?{...item,cartQty:value}:item).filter(item=>item.cartQty>0));
   };
@@ -167,7 +169,7 @@ function Sales(){
         scannerBufferRef.current="";
         if(scannerResetRef.current)window.clearTimeout(scannerResetRef.current);
         if(code.length<4)return;
-        const exact=inventory.find(item=>!item.archived&&String(item.barcode||"").trim()===code);
+        const exact=productByBarcode.get(code);
         if(exact&&workspaceSettings.pos.barcodeAutoAdd!==false){event.preventDefault();add(exact);setSearch("");return}
         setSearch(code);
         requestAnimationFrame(()=>searchRef.current?.focus());
@@ -182,10 +184,10 @@ function Sales(){
     };
     window.addEventListener("keydown",onScannerKey);
     return()=>{window.removeEventListener("keydown",onScannerKey);if(scannerResetRef.current)window.clearTimeout(scannerResetRef.current)};
-  },[inventory,workspaceSettings.pos.barcodeAutoAdd,blockNegative,currentStoreId]);
+  },[productByBarcode,workspaceSettings.pos.barcodeAutoAdd,blockNegative,currentStoreId]);
   const handleSearchKey=(event)=>{
     if(event.key!=="Enter")return;
-    const exact=inventory.find(item=>!item.archived&&String(item.barcode||"").trim()===search.trim());
+    const exact=productByBarcode.get(search.trim());
     if(!exact&&!workspaceSettings.pos.enterAddsProduct)return;
     if(exact&&!workspaceSettings.pos.barcodeAutoAdd&&!workspaceSettings.pos.enterAddsProduct)return;
     const target=exact||products[0];
@@ -346,7 +348,7 @@ function Sales(){
       </aside>
     </div>
 
-    <BarcodeScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} title="Savdo uchun shtrix-kod" onDetected={(code)=>{const product=inventory.find(item=>!item.archived&&String(item.barcode||"").trim()===String(code).trim());if(product){add(product);setSearch("");setScannerOpen(false)}else{setSearch(String(code));setError(`Shtrix-kod ${code} bo‘yicha mahsulot topilmadi`);setScannerOpen(false);requestAnimationFrame(()=>searchRef.current?.focus())}}}/>
+    <BarcodeScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} title="Savdo uchun shtrix-kod" onDetected={(code)=>{const product=productByBarcode.get(String(code).trim());if(product){add(product);setSearch("");setScannerOpen(false)}else{setSearch(String(code));setError(`Shtrix-kod ${code} bo‘yicha mahsulot topilmadi`);setScannerOpen(false);requestAnimationFrame(()=>searchRef.current?.focus())}}}/>
     <Modal open={todaySalesOpen} onClose={()=>setTodaySalesOpen(false)} title="Bugungi savdolar" subtitle={`${currentStore?.name||"Filial"} · ${storeDailySales.length} ta tranzaksiya`} size="lg">
       <div className="today-sales-modal">{storeDailySales.length?<div className="today-sales-list">{storeDailySales.slice(0,todaySalesLimit).map(sale=><article key={sale.id}><div className="today-sale-top"><span><strong>Chek #{sale.saleNumber||String(sale.id||"").replace(/[^a-zA-Z0-9]/g,"").slice(-8).toUpperCase()||"—"}</strong><small>{sale.time} · {sale.items?.length||0} tur · {sale.sellerName||sale.seller||"Kassir"}</small></span><strong>{formatPrice(saleNetRevenue(sale))}</strong></div><div className="today-sale-meta"><StatusBadge tone="info">{payLabels[sale.paymentMethod]||sale.paymentMethod}</StatusBadge>{sale.returnedTotal>0&&<StatusBadge tone="warning">Qaytarilgan {formatPrice(sale.returnedTotal)}</StatusBadge>}{canReturn&&<button className="pro-btn secondary today-sale-return" onClick={()=>{setTodaySalesOpen(false);setReturnSale(sale);setReturnItem(null);setReturnReason("");setReturnQty(1);setRefundMethod("original");setReturnError("")}}><FiRefreshCw/> Qaytarish</button>}</div></article>)}{storeDailySales.length>todaySalesLimit&&<button className="pro-btn secondary" onClick={()=>setTodaySalesLimit(limit=>limit+30)}>Yana savdolarni ko‘rsatish</button>}</div>:<div className="pro-empty"><FiClock/><strong>Bugun hali savdo yo‘q</strong><span>Birinchi savdo yakunlangach shu yerda ko‘rinadi.</span></div>}
       {canCloseBusinessDay&&<div className="day-close-wrap"><button className="day-close-btn" disabled={!storeDailySales.length||!!activeShift} onClick={()=>{setTodaySalesOpen(false);setCloseDayModal(true)}}><FiClock/><span><strong>Kunlik savdoni yakunlash</strong><small>{activeShift?"Avval joriy smenani yoping":storeDailySales.length?`${storeDailySales.length} ta tranzaksiyani tarixga o‘tkazish`:"Bugun yakunlanadigan savdo yo‘q"}</small></span></button></div>}

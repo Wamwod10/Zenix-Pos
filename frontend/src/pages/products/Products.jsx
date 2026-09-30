@@ -139,7 +139,7 @@ function Products(){
 
   const filtered=useMemo(()=>inventory.filter((product)=>(status==="archived"?product.archived:!product.archived)
     && `${product.name} ${product.sku} ${product.barcode} ${product.category} ${product.brand}`.toLowerCase().includes(search.toLowerCase())),[inventory,status,search]);
-  const categories=[...new Set(inventory.map((product)=>String(product.category||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uz"));
+  const categories=useMemo(()=>[...new Set(inventory.map((product)=>String(product.category||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"uz")),[inventory]);
   const categoryCount=categories.length;
   const low=inventory.filter((product)=>!product.archived&&product.quantity>0&&product.quantity<=product.minStock).length;
   const out=inventory.filter((product)=>!product.archived&&product.quantity<=0).length;
@@ -151,7 +151,8 @@ function Products(){
   const allVisibleSelected=filtered.length>0&&filtered.every((product)=>selectedIds.includes(product.id));
   const toggleSelectAll=()=>setSelectedIds(allVisibleSelected?selectedIds.filter((id)=>!filtered.some((product)=>product.id===id)):[...new Set([...selectedIds,...filtered.map((product)=>product.id)])]);
   const toggleSelected=(id)=>setSelectedIds((ids)=>ids.includes(id)?ids.filter((item)=>item!==id):[...ids,id]);
-  const selectedProducts=inventory.filter((product)=>selectedIds.includes(product.id));
+  const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
+  const selectedProducts=useMemo(()=>inventory.filter((product)=>selectedIdSet.has(product.id)),[inventory,selectedIdSet]);
   const bulkSetCategory=async(nextCategory)=>{
     if(!canEdit||!selectedProducts.length)return;
     const category=nextCategory==="__none__"?"":nextCategory;
@@ -180,9 +181,21 @@ function Products(){
     addActivityLog({type:"product",title:nextArchived?"Mahsulotlar arxivlandi":"Mahsulotlar tiklandi",description:`${ids.length} ta mahsulot`});
     undo({title:nextArchived?"Mahsulotlar arxivlandi":"Mahsulotlar tiklandi",message:`${ids.length} ta mahsulot`,onUndo:async()=>{for(const row of before)await setProductArchived(row.id,row.archived)}});
   };
-  const productLastReceive=(productId)=>stockMovements.filter((item)=>item.productId===productId&&String(item.type||"").includes("Kirim")).sort((a,b)=>new Date(b.createdAt||b.dateISO||0)-new Date(a.createdAt||a.dateISO||0))[0]||null;
+  const lastReceiveByProduct=useMemo(()=>{
+    const map=new Map();
+    for(const item of stockMovements){
+      if(!String(item.type||"").includes("Kirim"))continue;
+      const key=String(item.productId||"");
+      const current=map.get(key);
+      const at=Date.parse(item.createdAt||item.dateISO||0)||0;
+      if(!current||at>current.at)map.set(key,{item,at});
+    }
+    return map;
+  },[stockMovements]);
+  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
+  const productLastReceive=(productId)=>lastReceiveByProduct.get(String(productId))?.item||null;
   const productLastSale=(productId)=>{
-    const product=inventory.find((item)=>String(item.id)===String(productId));
+    const product=productById.get(String(productId));
     if(!product?.lastSaleAt)return null;
     const soldAt=new Date(product.lastSaleAt);
     return {createdAt:product.lastSaleAt,dateISO:Number.isNaN(soldAt.getTime())?String(product.lastSaleAt).slice(0,10):soldAt.toISOString().slice(0,10)};

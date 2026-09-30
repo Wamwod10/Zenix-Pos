@@ -27,3 +27,12 @@ This package is based on the supplied ZIP. Production data was not reset and no 
 
 ## Packaging exception
 The supplied `.env.local`, `.git`, Neon/Render/Vercel configuration and other deployment metadata are preserved as explicitly requested. Secret values are not reproduced in this report.
+
+## Performance hardening (2026-09-30)
+- Mutation flows no longer block on a full workspace bootstrap; reconciliation is silent, bounded and account-scoped.
+- In-flight GET deduplication is invalidated across mutations and authentication boundaries to prevent stale or cross-tenant reuse.
+- Newly opened shifts become active immediately instead of waiting for background hydration.
+- Product/stock hot-path lookups use a memoized Map (O(1) lookup).
+- Migration 011 adds concurrent, non-destructive read-path indexes for sales/returns/expenses/shifts/suppliers/inventory/billing bootstrap queries without wrapping them in a transaction.
+- UI/design markup and stylesheet design system were not intentionally changed by the performance patch.
+- Final verification: frontend 187/187, backend 95/95, production-readiness audit PASS, source/import audit PASS and Vite production build PASS.

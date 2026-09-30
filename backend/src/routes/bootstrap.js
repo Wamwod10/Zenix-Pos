@@ -51,8 +51,15 @@ router.get("/",requireAuth,requireOrganization,asyncRoute(async(req,res)=>{
     pool.query(`SELECT * FROM stores WHERE organization_id=$1${branchStoreId?" AND id=$2":""} ORDER BY created_at`,storeArg),
     pool.query(`SELECT p.*,
       COALESCE(jsonb_object_agg(ib.store_id,ib.quantity) FILTER (WHERE ib.store_id IS NOT NULL),'{}'::jsonb) AS stock_by_store,
-      (SELECT max(s.created_at) FROM sale_items si JOIN sales s ON s.id=si.sale_id WHERE si.product_id=p.id AND s.organization_id=p.organization_id ${branchStoreId?"AND s.store_id=$2":""}) AS last_sale_at
-      FROM products p LEFT JOIN inventory_balances ib ON ib.product_id=p.id AND ib.organization_id=p.organization_id ${branchStoreId?"AND ib.store_id=$2":""}
+      max(ls.last_sale_at) AS last_sale_at
+      FROM products p
+      LEFT JOIN inventory_balances ib ON ib.product_id=p.id AND ib.organization_id=p.organization_id ${branchStoreId?"AND ib.store_id=$2":""}
+      LEFT JOIN (
+        SELECT si.product_id,max(s.created_at) AS last_sale_at
+        FROM sale_items si JOIN sales s ON s.id=si.sale_id
+        WHERE s.organization_id=$1 ${branchStoreId?"AND s.store_id=$2":""}
+        GROUP BY si.product_id
+      ) ls ON ls.product_id=p.id
       WHERE p.organization_id=$1 GROUP BY p.id ORDER BY p.created_at`,storeArg),
     pool.query(`SELECT s.*,u.name seller_name,st.name store_name,
       COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id',si.id,'productId',si.product_id,'name',si.product_name,'sku',si.sku,'barcode',si.barcode,'quantity',si.quantity,'qty',si.quantity,'finalPrice',si.unit_price*(1-si.discount_percent/100.0),'unitPrice',si.unit_price,'discountPercent',si.discount_percent,'lineTotal',si.line_total,'metadata',si.metadata)) FILTER (WHERE si.id IS NOT NULL),'[]'::jsonb) items,

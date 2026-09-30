@@ -13,6 +13,7 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "008_serial_case_insensitive_unique.sql",
   "009_payment_telegram_approval.sql",
   "010_idempotency_and_billing_review.sql",
+  "011_bootstrap_performance_indexes.sql",
 ]);
 
 export const REQUIRED_TABLES = Object.freeze([
@@ -141,6 +142,21 @@ export const REQUIRED_INDEXES = Object.freeze([
   "billing_payments_telegram_token_unique",
   "sale_returns_org_client_reference_unique",
   "billing_payments_one_review_per_type",
+  "sale_returns_org_store_created_idx",
+  "expenses_org_store_created_idx",
+  "shifts_org_store_opened_idx",
+  "shift_movements_shift_created_idx",
+  "supplier_invoices_org_store_created_idx",
+  "supplier_invoices_supplier_created_idx",
+  "supplier_payments_org_store_created_idx",
+  "supplier_payments_supplier_created_idx",
+  "supplier_invoice_items_invoice_idx",
+  "stock_transfers_org_created_idx",
+  "inventory_counts_org_store_created_idx",
+  "billing_payments_org_submitted_idx",
+  "sale_items_product_sale_idx",
+  "sale_payments_sale_idx",
+  "sale_returns_sale_created_idx",
 ]);
 
 const missing = (required, actual) => {
@@ -171,7 +187,13 @@ export const readDatabaseSchema = async (db) => {
     db.query("SELECT table_name FROM information_schema.table_constraints WHERE table_schema='public' AND constraint_type='PRIMARY KEY'"),
     db.query("SELECT DISTINCT table_name FROM information_schema.table_constraints WHERE table_schema='public' AND constraint_type='FOREIGN KEY'"),
     db.query("SELECT DISTINCT table_name FROM information_schema.table_constraints WHERE table_schema='public' AND constraint_type='UNIQUE'"),
-    db.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'"),
+    db.query(`
+      SELECT index_class.relname AS indexname
+      FROM pg_class index_class
+      JOIN pg_index index_row ON index_row.indexrelid=index_class.oid
+      JOIN pg_namespace namespace ON namespace.oid=index_class.relnamespace
+      WHERE namespace.nspname='public' AND index_row.indisvalid AND index_row.indisready
+    `),
   ]);
 
   return {

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pool } from "./pool.js";
+import { executeMigration } from "./migrationExecution.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationDir = path.resolve(here, "../../migrations");
@@ -12,6 +13,6 @@ for(const name of files){
   if(exists.rowCount)continue;
   const sql=await fs.readFile(path.join(migrationDir,name),"utf8");
   const client=await pool.connect();
-  try{await client.query("BEGIN");await client.query(sql);await client.query("INSERT INTO schema_migrations(name) VALUES($1)",[name]);await client.query("COMMIT");console.log(`[migrate] ${name}`)}catch(error){await client.query("ROLLBACK");throw error}finally{client.release()}
+  try{await executeMigration(client,name,sql);console.log(`[migrate] ${name}`)}finally{client.release()}
 }
 await pool.end();

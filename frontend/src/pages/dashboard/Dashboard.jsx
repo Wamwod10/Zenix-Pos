@@ -96,13 +96,23 @@ function Dashboard(){
 
   const trend=useMemo(()=>{
     const days=period==="all"?14:Math.min(14,Number(period));
+    const grouped=new Map();
+    for(const sale of allSales){
+      if(!belongsToStore(sale,store))continue;
+      const key=dayKey(sale.dateISO||sale.date,organizationSettings.timezone);
+      if(!key)continue;
+      const row=grouped.get(key)||{sales:0,profit:0};
+      row.sales+=getSaleNetTotal(sale);
+      row.profit+=getSaleProfit(sale);
+      grouped.set(key,row);
+    }
     const rows=[];
     const todayKey=workspaceDateISO(new Date(),organizationSettings.timezone);
     for(let i=days-1;i>=0;i--){
       const key=shiftDayKey(todayKey,-i);
       const labelDate=new Date(`${key}T12:00:00Z`);
-      const list=allSales.filter(s=>dayKey(s.dateISO||s.date,organizationSettings.timezone)===key&&belongsToStore(s,store));
-      rows.push({date:formatWorkspaceDate(labelDate,organizationSettings,{short:true}),sales:list.reduce((sum,s)=>sum+getSaleNetTotal(s),0),profit:list.reduce((sum,s)=>sum+getSaleProfit(s),0)});
+      const row=grouped.get(key)||{sales:0,profit:0};
+      rows.push({date:formatWorkspaceDate(labelDate,organizationSettings,{short:true}),sales:row.sales,profit:row.profit});
     }
     return rows;
   },[allSales,period,store,stores,organizationSettings.timezone,organizationSettings.dateFormat]);
