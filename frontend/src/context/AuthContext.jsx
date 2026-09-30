@@ -211,8 +211,13 @@ export const AuthProvider=({children})=>{
   };
 
   const logout=async()=>{
-    setCurrentUser(null);setWorkspaceAccounts([]);setSessions([]);
-    try{await api.post("/api/auth/logout",{})}catch{/* local session is already cleared from UI */}
+    try{
+      await api.post("/api/auth/logout",{});
+      setCurrentUser(null);setWorkspaceAccounts([]);setSessions([]);
+      return {success:true};
+    }catch(error){
+      return {success:false,message:apiMessage(error,"Tizimdan chiqib bo‘lmadi")};
+    }
   };
 
   const value=useMemo(()=>({

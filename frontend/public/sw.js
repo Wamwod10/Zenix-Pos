@@ -1,6 +1,7 @@
 const CACHE_PREFIX = "zenix-shell-";
 const CACHE_NAME = `${CACHE_PREFIX}v4`;
-const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest"];
+const BUILD_ASSETS = [];
+const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", ...BUILD_ASSETS];
 
 const offlineResponse = (request) => new Response(
   request.mode === "navigate"
@@ -10,13 +11,12 @@ const offlineResponse = (request) => new Response(
 );
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache)=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache)=>cache.addAll(APP_SHELL)));
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(Promise.all([
     caches.keys().then((keys)=>Promise.all(keys.filter((key)=>key.startsWith(CACHE_PREFIX)&&key!==CACHE_NAME).map((key)=>caches.delete(key)))),
-    self.clients.claim(),
   ]));
 });
 

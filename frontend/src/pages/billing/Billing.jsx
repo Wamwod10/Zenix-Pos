@@ -20,7 +20,8 @@ const STATUS_LABELS={ACTIVE:"Faol",APPROVED:"Faol",REVIEW:"Tekshiruvda",REJECTED
 const statusTone=status=>["ACTIVE","APPROVED"].includes(status)?"success":status==="REJECTED"||status==="EXPIRED"?"danger":status==="REVIEW"?"warning":"neutral";
 const fmtDate=value=>value?new Date(value).toLocaleDateString("uz-UZ"):"—";
 const billingPrice=value=>formatPrice(value,"UZS");
-const daysUntil=value=>value?Math.max(0,Math.ceil((new Date(value).getTime()-Date.now())/86400000)):0;
+const localDateISO=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+const daysUntil=value=>value?Math.max(0,billingDaysBetween(localDateISO(),String(value).slice(0,10))):0;
 
 function Billing({activation=false}){
   const {currentUser,logout}=useAuth();
@@ -36,7 +37,7 @@ function Billing({activation=false}){
   const hasPendingPayment=hasPendingBillingPayment(payments,currentUser?.organizationId);
   const expiry=currentOrg?.expiryDate||null;
   const storedStatus=String(currentOrg?.licenseStatus||latestLicensePayment?.status||(activation?"PAYMENT_REQUIRED":"ACTIVE")).toUpperCase();
-  const status=(["ACTIVE","APPROVED"].includes(storedStatus)&&expiry&&new Date(expiry).getTime()<Date.now())?"EXPIRED":storedStatus;
+  const status=(["ACTIVE","APPROVED"].includes(storedStatus)&&expiry&&String(expiry).slice(0,10)<localDateISO())?"EXPIRED":storedStatus;
   const canWrite=activation||hasPermission("billingWrite",currentUser?.appRole);
   const readonly=!canWrite;
   const currentPlan=currentOrg?.plan&&BILLING_PLANS[currentOrg.plan]?currentOrg.plan:(latestLicensePayment?.plan&&BILLING_PLANS[latestLicensePayment.plan]?latestLicensePayment.plan:"ANNUAL");
@@ -51,7 +52,7 @@ function Billing({activation=false}){
   const [flow,setFlow]=useState(()=>paymentReviewState==="waiting"?"waiting":activation||["PAYMENT_REQUIRED","REJECTED"].includes(status)?"plans":status==="EXPIRED"?"renew":"overview");
   const [plan,setPlan]=useState(currentPlan);
   const [licenseIntent,setLicenseIntent]=useState(()=>activation||!["ACTIVE","APPROVED","EXPIRED"].includes(status)?"ACTIVATE":"RENEW");
-  const renewalBaseDate=billingDateISO(expiry&&new Date(expiry).getTime()>Date.now()?expiry:new Date());
+  const renewalBaseDate=billingDateISO(expiry&&String(expiry).slice(0,10)>=localDateISO()?expiry:new Date());
   const defaultRenewTargetDate=addBillingMonths(renewalBaseDate,currentPlan==="MONTHLY"?1:12);
   const [renewTargetDate,setRenewTargetDate]=useState(()=>defaultRenewTargetDate);
   const minimumRenewExtraStores=Math.max(0,used-included);

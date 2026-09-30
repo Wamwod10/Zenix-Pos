@@ -106,6 +106,7 @@ export const StoreProvider = ({ children }) => {
   const hydrationRequestRef=useRef(0);
   currentWorkspaceIdentityRef.current=currentWorkspaceIdentity;
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
+  const settingsSaveQueueRef=useRef(Promise.resolve());
 
   const activeStores = stores.filter((store) => store.active !== false);
   const branchLockedRole=[ROLES.CASHIER,ROLES.SALES,ROLES.WAREHOUSE].includes(currentUser?.appRole);
@@ -150,6 +151,7 @@ export const StoreProvider = ({ children }) => {
       setStores([]);setInventoryState([]);setDailySales([]);setSalesHistory([]);setSuppliers([]);setExpenses([]);setReturns([]);
       setActiveShifts({});setShiftHistory([]);setActivityLogs([]);setInventoryTransfers([]);setStockMovements([]);setInventoryCounts([]);
       setOrganizationsState([]);setPaymentsState([]);setBillingDraft(null);setEmployees([]);setTelegramSettings({connected:false,connections:{}});
+      setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState(DEFAULT_UI_PREFERENCES);
       setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);return;
     }
     if(currentUser.appRole===ROLES.PLATFORM_ADMIN){
@@ -190,6 +192,9 @@ export const StoreProvider = ({ children }) => {
       const tgConnections={};
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});
+      if(!settingsLoaded){
+        setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState(DEFAULT_UI_PREFERENCES);
+      }
       if(settingsLoaded){
         const rawWorkspace=settingsData.workspaceSettings||{};
         const nextWorkspaceSettings={
@@ -246,12 +251,14 @@ export const StoreProvider = ({ children }) => {
       payload.rolePermissions=Object.fromEntries(Object.entries(rolePermissions||{}).filter(([role])=>role!==ROLES.OWNER&&role!==ROLES.PLATFORM_ADMIN));
     }
     if(!Object.keys(payload).length)return undefined;
-    const timer=setTimeout(async()=>{
-      try{
-        await api.patch("/api/settings/workspace",payload);
-        settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(Object.keys(payload).map((key)=>[key,snapshots[key]]))};
-        setPersistenceError("");
-      }catch(error){setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi")}
+    const timer=setTimeout(()=>{
+      settingsSaveQueueRef.current=settingsSaveQueueRef.current.catch(()=>undefined).then(async()=>{
+        try{
+          await api.patch("/api/settings/workspace",payload);
+          settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(Object.keys(payload).map((key)=>[key,snapshots[key]]))};
+          setPersistenceError("");
+        }catch(error){setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi");throw error}
+      });
     },350);
     return()=>clearTimeout(timer);
   },[workspaceSettings,businessFeatures,rolePermissions,workspaceReady,currentUser?.organizationId,currentUser?.appRole,hasPermission]);
@@ -462,6 +469,7 @@ export const StoreProvider = ({ children }) => {
       const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,{
         productId:returnRecord.productId,quantity:number(returnRecord.quantity,0),reason:String(returnRecord.reason||"Qaytarish").trim(),refundMethod:returnRecord.refundMethod||"original",
         refundShiftId:returnRecord.refundShiftId||cashMovement&&activeShift?.id||null,refundBreakdown:returnRecord.refundBreakdown||undefined,
+        clientReference:String(returnRecord.clientReference||returnRecord.id||""),
         metadata:{businessDateISO:returnRecord.businessDateISO||"",dateISO:returnRecord.dateISO||"",tracking:returnRecord.tracking||null},
       });
       await hydrateWorkspace();
@@ -570,15 +578,19 @@ export const StoreProvider = ({ children }) => {
   const commitBillingSubmission = useCallback(async ({ draftId = billingDraft?.id, file } = {}) => {
     if(!draftId)return {success:false,message:"To‘lov drafti topilmadi"};
     if(!file)return {success:false,message:"To‘lov chekini yuklang"};
+    let receiptId="";
     try{
       const upload=await api.upload("/api/billing/receipts",file);
-      const receiptId=upload.receipt?.id;
+      receiptId=upload.receipt?.id||"";
       if(!receiptId)return {success:false,message:"Chek serverga yuklanmadi"};
       const data=await api.post("/api/billing/payments",{draftId,receiptId});
       setBillingDraft(null);
       await hydrateWorkspace();
       return {success:true,payment:data.payment||data};
-    }catch(error){return apiFailure(error,"To‘lovni yuborib bo‘lmadi")}
+    }catch(error){
+      if(receiptId)await api.delete(`/api/billing/receipts/${encodeURIComponent(receiptId)}`).catch(()=>undefined);
+      return apiFailure(error,"To‘lovni yuborib bo‘lmadi");
+    }
   },[billingDraft?.id,hydrateWorkspace]);
 
   const commitBillingReview = useCallback(async ({ paymentId, status, reason = "" } = {}) => {

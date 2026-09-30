@@ -18,9 +18,10 @@ test('legacy auth sessions normalize to SaaS roles',()=>{
 });
 
 test('license gate opens only verified active access',()=>{
-  const now=Date.now();
+  const now=new Date(2026,8,24,12).getTime();
   assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE'},now}).allowed,true);
-  assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:new Date(now-1000).toISOString()},now}).allowed,false);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:'2026-09-24'},now}).allowed,true);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:'2026-09-23'},now}).allowed,false);
   assert.equal(workspaceAccessState({organization:{licenseStatus:'PAYMENT_REQUIRED'},now}).allowed,false);
   assert.equal(workspaceAccessState({organization:{licenseStatus:'REJECTED'},now}).allowed,false);
   assert.equal(workspaceAccessState({organization:{licenseStatus:'REVIEW'},payments:[{status:'REVIEW',type:'LICENSE'}],now}).allowed,false);
