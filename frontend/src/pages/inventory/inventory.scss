@@ -167,3 +167,15 @@ body.dark-mode .pending-counts>strong{color:color-mix(in srgb,var(--warning) 72%
 body.dark-mode .pending-counts>div{background:var(--surface)}
 .barcode-receive-actions{display:flex;gap:8px;align-items:center}.quick-receive-row input::placeholder{color:var(--muted);opacity:.82}.quick-receive-row input:not(:disabled){color:var(--text);font-weight:520}.quick-barcode-cell button{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px;font-weight:600}.quick-barcode-cell button:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
 @media(max-width:620px){.barcode-receive-actions{display:grid;grid-template-columns:1fr 1fr}.barcode-receive .field-action-row{display:grid;grid-template-columns:minmax(0,1fr) auto}.barcode-receive .field-action-row .pro-btn{padding-inline:10px}}
+
+/* Quick receive responsive hardening: preserve the desktop table, provide a usable mobile form. */
+@media(max-width:700px){
+  .quick-receive-table{overflow:visible;border:0;background:transparent}
+  .quick-receive-head{display:none}
+  .quick-receive-row{min-width:0;width:100%;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:15px;background:var(--card-bg)}
+  .quick-receive-row>.premium-select,.quick-receive-row>input:first-of-type,.quick-barcode-cell{grid-column:1/-1}
+  .quick-receive-row>.premium-select{min-width:0;width:100%}
+  .quick-receive-row input,.quick-receive-row select,.quick-barcode-cell>button{min-height:44px;height:44px}
+  .quick-receive-row>button:last-child{grid-column:2;justify-self:end}
+}
+@media(max-width:390px){.quick-receive-row{grid-template-columns:1fr}.quick-receive-row>*{grid-column:1!important}.quick-receive-row>button:last-child{justify-self:end}}

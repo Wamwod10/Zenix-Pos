@@ -14,6 +14,8 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "009_payment_telegram_approval.sql",
   "010_idempotency_and_billing_review.sql",
   "011_bootstrap_performance_indexes.sql",
+  "012_customers_credit_sales.sql",
+  "013_customer_credit_hardening.sql",
 ]);
 
 export const REQUIRED_TABLES = Object.freeze([
@@ -31,6 +33,10 @@ export const REQUIRED_TABLES = Object.freeze([
   "shifts",
   "shift_movements",
   "sales",
+  "customers",
+  "customer_ledger",
+  "customer_payment_allocations",
+  "customer_loyalty_ledger",
   "sale_items",
   "sale_payments",
   "sale_returns",
@@ -70,6 +76,10 @@ export const REQUIRED_FOREIGN_KEY_TABLES = Object.freeze([
   "shifts",
   "shift_movements",
   "sales",
+  "customers",
+  "customer_ledger",
+  "customer_payment_allocations",
+  "customer_loyalty_ledger",
   "sale_items",
   "sale_payments",
   "sale_returns",
@@ -100,6 +110,9 @@ export const REQUIRED_UNIQUE_CONSTRAINT_TABLES = Object.freeze([
   "auth_sessions",
   "product_serials",
   "sales",
+  "customers",
+  "customer_ledger",
+  "customer_payment_allocations",
   "stock_transfer_items",
   "business_days",
   "billing_payments",
@@ -157,6 +170,9 @@ export const REQUIRED_INDEXES = Object.freeze([
   "sale_items_product_sale_idx",
   "sale_payments_sale_idx",
   "sale_returns_sale_created_idx",
+  "customer_payment_allocations_credit_idx",
+  "customer_payment_allocations_customer_idx",
+  "customer_loyalty_org_customer_idx",
 ]);
 
 const missing = (required, actual) => {

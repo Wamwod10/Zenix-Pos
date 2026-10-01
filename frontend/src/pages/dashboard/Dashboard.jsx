@@ -162,6 +162,13 @@ function Dashboard(){
   const salesChange=pct(revenue,previousRevenue);
   const profitChange=pct(netProfit,previousNet);
   const avgChange=pct(average,previousAverage);
+  const stockForecast=useMemo(()=>{
+    const sold=new Map();
+    sales.forEach(sale=>(sale.items||[]).forEach(item=>{const id=String(item.productId||item.id||"");if(!id)return;sold.set(id,(sold.get(id)||0)+Math.max(0,getNetSoldQty(item)))}));
+    const days=Math.max(1,period==="all"?30:Number(period)||1);
+    return activeInventory.map(product=>{const qty=sold.get(String(product.id))||0;const perDay=qty/days;return {...product,soldQty:qty,daysLeft:perDay>0?Number(product.quantity||0)/perDay:null}}).filter(product=>product.daysLeft!=null&&product.daysLeft<=7).sort((a,b)=>a.daysLeft-b.daysLeft).slice(0,3);
+  },[sales,activeInventory,period]);
+  const pulse=useMemo(()=>{const items=[];if(out.length)items.push({tone:"danger",title:`${out.length} ta mahsulot tugagan`,text:"Savdo yo‘qotmaslik uchun qoldiqni to‘ldiring",path:"/inventory"});if(stockForecast.length)items.push({tone:"warning",title:`${stockForecast.length} ta mahsulot tez tugashi mumkin`,text:`${stockForecast[0].name} · taxminan ${Math.max(1,Math.ceil(stockForecast[0].daysLeft))} kunlik qoldiq`,path:"/inventory"});if(returnRate>=5)items.push({tone:"warning",title:"Qaytarish darajasi yuqori",text:`Tanlangan davrda ${returnRate.toFixed(1)}%`,path:"/analytics"});if(salesChange!=null&&salesChange<=-20)items.push({tone:"info",title:"Savdo pasayishi kuzatildi",text:`Oldingi davrga nisbatan ${Math.abs(Math.round(salesChange))}% past`,path:"/analytics"});if(supplierDebt>0)items.push({tone:"neutral",title:"Ta’minotchi majburiyatlari",text:`Ochiq qarz ${formatPrice(supplierDebt)}`,path:"/suppliers"});return items.slice(0,4)},[out,stockForecast,returnRate,salesChange,supplierDebt]);
 
   return <div className="pro-page dashboard-pro">
     <PageHeader
@@ -169,6 +176,8 @@ function Dashboard(){
       subtitle={`${selectedStore?.name||"Barcha filiallar"} · biznes holati va asosiy ko‘rsatkichlar`}
       actions={<div className="dashboard-filters"><PremiumSelect className="pro-select" value={period} onChange={e=>setPeriod(e.target.value)}><option value="1">Bugun</option><option value="7">7 kun</option><option value="30">30 kun</option><option value="all">Barcha davr</option></PremiumSelect><PremiumSelect className="pro-select" value={store} onChange={e=>setStore(e.target.value)}><option value="all">Barcha filiallar</option>{activeStores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect></div>}
     />
+
+    <section className="pro-card zenix-pulse"><div className="pro-card-head"><div><h2>Zenix Pulse</h2><p>{pulse.length?`${pulse.length} ta e’tibor talab qiladigan signal`:"Biznesning asosiy ko‘rsatkichlari me’yorda"}</p></div><StatusBadge tone={pulse.some(x=>x.tone==="danger")?"danger":pulse.length?"warning":"success"}>{pulse.length?"E’tibor kerak":"Hammasi joyida"}</StatusBadge></div>{pulse.length?<div className="pulse-grid">{pulse.map((item,index)=><Link to={item.path} className={`pulse-item ${item.tone}`} key={`${item.title}-${index}`}><span><strong>{item.title}</strong><small>{item.text}</small></span><FiArrowRight/></Link>)}</div>:<div className="dashboard-empty compact"><FiActivity/> Hozircha kritik signal aniqlanmadi</div>}</section>
 
     <div className="dashboard-kpis">
       <StatCard icon={FiTrendingUp} label="Savdo" value={formatPrice(revenue)} hint={`${transactions} ta tranzaksiya`} tone="blue" trend={period!=="all"?{label:formatPct(salesChange),tone:salesChange==null?"neutral":salesChange>=0?"up":"down"}:null}/>

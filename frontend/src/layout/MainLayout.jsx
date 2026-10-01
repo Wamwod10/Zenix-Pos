@@ -14,10 +14,11 @@ import { formatWorkspaceDate, workspaceTime } from "../utils/workspaceDate";
 import Modal from "../components/Modal";
 import AppErrorBoundary from "../components/AppErrorBoundary";
 import { useFeedback } from "../context/FeedbackContext";
+import { api } from "../services/apiClient";
 import "./mainlayout.scss";
 
 const routeIndex = [
-  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],
+  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],["Mijozlar","Mijoz, nasiya va to‘lovlar","/customers"],
   ["Savdo tarixi","Cheklar, qaytarish va savdo tarixi","/history"],["Mahsulotlar","Katalog, shtrix-kod va SKU","/products"],["Ombor","Qoldiq, inventarizatsiya va transfer","/inventory"],
   ["Ta’minotchilar","Ta’minotchi, qarz va xarid","/suppliers"],["Xarajatlar","Xarajat va kategoriyalar","/expenses"],["Analitika","Hisobot, foyda, trend","/analytics"],
   ["Sotuvchi tahlili","Sotuvchi va kassir natijalari","/seller-analytics"],["Amallar tarixi","Audit va amallar tarixi","/activity-log"],["Sozlamalar","Interfeys, tashkilot, POS","/settings"],["Tarif va to‘lovlar","Tarif, muddat va to‘lov","/billing"],["Yordam Markazi","Qo‘llanma, ishni boshlash va platformadan foydalanish","/help"],
@@ -92,6 +93,7 @@ function MainLayout(){
   const [fx,setFx]=useState(null);
   const [fxStatus,setFxStatus]=useState("idle");
   const [readNotifications,setReadNotifications]=useState(()=>new Set());
+  const [customerCreditStats,setCustomerCreditStats]=useState(null);
   const searchRef=useRef(null);
   const commandRef=useRef(null);
   const headerRef=useRef(null);
@@ -121,7 +123,7 @@ function MainLayout(){
 
   const menuItems=isPlatform?[{title:"Platforma administratori",path:"/platform",icon:FiShield}]:[
     {title:"Boshqaruv paneli",path:"/",icon:FiGrid,permission:"moduleDashboard",group:"Asosiy"},{title:"Kassa / Smena",path:"/shifts",icon:FiBriefcase,permission:"moduleShifts",group:"Savdo"},
-    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
+    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Mijozlar",path:"/customers",icon:FiUser,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
     {title:"Mahsulotlar",path:"/products",icon:FiPackage,permission:"moduleProducts",group:"Ombor"},{title:"Ombor",path:"/inventory",icon:FiArchive,permission:"moduleInventory",group:"Ombor"},
     {title:"Ta’minotchilar",path:"/suppliers",icon:FiTruck,permission:"moduleSuppliers",group:"Ombor"},{title:"Xarajatlar",path:"/expenses",icon:FiCreditCard,permission:"moduleExpenses",group:"Tahlil"},
     {title:"Analitika",path:"/analytics",icon:FiBarChart2,permission:"moduleAnalytics",group:"Tahlil"},{title:"Sotuvchi tahlili",path:"/seller-analytics",icon:FiUserCheck,permission:"moduleSellerAnalytics",group:"Tahlil"},
@@ -244,6 +246,12 @@ function MainLayout(){
     if(age>30*60*1000)refreshFx();
   },[toolsOpen]);
 
+  useEffect(()=>{
+    if(isPlatform||!hasPermission("moduleSales",currentUser?.appRole)){setCustomerCreditStats(null);return undefined}
+    let active=true;api.get("/api/customers/stats").then(data=>{if(active)setCustomerCreditStats(data)}).catch(()=>{});
+    return()=>{active=false};
+  },[isPlatform,currentUser?.organizationId,currentUser?.appRole,hasPermission]);
+
   const notifications=useMemo(()=>{
     const items=[];
     if(isPlatform){
@@ -267,6 +275,7 @@ function MainLayout(){
         if(pendingTransfers.length)items.unshift({id:"transfer-approval",tone:"warning",title:`${pendingTransfers.length} ta transfer tasdiq kutmoqda`,text:"Filiallararo transferlarni tekshiring",path:"/inventory"});
       }
     }
+    if(hasPermission("moduleSales",currentUser?.appRole)&&Number(customerCreditStats?.overdue||0)>0)items.unshift({id:"customer-credit-overdue",tone:"warning",title:"Mijoz nasiyalari muddati o‘tgan",text:`${new Intl.NumberFormat("uz-UZ").format(Number(customerCreditStats.overdue||0))} so‘m undirilishi kerak`,path:"/customers"});
     if(notify.supplierDebt!==false&&hasPermission("moduleSuppliers",currentUser?.appRole)){
       const today=new Date(clock);today.setHours(0,0,0,0);
       const overdue=(suppliers||[]).flatMap(supplier=>(supplier.purchaseHistory||[]).filter(row=>Number(row.balance||0)>0&&row.dueDate&&new Date(`${String(row.dueDate).slice(0,10)}T00:00:00`).getTime()<today.getTime()).map(row=>({supplier,row})));
@@ -285,7 +294,7 @@ function MainLayout(){
       if(orgReview)items.unshift({id:"billing-review",tone:"info",title:"To‘lov tekshiruvda",text:"Chekingiz administrator tomonidan ko‘rib chiqilmoqda",path:"/billing"});
     }
     return items.slice(0,9);
-  },[inventory,suppliers,activeShift,isPlatform,payments,workspaceSettings.inventory.defaultLowStock,workspaceSettings.notifications,inventoryCounts,inventoryTransfers,organizations,currentUser?.appRole,currentUser?.organizationId,currentStoreId,clock,hasPermission,canApproveInventoryCount,canApproveTransfer]);
+  },[inventory,suppliers,activeShift,isPlatform,payments,workspaceSettings.inventory.defaultLowStock,workspaceSettings.notifications,inventoryCounts,inventoryTransfers,organizations,currentUser?.appRole,currentUser?.organizationId,currentStoreId,clock,hasPermission,canApproveInventoryCount,canApproveTransfer,customerCreditStats]);
   const unreadNotifications=notifications.filter(item=>!readNotifications.has(item.id));
   const visibleNotifications=notificationView==="unread"?unreadNotifications:notifications;
   const persistReadNotifications=(next)=>{
@@ -307,16 +316,18 @@ function MainLayout(){
     const allowed=(path)=>visibleMenu.some(item=>item.path===path);
     const routes=routeIndex.filter(([a,b,path])=>allowed(path)&&`${a} ${b}`.toLowerCase().includes(q)).map(([title,meta,path])=>({type:"Bo‘lim",title,meta,path}));
     const products=allowed("/products")?inventory.filter(p=>`${p.name} ${p.sku||""} ${p.barcode||""} ${p.brand||""}`.toLowerCase().includes(q)).slice(0,5).map(p=>({type:"Mahsulot",title:p.name,meta:`${p.sku||"SKU yo‘q"} · ${p.quantity} ${p.unit||"dona"}`,path:"/products"})):[];
+    const customerLookup=allowed("/customers")&&q.length>=2?[{type:"Mijoz",title:`“${search.trim()}” bo‘yicha mijozlarni qidirish`,meta:"Mijozlar va nasiya",path:`/customers?search=${encodeURIComponent(search.trim())}`}]:[];
     const supplierResults=allowed("/suppliers")?suppliers.filter(s=>`${s.name} ${s.phone||""} ${s.contact||""}`.toLowerCase().includes(q)).slice(0,3).map(s=>({type:"Ta’minotchi",title:s.name,meta:s.phone||s.contact||"Aloqa yo‘q",path:"/suppliers"})):[];
     const invoices=allowed("/suppliers")?suppliers.flatMap(supplier=>(supplier.purchaseHistory||[]).map(row=>({supplier,row}))).filter(({supplier,row})=>`${row.invoiceNo||""} ${supplier.name} ${(row.items||[]).map(item=>item.name||item.productName||"").join(" ")}`.toLowerCase().includes(q)).slice(0,3).map(({supplier,row})=>({type:"Nakladnoy",title:row.invoiceNo||"Raqamsiz nakladnoy",meta:`${supplier.name} · ${row.date||row.dateISO||""}`,path:"/suppliers"})):[];
     const allSales=[...(dailySales||[]),...(salesHistory||[]).flatMap(day=>day.sales||[])];
     const sales=allowed("/history")?allSales.filter(sale=>`${sale.id||""} ${sale.customer||""} ${sale.sellerName||sale.seller||""} ${(sale.items||[]).map(item=>item.name||"").join(" ")}`.toLowerCase().includes(q)).slice(0,4).map(sale=>({type:"Savdo",title:sale.id||"Savdo",meta:`${sale.customer||sale.sellerName||sale.seller||"Mijoz"} · ${sale.date||sale.dateISO||""}`,path:`/history?search=${encodeURIComponent(sale.id||q)}`})):[];
     const employeeResults=allowed("/settings")?(employees||[]).filter(employee=>`${employee.name||""} ${employee.phone||""} ${employee.login||""}`.toLowerCase().includes(q)).slice(0,3).map(employee=>({type:"Xodim",title:employee.name,meta:`${employee.phone||"Telefon yo‘q"} · ${ROLE_LABELS[employee.role]||employee.role||"Xodim"}`,path:"/settings?tab=Xodimlar"})):[];
-    return [...routes,...products,...sales,...supplierResults,...invoices,...employeeResults].slice(0,12);
+    return [...routes,...products,...customerLookup,...sales,...supplierResults,...invoices,...employeeResults].slice(0,12);
   },[search,inventory,suppliers,dailySales,salesHistory,employees,visibleMenu]);
 
   const quickActions=isPlatform?[{label:"To‘lovlarni tekshirish",path:"/platform",icon:FiShield}]:[
     hasPermission("moduleSales")&&{label:"Yangi savdo",path:"/sales",icon:FiShoppingCart},
+    hasPermission("moduleSales")&&{label:"Mijoz qo‘shish",path:"/customers",icon:FiUser},
     hasPermission("moduleInventory")&&hasPermission("inventoryAdjust")&&{label:"Omborga kirim",path:"/inventory?receive=1",icon:FiArchive},
     hasPermission("moduleExpenses")&&hasPermission("expensesWrite")&&{label:"Xarajat qo‘shish",path:"/expenses?new=1",icon:FiCreditCard},
     hasPermission("moduleShifts")&&{label:activeShift?"Smenani ko‘rish":"Smena ochish",path:"/shifts",icon:FiBriefcase},

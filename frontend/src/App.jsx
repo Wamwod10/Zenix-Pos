@@ -15,6 +15,7 @@ const Register=lazy(()=>import("./pages/register/Register"));
 const ChangePassword=lazy(()=>import("./pages/login/ChangePassword"));
 const Dashboard=lazy(()=>import("./pages/dashboard/Dashboard"));
 const Sales=lazy(()=>import("./pages/sales/Sales"));
+const Customers=lazy(()=>import("./pages/customers/Customers"));
 const Products=lazy(()=>import("./pages/products/Products"));
 const Inventory=lazy(()=>import("./pages/inventory/Inventory"));
 const Suppliers=lazy(()=>import("./pages/suppliers/Suppliers"));
@@ -92,6 +93,7 @@ function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fall
   <Route index element={<PermissionAccess permission="moduleDashboard"><W><Dashboard/></W></PermissionAccess>}/>
   <Route path="shifts" element={<PermissionAccess permission="moduleShifts"><W><Shifts/></W></PermissionAccess>}/>
   <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><Sales/></W></PermissionAccess>}/>
+  <Route path="customers" element={<PermissionAccess permission="moduleSales"><W><Customers/></W></PermissionAccess>}/>
   <Route path="products" element={<PermissionAccess permission="moduleProducts"><W><Products/></W></PermissionAccess>}/>
   <Route path="inventory" element={<PermissionAccess permission="moduleInventory"><W><Inventory/></W></PermissionAccess>}/>
   <Route path="suppliers" element={<PermissionAccess permission="moduleSuppliers"><FeatureAccess feature="supplierTracking"><W><Suppliers/></W></FeatureAccess></PermissionAccess>}/>

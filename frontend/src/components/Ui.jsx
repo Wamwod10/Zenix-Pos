@@ -129,9 +129,9 @@ export function PremiumSelect({ children, value, onChange, disabled = false, cla
     const openAbove = roomBelow < Math.min(preferredHeight, 180) && rect.top > roomBelow;
     setMenuStyle({
       position: "fixed",
-      left: Math.max(viewportGap, Math.min(rect.left, window.innerWidth - rect.width - viewportGap)),
+      left: Math.max(viewportGap, Math.min(rect.left, window.innerWidth - Math.min(Math.max(rect.width, 180), window.innerWidth - viewportGap * 2) - viewportGap)),
       top: openAbove ? Math.max(viewportGap, rect.top - preferredHeight - 7) : rect.bottom + 7,
-      width: rect.width,
+      width: Math.min(Math.max(rect.width, 180), window.innerWidth - viewportGap * 2),
       maxHeight: openAbove ? Math.min(preferredHeight, rect.top - viewportGap) : Math.min(preferredHeight, roomBelow),
       zIndex: 2600,
     });
