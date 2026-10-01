@@ -1,6 +1,10 @@
 const HOP_BY_HOP_HEADERS=new Set([
   "connection","keep-alive","proxy-authenticate","proxy-authorization","te","trailer","transfer-encoding","upgrade","host","content-length","expect"
 ]);
+const FORWARDED_REQUEST_HEADERS=new Set([
+  "accept","accept-language","authorization","content-type","cookie","if-match","if-none-match","user-agent",
+  "x-file-name","x-forwarded-for","x-telegram-bot-api-secret-token","x-zenix-client"
+]);
 
 const trimSlash=(value)=>String(value||"").trim().replace(/\/+$/g,"");
 
@@ -42,7 +46,7 @@ export default async function handler(req,res){
   const headers=new Headers();
   for(const [key,value] of Object.entries(req.headers||{})){
     const lower=String(key).toLowerCase();
-    if(HOP_BY_HOP_HEADERS.has(lower)||value===undefined)continue;
+    if(!FORWARDED_REQUEST_HEADERS.has(lower)||HOP_BY_HOP_HEADERS.has(lower)||value===undefined)continue;
     if(Array.isArray(value))for(const item of value)headers.append(key,String(item));
     else headers.set(key,String(value));
   }

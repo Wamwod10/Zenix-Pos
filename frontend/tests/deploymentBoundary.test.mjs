@@ -79,6 +79,43 @@ test("Vercel proxy removes the Expect header unsupported by Undici",async()=>{
   }
 });
 
+test("Vercel proxy forwards only application headers to the backend",async()=>{
+  const previousBackend=process.env.ZENIX_BACKEND_URL;
+  const previousFetch=globalThis.fetch;
+  let upstreamHeaders;
+  process.env.ZENIX_BACKEND_URL="https://zenix-pos-backend.onrender.com";
+  globalThis.fetch=async(_target,options)=>{
+    upstreamHeaders=options.headers;
+    return new Response(JSON.stringify({ok:true}),{status:200,headers:{"content-type":"application/json"}});
+  };
+
+  const req={method:"POST",url:"/api/proxy?path=auth/me",query:{path:"auth/me"},headers:{
+    host:"www.zenixpos.uz",
+    authorization:"Bearer test-token",
+    cookie:"zenix_session=test-session",
+    "content-type":"application/json",
+    "x-file-name":"receipt.pdf",
+    "x-telegram-bot-api-secret-token":"test-webhook-secret",
+    "x-zenix-client":"web",
+    "x-vercel-forwarded-for":"203.0.113.10",
+  },body:{}};
+  const res={statusCode:0,setHeader(){},end(payload){this.payload=payload;}};
+
+  try{
+    await proxyHandler(req,res);
+    assert.equal(upstreamHeaders.get("authorization"),"Bearer test-token");
+    assert.equal(upstreamHeaders.get("cookie"),"zenix_session=test-session");
+    assert.equal(upstreamHeaders.get("x-file-name"),"receipt.pdf");
+    assert.equal(upstreamHeaders.get("x-telegram-bot-api-secret-token"),"test-webhook-secret");
+    assert.equal(upstreamHeaders.get("x-zenix-client"),"web");
+    assert.equal(upstreamHeaders.has("x-vercel-forwarded-for"),false);
+  }finally{
+    if(previousBackend===undefined)delete process.env.ZENIX_BACKEND_URL;
+    else process.env.ZENIX_BACKEND_URL=previousBackend;
+    globalThis.fetch=previousFetch;
+  }
+});
+
 test("Vercel proxy exposes a safe failure reason when the upstream request throws",async()=>{
   const previousBackend=process.env.ZENIX_BACKEND_URL;
   const previousFetch=globalThis.fetch;
