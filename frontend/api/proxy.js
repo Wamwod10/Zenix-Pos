@@ -46,6 +46,7 @@ export default async function handler(req,res){
     if(Array.isArray(value))for(const item of value)headers.append(key,String(item));
     else headers.set(key,String(value));
   }
+  headers.delete("origin");
   headers.set("x-zenix-proxy","vercel");
   if(req.headers.host)headers.set("x-forwarded-host",String(req.headers.host));
   headers.set("x-forwarded-proto","https");

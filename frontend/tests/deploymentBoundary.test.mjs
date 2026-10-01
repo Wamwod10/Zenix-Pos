@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import proxyHandler from "../api/proxy.js";
 
 const read=(path)=>fs.readFileSync(path,"utf8");
 
@@ -14,6 +15,45 @@ test("Vercel proxies API traffic same-origin so HttpOnly auth is not a third-par
   const client=read("src/services/apiClient.js");
   assert.match(client,/VITE_API_URL\|\|""/);
   assert.doesNotMatch(client,/API_NOT_CONFIGURED/);
+});
+
+test("Vercel proxy does not forward the browser Origin to the Render server",async()=>{
+  const previousBackend=process.env.ZENIX_BACKEND_URL;
+  const previousFetch=globalThis.fetch;
+  let upstreamHeaders;
+  process.env.ZENIX_BACKEND_URL="https://zenix-pos-backend.onrender.com";
+  globalThis.fetch=async(_target,options)=>{
+    upstreamHeaders=options.headers;
+    return new Response(JSON.stringify({ok:true}),{status:200,headers:{"content-type":"application/json"}});
+  };
+
+  const responseHeaders=new Map();
+  const req={
+    method:"POST",
+    url:"/api/proxy?path=auth/login",
+    query:{path:"auth/login"},
+    headers:{
+      host:"www.zenixpos.uz",
+      origin:"https://www.zenixpos.uz",
+      "content-type":"application/json",
+      "x-zenix-client":"web",
+    },
+    body:{login:"demo",password:"secret"},
+  };
+  const res={
+    statusCode:0,
+    setHeader(name,value){responseHeaders.set(name,value);},
+    end(payload){this.payload=payload;},
+  };
+
+  try{
+    await proxyHandler(req,res);
+    assert.equal(upstreamHeaders.has("origin"),false);
+  }finally{
+    if(previousBackend===undefined)delete process.env.ZENIX_BACKEND_URL;
+    else process.env.ZENIX_BACKEND_URL=previousBackend;
+    globalThis.fetch=previousFetch;
+  }
 });
 
 test("Render blueprint is available at repository root for backend deployment",()=>{

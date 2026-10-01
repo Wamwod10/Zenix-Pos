@@ -110,8 +110,6 @@ export const REQUIRED_UNIQUE_CONSTRAINT_TABLES = Object.freeze([
   "auth_sessions",
   "product_serials",
   "sales",
-  "customers",
-  "customer_ledger",
   "customer_payment_allocations",
   "stock_transfer_items",
   "business_days",

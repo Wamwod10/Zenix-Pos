@@ -169,6 +169,21 @@ test("schema verification covers all migrations and core backend domains", () =>
   assert.match(issues, /missing indexes: products_org_sku_unique/);
 });
 
+test("schema verification does not invent natural unique constraints for customer ledgers", () => {
+  const snapshot = {
+    tables: [...schemaModule.REQUIRED_TABLES],
+    migrations: [...schemaModule.REQUIRED_MIGRATIONS],
+    primaryKeyTables: [...schemaModule.REQUIRED_TABLES],
+    foreignKeyTables: [...schemaModule.REQUIRED_FOREIGN_KEY_TABLES],
+    uniqueConstraintTables: schemaModule.REQUIRED_UNIQUE_CONSTRAINT_TABLES.filter(
+      (name) => name !== "customers" && name !== "customer_ledger",
+    ),
+    indexes: [...schemaModule.REQUIRED_INDEXES],
+  };
+
+  assert.deepEqual(schemaModule.findSchemaIssues(snapshot), []);
+});
+
 test("schema verification ignores invalid concurrent indexes", async () => {
   assert.equal(typeof schemaModule.readDatabaseSchema,"function");
   const queries=[];
