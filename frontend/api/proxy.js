@@ -72,9 +72,11 @@ export default async function handler(req,res){
     const payload=Buffer.from(await upstream.arrayBuffer());
     return res.end(payload);
   }catch(error){
+    const candidate=String(error?.cause?.code||error?.code||"").trim();
+    const reason=/^[A-Z][A-Z0-9_]{1,63}$/.test(candidate)?candidate:"UPSTREAM_REQUEST_FAILED";
     res.statusCode=502;
     res.setHeader("content-type","application/json; charset=utf-8");
     res.setHeader("cache-control","no-store");
-    return res.end(JSON.stringify({ok:false,error:{code:"BACKEND_UNAVAILABLE",message:"Zenix POS backend bilan bog‘lanib bo‘lmadi"}}));
+    return res.end(JSON.stringify({ok:false,error:{code:"BACKEND_UNAVAILABLE",message:"Zenix POS backend bilan bog‘lanib bo‘lmadi",details:{reason}}}));
   }
 }

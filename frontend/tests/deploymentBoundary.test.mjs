@@ -56,6 +56,31 @@ test("Vercel proxy does not forward the browser Origin to the Render server",asy
   }
 });
 
+test("Vercel proxy exposes a safe failure reason when the upstream request throws",async()=>{
+  const previousBackend=process.env.ZENIX_BACKEND_URL;
+  const previousFetch=globalThis.fetch;
+  process.env.ZENIX_BACKEND_URL="https://zenix-pos-backend.onrender.com";
+  globalThis.fetch=async()=>{
+    const error=new TypeError("fetch failed");
+    error.cause={code:"ECONNRESET"};
+    throw error;
+  };
+
+  const req={method:"POST",url:"/api/proxy?path=auth/login",query:{path:"auth/login"},headers:{host:"www.zenixpos.uz","content-type":"application/json"},body:{}};
+  const res={statusCode:0,setHeader(){},end(payload){this.payload=payload;}};
+
+  try{
+    await proxyHandler(req,res);
+    const payload=JSON.parse(String(res.payload));
+    assert.equal(res.statusCode,502);
+    assert.equal(payload.error.details.reason,"ECONNRESET");
+  }finally{
+    if(previousBackend===undefined)delete process.env.ZENIX_BACKEND_URL;
+    else process.env.ZENIX_BACKEND_URL=previousBackend;
+    globalThis.fetch=previousFetch;
+  }
+});
+
 test("Render blueprint is available at repository root for backend deployment",()=>{
   const blueprint=read("../render.yaml");
   assert.match(blueprint,/rootDir:\s*backend/);
