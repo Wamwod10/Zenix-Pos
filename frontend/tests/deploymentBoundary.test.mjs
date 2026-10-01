@@ -56,6 +56,29 @@ test("Vercel proxy does not forward the browser Origin to the Render server",asy
   }
 });
 
+test("Vercel proxy removes the Expect header unsupported by Undici",async()=>{
+  const previousBackend=process.env.ZENIX_BACKEND_URL;
+  const previousFetch=globalThis.fetch;
+  let upstreamHeaders;
+  process.env.ZENIX_BACKEND_URL="https://zenix-pos-backend.onrender.com";
+  globalThis.fetch=async(_target,options)=>{
+    upstreamHeaders=options.headers;
+    return new Response(JSON.stringify({ok:true}),{status:200,headers:{"content-type":"application/json"}});
+  };
+
+  const req={method:"POST",url:"/api/proxy?path=auth/login",query:{path:"auth/login"},headers:{host:"www.zenixpos.uz",expect:"100-continue","content-type":"application/json"},body:{}};
+  const res={statusCode:0,setHeader(){},end(payload){this.payload=payload;}};
+
+  try{
+    await proxyHandler(req,res);
+    assert.equal(upstreamHeaders.has("expect"),false);
+  }finally{
+    if(previousBackend===undefined)delete process.env.ZENIX_BACKEND_URL;
+    else process.env.ZENIX_BACKEND_URL=previousBackend;
+    globalThis.fetch=previousFetch;
+  }
+});
+
 test("Vercel proxy exposes a safe failure reason when the upstream request throws",async()=>{
   const previousBackend=process.env.ZENIX_BACKEND_URL;
   const previousFetch=globalThis.fetch;
