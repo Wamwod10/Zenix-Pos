@@ -179,3 +179,13 @@ body.dark-mode .pending-counts>div{background:var(--surface)}
   .quick-receive-row>button:last-child{grid-column:2;justify-self:end}
 }
 @media(max-width:390px){.quick-receive-row{grid-template-columns:1fr}.quick-receive-row>*{grid-column:1!important}.quick-receive-row>button:last-child{justify-self:end}}
+
+/* Quick receive must stay usable even inside a narrow desktop modal. */
+.quick-receive-row>.premium-select{min-width:180px;max-width:100%}
+.quick-receive-row>.premium-select>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:980px){
+ .quick-receive-table{overflow:visible;border:0;background:transparent}
+ .quick-receive-head{display:none}
+ .quick-receive-row{min-width:0;width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:15px;background:var(--card-bg)}
+ .quick-receive-row>.premium-select,.quick-receive-row>input:first-of-type,.quick-barcode-cell{grid-column:1/-1;min-width:0;width:100%}
+}

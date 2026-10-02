@@ -897,3 +897,9 @@ body.dark-mode .billing-renewal-extra{
 .pro-alert>div{min-width:0}.pro-alert>div>strong,.pro-alert>div>span{display:block}.pro-alert>div>span{margin-top:3px;font-weight:500;line-height:1.45}
 @media(max-width:760px){.billing-pro{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}.billing-pro .pro-card{min-width:0}.billing-pro .pro-stat-grid{grid-template-columns:1fr 1fr}.billing-pro .billing-plan-card{padding:15px}.modal-overlay{padding:max(10px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px))}}
 .platform-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px 0;color:var(--muted);font-size:11px}.platform-pagination>div{display:flex;gap:7px}@media(max-width:560px){.platform-pagination{align-items:stretch;flex-direction:column}.platform-pagination>div .pro-btn{flex:1}}
+
+/* iOS Safari zooms focused controls below 16px. Keep mobile forms stable. */
+@media(max-width:760px){
+ input,select,textarea,.premium-select,.pro-search input,.pro-select,.pro-field input,.pro-field select,.pro-field textarea,.saas-field input,.saas-field select,.saas-field textarea{font-size:16px!important}
+ html,body,#root{max-width:100%;overflow-x:hidden}
+}

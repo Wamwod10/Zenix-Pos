@@ -1,49 +1,8 @@
-const comparable = (value) => {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (Array.isArray(value)) return JSON.stringify(value);
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value).trim();
-};
-
-export const formatAuditValue = (value) => {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "boolean") return value ? "Ha" : "Yo‘q";
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
-  if (typeof value === "object") {
-    try { return JSON.stringify(value); } catch { return String(value); }
-  }
-  return String(value);
-};
-
-export const buildFieldChanges = (before = {}, after = {}, fields = []) => fields.reduce((changes, field) => {
-  const key = typeof field === "string" ? field : field.key;
-  const label = typeof field === "string" ? field : (field.label || field.key);
-  const previous = before?.[key];
-  const next = after?.[key];
-  if (comparable(previous) === comparable(next)) return changes;
-  changes.push({ field:key, label, before:previous, after:next });
-  return changes;
-}, []);
-
-export const normalizeActivityChanges = (changes) => {
-  if (!changes) return [];
-  if (Array.isArray(changes)) return changes.filter(Boolean).map((item) => ({
-    field:item.field || item.key || "field",
-    label:item.label || item.field || item.key || "O‘zgarish",
-    before:item.before,
-    after:item.after,
-  }));
-  if (typeof changes === "object" && ("before" in changes || "after" in changes)) return [{
-    field:changes.field || "field",
-    label:changes.label || changes.field || "O‘zgarish",
-    before:changes.before,
-    after:changes.after,
-  }];
-  return Object.entries(changes).map(([field, value]) => {
-    if (value && typeof value === "object" && ("before" in value || "after" in value)) {
-      return { field, label:value.label || field, before:value.before, after:value.after };
-    }
-    return { field, label:field, before:undefined, after:value };
-  });
-};
+const FIELD_LABELS={status:"Holat",openingCash:"Boshlang‘ich naqd",actualCash:"Amaldagi naqd",expectedCash:"Kutilgan naqd",difference:"Kassa farqi",sales:"Savdolar",products:"Mahsulotlar",anchorDate:"Boshlanish sanasi",amount:"Summa",total:"Jami",name:"Nomi",price:"Narx",stock:"Qoldiq",role:"Rol",active:"Faollik"};
+const STATUS_LABELS={open:"Ochiq",closed:"Yopildi",active:"Faol",inactive:"Nofaol",pending:"Kutilmoqda",approved:"Tasdiqlandi",rejected:"Rad etildi",paid:"To‘langan"};
+const comparable=(value)=>{if(value==null)return"";if(typeof value==="object")try{return JSON.stringify(value)}catch{return String(value)}return String(value).trim()};
+const parseStructured=(value)=>{if(typeof value!=="string")return value;const v=value.trim();if(!v||(!v.startsWith("{")&&!v.startsWith("[")))return value;try{return JSON.parse(v)}catch{return value}};
+const humanLabel=(key)=>FIELD_LABELS[key]||String(key||"O‘zgarish").replace(/[_-]+/g," ").replace(/([a-z])([A-Z])/g,"$1 $2").replace(/^./,c=>c.toUpperCase());
+export const formatAuditValue=(raw)=>{const value=parseStructured(raw);if(value==null||value==="")return"—";if(typeof value==="boolean")return value?"Ha":"Yo‘q";if(typeof value==="number")return new Intl.NumberFormat("uz-UZ").format(value);if(Array.isArray(value))return value.length?value.map(formatAuditValue).join(", "):"—";if(typeof value==="object")return Object.entries(value).map(([k,v])=>`${humanLabel(k)}: ${formatAuditValue(v)}`).join(" · ");const key=String(value).toLowerCase();return STATUS_LABELS[key]||String(value)};
+export const buildFieldChanges=(before={},after={},fields=[])=>fields.reduce((changes,field)=>{const key=typeof field==="string"?field:field.key,label=typeof field==="string"?humanLabel(field):(field.label||humanLabel(field.key)),previous=before?.[key],next=after?.[key];if(comparable(previous)===comparable(next))return changes;changes.push({field:key,label,before:previous,after:next});return changes},[]);
+export const normalizeActivityChanges=(changes)=>{const parsed=parseStructured(changes);if(!parsed)return[];if(Array.isArray(parsed))return parsed.filter(Boolean).flatMap(item=>normalizeActivityChanges(item));if(typeof parsed==="object"&&("before" in parsed||"after" in parsed))return[{field:parsed.field||"field",label:parsed.label||humanLabel(parsed.field),before:parsed.before,after:parsed.after}];if(typeof parsed==="object")return Object.entries(parsed).map(([field,value])=>value&&typeof value==="object"&&("before" in value||"after" in value)?{field,label:value.label||humanLabel(field),before:value.before,after:value.after}:{field,label:humanLabel(field),before:undefined,after:value});return[]};
