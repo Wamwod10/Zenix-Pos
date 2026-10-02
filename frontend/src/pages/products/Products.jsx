@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   FiArchive, FiBox, FiDownload, FiEdit2, FiGrid, FiList, FiPackage, FiPlus,
-  FiRotateCcw, FiSearch, FiZap, FiEye, FiImage,
+  FiRotateCcw, FiSearch, FiZap, FiEye, FiImage, FiTrash2,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
@@ -53,7 +53,7 @@ function Products(){
   const { confirm, undo, notify } = useFeedback();
   const { currentUser } = useAuth();
   const {
-    inventory, generateBarcode, saveProduct, setProductArchived, patchProducts, businessFeatures, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings,
+    inventory, generateBarcode, saveProduct, setProductArchived, deleteProduct, patchProducts, businessFeatures, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings,
     hasPermission, addActivityLog, stores, currentStoreId, getStoreStock, stockMovements,
   } = useStore();
   const location=useLocation();
@@ -78,6 +78,7 @@ function Products(){
   const [selectedIds,setSelectedIds]=useState([]);
 
   const canEdit=hasPermission("productWrite",currentUser?.appRole);
+  const canPermanentDelete=hasPermission("settingsWrite",currentUser?.appRole);
   const canReceive=hasPermission("inventoryAdjust",currentUser?.appRole);
   const branchLocked=[ROLES.CASHIER,ROLES.SALES,ROLES.WAREHOUSE].includes(currentUser?.appRole);
   const stockVisibleStores=stores.filter((store)=>store.active!==false&&(!branchLocked||store.id===currentStoreId));
@@ -263,14 +264,28 @@ function Products(){
     if(!canEdit)return;
     const nextArchived=!product.archived;
     if(nextArchived){
-      if(hasAnyStock(product.id)){notify({tone:"warning",title:"Mahsulotni arxivlab bo‘lmaydi",message:"Filiallardan birida qoldiq mavjud. Avval qoldiqni transfer, sotuv yoki inventarizatsiya orqali nolga tushiring."});return}
+      if(hasAnyStock(product.id)){const locations=stores.filter(store=>getStoreStock(product.id,store.id)>0).map(store=>`${store.name}: ${getStoreStock(product.id,store.id)} ${product.unit||"dona"}`).join(" · ");notify({tone:"warning",title:"Mahsulotni arxivlab bo‘lmaydi",message:`Qoldiq mavjud — ${locations}. Avval qoldiqni transfer, sotuv yoki inventarizatsiya orqali nolga tushiring.`});return}
       const accepted=await confirm({title:"Mahsulotni arxivlaysizmi?",message:`${product.name} savdo katalogidan yashiriladi. Kerak bo‘lsa keyin qayta tiklash mumkin.`,confirmLabel:"Arxivlash",cancelLabel:"Bekor qilish",tone:"danger"});
       if(!accepted)return;
     }
     const result=await setProductArchived(product.id,nextArchived);
-    if(!result.success){notify({tone:"danger",title:"Mahsulot holati o‘zgarmadi",message:result.message});return}
+    if(!result.success){
+      const locations=Array.isArray(result.details?.stockLocations)?result.details.stockLocations.filter((row)=>Number(row.quantity||0)!==0).map((row)=>`${row.storeName||"Filial"}: ${Number(row.quantity||0)} ${product.unit||"dona"}`).join(" · "):"";
+      const message=result.code==="PRODUCT_HAS_STOCK"&&locations?`Qoldiq mavjud — ${locations}. Avval qoldiqni transfer, sotuv yoki inventarizatsiya orqali nolga tushiring.`:result.message;
+      notify({tone:"danger",title:"Mahsulot holati o‘zgarmadi",message});return
+    }
     addActivityLog({type:"product",title:nextArchived?"Mahsulot arxivlandi":"Mahsulot tiklandi",description:product.name,before:product.archived?"Arxivda":"Faol",after:nextArchived?"Arxivda":"Faol",changes:[{field:"archived",label:"Holat",before:product.archived?"Arxivda":"Faol",after:nextArchived?"Arxivda":"Faol"}]});
     if(nextArchived)undo({title:"Mahsulot arxivlandi",message:product.name,onUndo:async()=>{await setProductArchived(product.id,false);addActivityLog({type:"product",title:"Arxivlash bekor qilindi",description:product.name})}});
+  };
+
+  const permanentlyDelete=async(product)=>{
+    if(!canPermanentDelete)return;
+    const accepted=await confirm({title:"Mahsulotni butunlay o‘chirish",message:`${product.name} faqat tarixiy savdo, kirim, transfer yoki inventarizatsiyada ishlatilmagan bo‘lsa butunlay o‘chiriladi. Bu amalni ortga qaytarib bo‘lmaydi.`,confirmLabel:"Butunlay o‘chirish",cancelLabel:"Bekor qilish",tone:"danger",requireText:product.name,requireTextLabel:`Tasdiqlash uchun mahsulot nomini aynan yozing: ${product.name}`});
+    if(!accepted)return;
+    const result=await deleteProduct(product.id);
+    if(!result.success){notify({tone:"danger",title:"Mahsulot o‘chirilmadi",message:result.message});return}
+    if(detailProduct?.id===product.id)setDetailProduct(null);
+    notify({tone:"success",title:"Mahsulot butunlay o‘chirildi",message:product.name});
   };
 
   const exportCsv=()=>{
@@ -315,7 +330,7 @@ function Products(){
           if(column.id==="stock")return <td key={column.id} style={productColumnStyle(column.id)} data-label={column.label}><strong>{product.quantity} {product.unit||"dona"}</strong></td>;
           if(column.id==="status")return <td key={column.id} style={productColumnStyle(column.id)} data-label={column.label}><StatusBadge tone={stockTone}>{product.quantity<=0?"Tugagan":product.quantity<=product.minStock?"Kam qolgan":"Mavjud"}</StatusBadge></td>;
           return null;
-        })}{canEdit&&<td data-label="Amallar"><div className="pro-row-actions">{canReceive&&<button className="pro-icon-btn" onClick={()=>navigate(`/inventory?receive=1&product=${encodeURIComponent(product.id)}`)} aria-label="Kirim qilish"><FiPlus/></button>}<button className="pro-icon-btn" onClick={()=>setDetailProduct(product)} aria-label="Ko‘rish"><FiEye/></button><button className="pro-icon-btn" onClick={()=>openEdit(product)} aria-label="Tahrirlash"><FiEdit2/></button><button className="pro-icon-btn" onClick={()=>archive(product)} aria-label={product.archived?"Tiklash":"Arxivlash"}>{product.archived?<FiRotateCcw/>:<FiArchive/>}</button></div></td>}</tr>})}</tbody></table></div>:<div className="product-grid-pro view-grid">{filtered.map((product)=>{const stockTone=product.quantity<=0?"danger":product.quantity<=product.minStock?"warning":"success";return <article className="product-card-pro" key={product.id}><div className="product-card-main" role="button" tabIndex="0" onClick={()=>setDetailProduct(product)} onKeyDown={(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setDetailProduct(product)}}}><div className="product-title-row"><div><ProductThumb product={product} className="product-soft-icon"/><h3>{product.name}</h3><span>{product.sku}{product.barcode?` · ${product.barcode}`:""}</span></div><StatusBadge tone={stockTone}>{product.quantity<=0?"Tugagan":product.quantity<=product.minStock?"Kam qolgan":"Mavjud"}</StatusBadge></div><div className="product-meta"><span><small>Kategoriya</small><b>{product.category||"—"}</b></span><span><small>Sotuv narxi</small><b>{formatPrice(product.sellPrice)}</b></span><span><small>Qoldiq</small><b>{product.quantity} {product.unit||"dona"}</b></span></div></div>{canEdit&&<div className="product-actions"><div className="product-actions-main">{canReceive&&<button onClick={()=>navigate(`/inventory?receive=1&product=${encodeURIComponent(product.id)}`)}><FiPlus/> Kirim</button>}<button onClick={()=>openEdit(product)}><FiEdit2/> Tahrirlash</button></div><button className="product-archive-action" onClick={()=>archive(product)}>{product.archived?<><FiRotateCcw/> Tiklash</>:<><FiArchive/> Arxivlash</>}</button></div>}</article>})}</div>}</section>
+        })}{canEdit&&<td data-label="Amallar"><div className="pro-row-actions">{canReceive&&<button className="pro-icon-btn" onClick={()=>navigate(`/inventory?receive=1&product=${encodeURIComponent(product.id)}`)} aria-label="Kirim qilish"><FiPlus/></button>}<button className="pro-icon-btn" onClick={()=>setDetailProduct(product)} aria-label="Ko‘rish"><FiEye/></button><button className="pro-icon-btn" onClick={()=>openEdit(product)} aria-label="Tahrirlash"><FiEdit2/></button><button className="pro-icon-btn" onClick={()=>archive(product)} aria-label={product.archived?"Tiklash":"Arxivlash"}>{product.archived?<FiRotateCcw/>:<FiArchive/>}</button>{canPermanentDelete&&<button className="pro-icon-btn danger" onClick={()=>permanentlyDelete(product)} aria-label="Butunlay o‘chirish" title="Butunlay o‘chirish"><FiTrash2/></button>}</div></td>}</tr>})}</tbody></table></div>:<div className="product-grid-pro view-grid">{filtered.map((product)=>{const stockTone=product.quantity<=0?"danger":product.quantity<=product.minStock?"warning":"success";return <article className="product-card-pro" key={product.id}><div className="product-card-main" role="button" tabIndex="0" onClick={()=>setDetailProduct(product)} onKeyDown={(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setDetailProduct(product)}}}><div className="product-title-row"><div><ProductThumb product={product} className="product-soft-icon"/><h3>{product.name}</h3><span>{product.sku}{product.barcode?` · ${product.barcode}`:""}</span></div><StatusBadge tone={stockTone}>{product.quantity<=0?"Tugagan":product.quantity<=product.minStock?"Kam qolgan":"Mavjud"}</StatusBadge></div><div className="product-meta"><span><small>Kategoriya</small><b>{product.category||"—"}</b></span><span><small>Sotuv narxi</small><b>{formatPrice(product.sellPrice)}</b></span><span><small>Qoldiq</small><b>{product.quantity} {product.unit||"dona"}</b></span></div></div>{canEdit&&<div className="product-actions"><div className="product-actions-main">{canReceive&&<button onClick={()=>navigate(`/inventory?receive=1&product=${encodeURIComponent(product.id)}`)}><FiPlus/> Kirim</button>}<button onClick={()=>openEdit(product)}><FiEdit2/> Tahrirlash</button></div><button className="product-archive-action" onClick={()=>archive(product)}>{product.archived?<><FiRotateCcw/> Tiklash</>:<><FiArchive/> Arxivlash</>}</button>{canPermanentDelete&&<button className="product-archive-action danger" onClick={()=>permanentlyDelete(product)}><FiTrash2/> Butunlay o‘chirish</button>}</div>}</article>})}</div>}</section>
 
     <Modal open={!!detailProduct} onClose={()=>setDetailProduct(null)} title={detailProduct?.name||"Mahsulot"} subtitle="Katalog va filiallar bo‘yicha qoldiq" size="lg" footer={<><button className="pro-btn secondary" onClick={()=>setDetailProduct(null)}>Yopish</button>{canReceive&&detailProduct&&<button className="pro-btn primary" onClick={()=>{setDetailProduct(null);navigate(`/inventory?receive=1&product=${encodeURIComponent(detailProduct.id)}`)}}><FiPlus/> Omborga kirim</button>}</>}>
       {detailProduct&&<div className="product-detail"><div className="product-detail-hero"><ProductThumb product={detailProduct} className="product-detail-image"/><div><strong>{detailProduct.name}</strong><span>{detailProduct.brand||detailProduct.category||"Katalog mahsuloti"}</span></div></div><div className="product-detail-summary"><span><small>SKU</small><strong>{detailProduct.sku||"—"}</strong></span><span><small>Shtrix-kod</small><strong>{detailProduct.barcode||"—"}</strong></span><span><small>Sotuv narxi</small><strong>{formatPrice(detailProduct.sellPrice)}</strong></span><span><small>Jami qoldiq</small><strong>{detailProduct.quantity} {detailProduct.unit||"dona"}</strong></span></div><div className="product-detail-section"><div className="receive-section-title"><strong>Filiallar bo‘yicha qoldiq</strong><span>{branchLocked?"Joriy filialdagi real qoldiq":"Har bir faol filialdagi real qoldiq"}</span></div><div className="product-store-stock">{stockVisibleStores.map((store)=><div key={store.id}><span><strong>{store.name}</strong><small>{store.id===currentStoreId?"Joriy filial":"Filial"}</small></span><b>{getStoreStock(detailProduct.id,store.id)} {detailProduct.unit||"dona"}</b></div>)}</div></div><div className="product-detail-timeline"><span><small>Oxirgi kirim</small><strong>{productLastReceive(detailProduct.id)?.date||productLastReceive(detailProduct.id)?.dateISO||"Hali kirim bo‘lmagan"}</strong></span><span><small>Oxirgi sotuv</small><strong>{productLastSale(detailProduct.id)?.date||productLastSale(detailProduct.id)?.dateISO||"Hali sotilmagan"}</strong></span></div></div>}

@@ -65,6 +65,8 @@ export function FeedbackProvider({ children }) {
       confirmLabel: options.confirmLabel || "Tasdiqlash",
       cancelLabel: options.cancelLabel || "Bekor qilish",
       tone: options.tone || "danger",
+      requireText: options.requireText || "",
+      requireTextLabel: options.requireTextLabel || "",
     });
   }), []);
 
@@ -130,6 +132,8 @@ export function FeedbackProvider({ children }) {
       confirmLabel={confirmState?.confirmLabel}
       cancelLabel={confirmState?.cancelLabel}
       tone={confirmState?.tone}
+      confirmationText={confirmState?.requireText}
+      confirmationLabel={confirmState?.requireTextLabel}
     />
   </FeedbackContext.Provider>;
 }

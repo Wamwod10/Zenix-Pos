@@ -89,12 +89,14 @@ const columnName = (index) => {
   return result;
 };
 
+const humanCell=(value)=>{if(value==null)return"";if(Array.isArray(value))return value.map(humanCell).filter(Boolean).join(", ");if(typeof value==="object")return Object.entries(value).map(([key,item])=>`${key.replace(/[_-]+/g," ")}: ${humanCell(item)}`).join(" · ");return String(value)};
+
 const worksheetXml = (headers, rows) => {
   const allRows = [headers, ...rows];
   const body = allRows.map((row, rowIndex) => {
     const cells = row.map((value, columnIndex) => {
       const ref = `${columnName(columnIndex)}${rowIndex + 1}`;
-      const text = typeof value === "object" && value !== null ? JSON.stringify(value) : String(value ?? "");
+      const text = humanCell(value);
       return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(text)}</t></is></c>`;
     }).join("");
     return `<row r="${rowIndex + 1}">${cells}</row>`;

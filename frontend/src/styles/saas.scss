@@ -903,3 +903,10 @@ body.dark-mode .billing-renewal-extra{
  input,select,textarea,.premium-select,.pro-search input,.pro-select,.pro-field input,.pro-field select,.pro-field textarea,.saas-field input,.saas-field select,.saas-field textarea{font-size:16px!important}
  html,body,#root{max-width:100%;overflow-x:hidden}
 }
+
+/* Mobile form hardening: iOS Safari zooms focused controls below 16px. */
+@media (max-width: 768px){
+  input:not([type="checkbox"]):not([type="radio"]),select,textarea{font-size:16px!important}
+  .pro-modal,.modal-shell{max-width:calc(100vw - 20px);max-height:calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+  .pro-table-wrap{max-width:100%;overscroll-behavior-x:contain}
+}

@@ -89,6 +89,7 @@ function MainLayout(){
   const [branchModal,setBranchModal]=useState(false);
   const [branchName,setBranchName]=useState("");
   const [branchError,setBranchError]=useState("");
+  const [branchSaving,setBranchSaving]=useState(false);
   const [clock,setClock]=useState(()=>new Date());
   const [fx,setFx]=useState(null);
   const [fxStatus,setFxStatus]=useState("idle");
@@ -344,10 +345,13 @@ function MainLayout(){
     if(branchNeedsBilling){go("/billing?extraStore=1");return}
     setBranchName("");setBranchError("");setBranchModal(true);
   };
-  const submitBranch=()=>{
-    const result=addStore({name:branchName});
-    if(!result?.success){setBranchError(result?.message||"Filial yaratilmadi");return}
-    setBranchModal(false);setBranchName("");setBranchError("");
+  const submitBranch=async()=>{
+    if(branchSaving)return;
+    setBranchSaving(true);setBranchError("");
+    try{const result=await addStore({name:branchName});
+      if(!result?.success){setBranchError(result?.message||"Filial yaratilmadi");return}
+      setBranchModal(false);setBranchName("");setBranchError("");
+    }finally{setBranchSaving(false)}
   };
 
   const closeGuide=()=>{const params=new URLSearchParams(location.search);params.delete("guide");navigate(`${location.pathname}${params.toString()?`?${params.toString()}`:""}`,{replace:true})};
@@ -404,7 +408,7 @@ function MainLayout(){
 
     {guideSteps.length>0&&<aside className="zenix-guide-coach" role="dialog" aria-label="Bosqichma-bosqich yordam"><div className="guide-coach-head"><span><small>Menga ko‘rsat</small><strong>{guideStep+1} / {guideSteps.length}</strong></span><button type="button" onClick={closeGuide} aria-label="Yordamni yopish"><FiX/></button></div><p>{guideSteps[guideStep]}</p><div className="guide-coach-actions"><button type="button" className="pro-btn secondary" disabled={guideStep===0} onClick={()=>setGuideStep(step=>Math.max(0,step-1))}>Oldingi</button>{guideStep<guideSteps.length-1?<button type="button" className="pro-btn primary" onClick={()=>setGuideStep(step=>Math.min(guideSteps.length-1,step+1))}>Keyingi</button>:<button type="button" className="pro-btn primary" onClick={closeGuide}>Tayyor</button>}</div></aside>}
 
-    <Modal open={branchModal} onClose={()=>setBranchModal(false)} title="Yangi filial" subtitle="Yangi filial alohida qoldiq, savdo va kassa ma’lumotlari bilan bo‘sh holatda yaratiladi." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setBranchModal(false)}>Bekor qilish</button><button className="pro-btn primary" onClick={submitBranch}>Filial yaratish</button></>}><label className="pro-field"><span>Filial nomi</span><input autoFocus value={branchName} onChange={event=>{setBranchName(event.target.value);setBranchError("")}} onKeyDown={event=>event.key==="Enter"&&submitBranch()} placeholder="Masalan, Sergeli filial"/></label>{branchError&&<div className="pro-alert danger branch-error">{branchError}</div>}<div className="branch-info-card"><FiMapPin/><span><strong>{activeStores.length+1}-filial</strong><small>Mahsulot qoldiqlari 0 dan boshlanadi. Boshqa filial savdolari bu filialda ko‘rinmaydi.</small></span></div></Modal>
+    <Modal open={branchModal} onClose={()=>setBranchModal(false)} title="Yangi filial" subtitle="Yangi filial alohida qoldiq, savdo va kassa ma’lumotlari bilan bo‘sh holatda yaratiladi." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setBranchModal(false)}>Bekor qilish</button><button className="pro-btn primary" disabled={branchSaving} onClick={submitBranch}>{branchSaving?"Yaratilmoqda...":"Filial yaratish"}</button></>}><label className="pro-field"><span>Filial nomi</span><input autoFocus value={branchName} onChange={event=>{setBranchName(event.target.value);setBranchError("")}} onKeyDown={event=>event.key==="Enter"&&submitBranch()} placeholder="Masalan, Sergeli filial"/></label>{branchError&&<div className="pro-alert danger branch-error">{branchError}</div>}<div className="branch-info-card"><FiMapPin/><span><strong>{branchName.trim()||"Yangi filial"}</strong><small>Mahsulot qoldiqlari 0 dan boshlanadi. Boshqa filial savdolari bu filialda ko‘rinmaydi.</small></span></div></Modal>
   </div>;
 }
 export default MainLayout;

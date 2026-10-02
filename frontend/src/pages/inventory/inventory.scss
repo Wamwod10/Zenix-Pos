@@ -189,3 +189,6 @@ body.dark-mode .pending-counts>div{background:var(--surface)}
  .quick-receive-row{min-width:0;width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:15px;background:var(--card-bg)}
  .quick-receive-row>.premium-select,.quick-receive-row>input:first-of-type,.quick-barcode-cell{grid-column:1/-1;min-width:0;width:100%}
 }
+.quick-receive-row,.quick-receive-product,.quick-receive-row .pro-field{min-width:0}.quick-receive-row select,.quick-receive-row input{width:100%;min-width:0}.quick-receive-row .premium-select{min-width:180px;max-width:100%}@media(max-width:760px){.quick-receive-row{grid-template-columns:minmax(0,1fr)!important}.quick-receive-row .premium-select{min-width:0;width:100%}}
+
+.tracked-stock-hint{margin-top:12px;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.tracked-stock-hint span{opacity:.86}.tracked-count-note{display:flex;flex-direction:column;gap:3px;min-width:180px}.tracked-count-note strong{font-size:13px}.tracked-count-note small{opacity:.72;line-height:1.35}

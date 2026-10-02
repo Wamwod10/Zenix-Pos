@@ -67,7 +67,7 @@ const productFromApi=(row,storeIds=[])=>normalizeProduct({
   minStock:number(row.min_stock??row.minStock,0),archived:Boolean(row.archived),stockByStore:row.stock_by_store||row.stockByStore||{},
   ...(row.metadata||{}),metadata:row.metadata||{},
 },storeIds);
-const apiFailure=(error,fallback)=>({success:false,message:error instanceof ApiError?error.message:(error?.message||fallback)});
+const apiFailure=(error,fallback)=>({success:false,message:error instanceof ApiError?error.message:(error?.message||fallback),code:error instanceof ApiError?error.code:undefined,details:error instanceof ApiError?error.details:undefined});
 
 
 
@@ -307,7 +307,12 @@ export const StoreProvider = ({ children }) => {
 
   const setProductArchived=useCallback(async(productId,archived)=>{
     try{const data=await api.post(`/api/products/${encodeURIComponent(productId)}/${archived?"archive":"restore"}`,{});setInventoryState((items)=>items.map((item)=>item.id===productId?{...item,archived:Boolean(data.product.archived)}:item));return {success:true,product:data.product}}
-    catch(error){return {success:false,message:error?.message||"Mahsulot holatini yangilab bo‘lmadi"}}
+    catch(error){return apiFailure(error,"Mahsulot holatini yangilab bo‘lmadi")}
+  },[]);
+
+  const deleteProduct=useCallback(async(productId)=>{
+    try{const data=await api.delete(`/api/products/${encodeURIComponent(productId)}`);setInventoryState((items)=>items.filter((item)=>item.id!==productId));return {success:true,...data}}
+    catch(error){return {success:false,message:error?.message||"Mahsulotni butunlay o‘chirib bo‘lmadi",code:error?.code,details:error?.details}}
   },[]);
 
   const patchProducts=useCallback(async(productIds,patch)=>{
@@ -324,7 +329,7 @@ export const StoreProvider = ({ children }) => {
     if(!hasPermission("settingsWrite",currentUser?.appRole))return {success:false,message:"Filial yaratish uchun Sozlamalarni boshqarish ruxsati kerak"};
     const cleanName=String(name||"").trim();if(cleanName.length<2)return {success:false,message:"Filial nomini kiriting"};
     try{const data=await api.post("/api/stores",{name:cleanName});const store=data.store;setStores((items)=>[...items,store]);setInventoryState((items)=>items.map((item)=>({...item,stockByStore:{...(item.stockByStore||{}),[store.id]:0}})));setSelectedStoreId(store.id);return {success:true,store}}
-    catch(error){return {success:false,message:error?.message||"Filialni yaratib bo‘lmadi"}}
+    catch(error){return apiFailure(error,"Filialni yaratib bo‘lmadi")}
   },[hasPermission,currentUser?.appRole]);
 
   const updateStore=useCallback(async(id,patch)=>{
@@ -639,14 +644,14 @@ export const StoreProvider = ({ children }) => {
 
   const reloadStore = useCallback(()=>hydrateWorkspace(),[hydrateWorkspace]);
   const value = useMemo(() => ({
-    inventory,generateBarcode,saveProduct,setProductArchived,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
+    inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
     dailySales,setDailySales,salesHistory,setSalesHistory,suppliers,setSuppliers,
     expenses,setExpenses,returns,setReturns,activeShift,activeShifts,shiftHistory,setShiftHistory,
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
     employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [inventory,generateBarcode,saveProduct,setProductArchived,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

@@ -1,4 +1,8 @@
-import "dotenv/config";
+try {
+  await import("dotenv/config");
+} catch (error) {
+  if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
+}
 
 const required = (name, fallback = "") => {
   const value = process.env[name] ?? fallback;
