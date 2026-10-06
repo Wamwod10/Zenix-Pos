@@ -5,6 +5,7 @@ import { requireAuth, requireOrganization } from "../middleware/auth.js";
 import { isBranchLocked } from "../lib/storeScope.js";
 import { canReadEmployees, hasPermission } from "../lib/permissions.js";
 import { databaseDateISO } from "../lib/businessDate.js";
+import { selectActiveBranchShifts } from "../lib/branchShift.js";
 
 const router=Router();
 const n=(value)=>Number(value||0);
@@ -139,14 +140,7 @@ router.get("/",requireAuth,requireOrganization,asyncRoute(async(req,res)=>{
   }
   const mapShift=(row)=>{const moves=shiftMovementsById.get(row.id)||[],stats=saleStatsByShift.get(row.id)||{totalSales:0,cashSales:0,cardSales:0,transferSales:0};const opened=dateParts(row.opened_at,timeZone),closed=row.closed_at?dateParts(row.closed_at,timeZone):null;const cashIn=moves.filter(m=>m.type==="in").reduce((s,m)=>s+m.amount,0),cashOut=moves.filter(m=>m.type==="out").reduce((s,m)=>s+m.amount,0);return {id:row.id,storeId:row.store_id,storeName:row.store_name||storeName.get(row.store_id)||"",cashierId:row.cashier_id,cashierAccountId:row.cashier_id,cashierName:row.cashier_name||"",registerKey:row.register_key,openingCash:n(row.opening_cash),expectedCash:n(row.expected_cash),actualCash:n(row.actual_cash),closingCash:n(row.actual_cash),difference:n(row.difference),openedAt:opened.time,openedAtISO:row.opened_at,closedAt:closed?.time||"",closedAtISO:row.closed_at,date:opened.date,dateISO:opened.dateISO,status:row.status,cashMovements:moves,cashIn,cashOut,...stats,...(row.metadata||{})}};
   const shifts=shiftsResult.rows.map(mapShift);
-  // A branch may have several registers. The client must only treat the current
-  // account's open register as its active shift; otherwise a manager/cashier can
-  // accidentally sell into somebody else's till. Query order is newest-first.
-  const activeShifts={};
-  for(const shift of shifts){
-    if(shift.status!=="open"||String(shift.cashierAccountId)!==String(req.user.id))continue;
-    if(!activeShifts[shift.storeId])activeShifts[shift.storeId]=shift;
-  }
+  const activeShifts=selectActiveBranchShifts(shifts,{allowedStoreId:branchStoreId});
   const shiftHistory=shifts.filter((row)=>row.status!=="open");
 
   const invoiceItemsById=new Map();for(const row of invoiceItemsResult.rows){const arr=invoiceItemsById.get(row.invoice_id)||[];arr.push({id:row.id,productId:row.product_id,product:row.product_name,quantity:n(row.quantity),unitCost:n(row.unit_cost),total:n(row.total),...(row.metadata||{})});invoiceItemsById.set(row.invoice_id,arr)}
