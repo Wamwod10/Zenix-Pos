@@ -7,6 +7,7 @@ import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../utils/w
 import { invoiceBalance } from "../utils/supplierLedger";
 import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspace, workspaceIdentity } from "../utils/workspaceReadiness";
 import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
+import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
 
 const StoreContext = createContext(null);
@@ -244,6 +245,21 @@ export const StoreProvider = ({ children }) => {
     lastWorkspaceIdentity.current=currentWorkspaceIdentity;
     void hydrateWorkspace();
   },[currentWorkspaceIdentity,hydrateWorkspace]);
+
+  useEffect(()=>{
+    if(!workspaceReady||!currentUser?.organizationId||currentUser?.appRole===ROLES.PLATFORM_ADMIN)return undefined;
+    const addVisibilityListener=(handler)=>{document.addEventListener("visibilitychange",handler);return()=>document.removeEventListener("visibilitychange",handler)};
+    const addOnlineListener=(handler)=>{window.addEventListener("online",handler);return()=>window.removeEventListener("online",handler)};
+    const controller=createWorkspaceSyncController({
+      getVersion:()=>api.get("/api/sync/version"),
+      refresh:()=>hydrateWorkspace({silent:true}),
+      getIdentity:()=>currentWorkspaceIdentityRef.current,
+      isVisible:()=>document.visibilityState!=="hidden",
+      addVisibilityListener,addOnlineListener,
+    });
+    controller.start();
+    return()=>controller.stop();
+  },[workspaceReady,currentWorkspaceIdentity,currentUser?.organizationId,currentUser?.appRole,hydrateWorkspace]);
 
   useEffect(()=>{
     if(!workspaceReady||!selectedStoreId||branchLockedRole)return;
