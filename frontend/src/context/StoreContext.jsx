@@ -563,7 +563,7 @@ export const StoreProvider = ({ children }) => {
     if(!shift?.storeId)return {success:false,message:"Smena ma’lumotlari to‘liq emas"};
     const mutationIdentity=currentWorkspaceIdentityRef.current;
     try{
-      const data=await api.post("/api/shifts/open",{storeId:shift.storeId,openingCash:number(shift.openingCash,0),registerKey:shift.registerKey||`user:${currentUser?.id}`,metadata:{businessDateISO:shift.businessDateISO||"",clientReference:shift.id||""}});
+      const data=await api.post("/api/shifts/open",{storeId:shift.storeId,openingCash:number(shift.openingCash,0),registerKey:`store:${shift.storeId}`,metadata:{businessDateISO:shift.businessDateISO||"",clientReference:shift.id||""}});
       const openedShift=normalizeOpenedShift(data.shift||data,shift);
       if(mutationIdentity===currentWorkspaceIdentityRef.current){
         setActiveShifts((current)=>withOpenedShift(current,openedShift,shift.storeId));
@@ -571,7 +571,7 @@ export const StoreProvider = ({ children }) => {
       }
       return {success:true,shift:openedShift};
     }catch(error){return apiFailure(error,"Smenani ochib bo‘lmadi")}
-  },[scheduleWorkspaceRefresh,currentUser?.id]);
+  },[scheduleWorkspaceRefresh]);
 
   const commitShiftMovement = useCallback(async ({ movement, storeId = currentStoreId, activity = null } = {}) => {
     const shift=activeShifts?.[storeId];if(!shift)return {success:false,message:"Avval smenani oching"};

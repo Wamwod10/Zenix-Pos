@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   isCurrentWorkspaceHydration,
   isWorkspaceReadyFor,
@@ -7,6 +10,8 @@ import {
   workspaceIdentity,
   workspaceRouteDecision,
 } from "../src/utils/workspaceReadiness.js";
+
+const here=path.dirname(fileURLToPath(import.meta.url));
 
 test("anonymous workspace data is not ready for a restored organization user", () => {
   const anonymousIdentity=workspaceIdentity(null);
@@ -51,6 +56,12 @@ test("workspace load failures and missing organizations never become billing red
   assert.equal(workspaceRouteDecision({workspaceReady:true,organization:null,licenseAllowed:false}),"error");
   assert.equal(workspaceRouteDecision({workspaceReady:true,organization:{id:"org-1"},licenseAllowed:false}),"billing");
   assert.equal(workspaceRouteDecision({workspaceReady:true,organization:{id:"org-1"},licenseAllowed:true}),"allowed");
+});
+
+test("silent workspace refresh applies state without navigating or reloading the document", () => {
+  const source=fs.readFileSync(path.join(here,"..","src/context/StoreContext.jsx"),"utf8");
+  assert.match(source,/refresh:\(\)=>hydrateWorkspace\(\{silent:true\}\)/);
+  assert.doesNotMatch(source,/location\.reload\(|window\.location\s*=/);
 });
 
 test("workspace load failure renders a retry action", async (t) => {
