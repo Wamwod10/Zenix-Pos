@@ -133,6 +133,7 @@ test("schema verification covers all migrations and core backend domains", () =>
     "011_bootstrap_performance_indexes.sql",
     "012_customers_credit_sales.sql",
     "013_customer_credit_hardening.sql",
+    "014_billing_checkout_schema.sql",
   ]);
 
   for (const table of [
