@@ -4,6 +4,7 @@ import {
   saleNetRevenue, saleNetProfit, saleNetPaymentBreakdown, returnedAmountForSale,
   matchesStore, projectInventoryScope, periodRange, previousPeriodRange,
 } from "../src/utils/reporting.js";
+import * as reporting from "../src/utils/reporting.js";
 
 const splitSale={
   saleTotal:100000,total:100000,paymentMethod:"split",paymentBreakdown:{cash:40000,card:60000,transfer:0},
@@ -43,4 +44,21 @@ test("previous reporting range is exactly the same length as current range",()=>
   const currentStart=new Date(`${current.from}T12:00:00Z`);
   const previousEnd=new Date(`${previous.to}T12:00:00Z`);
   assert.equal(Math.round((currentStart-previousEnd)/86400000),1);
+});
+
+test("seller analytics includes active cashiers and sales staff before their first sale",()=>{
+  assert.equal(typeof reporting.buildSellerAnalyticsRows,"function","seller staff aggregation must be available");
+  const rows=reporting.buildSellerAnalyticsRows({
+    employees:[
+      {id:"cashier-1",name:"Yangi kassir",role:"CASHIER",storeId:"store-1",active:true},
+      {id:"sales-1",name:"Yangi sotuvchi",role:"SALES",storeId:"store-1",active:true},
+      {id:"warehouse-1",name:"Omborchi",role:"WAREHOUSE",storeId:"store-1",active:true},
+      {id:"inactive-1",name:"Sobiq kassir",role:"CASHIER",storeId:"store-1",active:false},
+    ],
+    sales:[],shiftHistory:[],period:"all",store:"store-1",stores:[{id:"store-1",name:"Asosiy filial"}],
+  });
+  assert.deepEqual(rows.map((row)=>row.name),["Yangi kassir","Yangi sotuvchi"]);
+  assert.deepEqual(rows.map((row)=>({sales:row.sales,count:row.count,avg:row.avg})),[
+    {sales:0,count:0,avg:0},{sales:0,count:0,avg:0},
+  ]);
 });

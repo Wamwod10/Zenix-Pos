@@ -1,4 +1,4 @@
-import { getSaleNetTotal, getSaleProfit, normalizeSaleReturns } from "./returns.js";
+import { getItemDiscountPerUnit, getNetSoldQty, getSaleNetTotal, getSaleProfit, normalizeSaleReturns } from "./returns.js";
 import { workspaceDateISO, workspaceBusinessDateISO } from "./workspaceDate.js";
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -59,6 +59,59 @@ export const matchesStore = (record, storeId, stores = []) => {
   const target = stores.find((item) => String(item.id) === String(storeId));
   if (!target) return false;
   return String(record?.store || record?.storeName || "") === String(target.name || "");
+};
+
+const emptySellerRow = (id, name) => ({
+  id:String(id),name:name || "Noma’lum",sales:0,grossSales:0,profit:0,count:0,discount:0,
+  returnAmount:0,returnedSales:0,cash:0,card:0,transfer:0,products:{},
+});
+
+export const buildSellerAnalyticsRows = ({
+  employees = [],sales = [],shiftHistory = [],period = "all",timezone = "Asia/Tashkent",
+  businessDay = null,store = "all",stores = [],
+} = {}) => {
+  const rows = new Map();
+  employees.forEach((employee) => {
+    const role=String(employee?.role||employee?.appRole||"").toUpperCase();
+    if(employee?.active===false||!(["CASHIER","SALES"].includes(role))||!matchesStore(employee,store,stores))return;
+    const identity=employee?.id||employee?.accountId||`name:${employee?.name||"Noma’lum"}`;
+    rows.set(String(identity),emptySellerRow(identity,employee?.name));
+  });
+
+  sales.forEach((sale) => {
+    const name=sale?.sellerName||sale?.seller||"Noma’lum";
+    const identity=String(sale?.sellerId||sale?.sellerAccountId||`name:${name}`);
+    if(!rows.has(identity))rows.set(identity,emptySellerRow(identity,name));
+    const row=rows.get(identity);
+    const netRevenue=saleNetRevenue(sale);
+    const returned=returnedAmountForSale(sale);
+    const payment=saleNetPaymentBreakdown(sale);
+    row.sales+=netRevenue;
+    row.grossSales+=netRevenue+returned;
+    row.returnAmount+=returned;
+    row.returnedSales+=returned>0?1:0;
+    row.profit+=saleNetProfit(sale);
+    row.count+=1;
+    row.cash+=payment.cash;
+    row.card+=payment.card;
+    row.transfer+=payment.transfer;
+    (sale.items||[]).forEach((item) => {
+      const qty=getNetSoldQty(item);
+      row.discount+=getItemDiscountPerUnit(item)*qty;
+      if(qty>0)row.products[item.name]=(row.products[item.name]||0)+qty;
+    });
+  });
+
+  rows.forEach((row) => {
+    row.avg=row.count?row.sales/row.count:0;
+    row.returnRate=row.grossSales?(row.returnAmount/row.grossSales)*100:0;
+    row.shifts=shiftHistory.filter((shift) => (
+      ((shift.cashierId||shift.cashierAccountId)?String(shift.cashierId||shift.cashierAccountId)===row.id:shift.cashierName===row.name)
+      && recordInPeriod(shift,period,{timezone,businessDay})
+      && matchesStore(shift,store,stores)
+    )).length;
+  });
+  return [...rows.values()].sort((a,b)=>b.sales-a.sales);
 };
 
 export const projectInventoryScope = (inventoryState = [], storeId = "all") => inventoryState.map((product) => {

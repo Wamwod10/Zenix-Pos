@@ -5,8 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
-import { getItemDiscountPerUnit, getNetSoldQty } from "../../utils/returns";
-import { matchesStore, recordInPeriod, returnedAmountForSale, saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue } from "../../utils/reporting";
+import { buildSellerAnalyticsRows, matchesStore, recordInPeriod } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, ColumnPicker } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import usePersistentColumns from "../../utils/usePersistentColumns";
@@ -15,7 +14,7 @@ import "./sellerAnalytics.scss";
 
 function SellerAnalytics() {
   const { currentUser } = useAuth();
-  const { dailySales, salesHistory, shiftHistory, stores, inventoryState, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { dailySales, salesHistory, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("30");
   const [store, setStore] = useState("all");
@@ -25,7 +24,6 @@ function SellerAnalytics() {
   const isCashier = currentUser?.appRole === ROLES.CASHIER;
   const timezone = workspaceSettings.organization.timezone || "Asia/Tashkent";
   const currentIdentityIds=[currentUser?.employeeId,currentUser?.id].filter(Boolean).map(String);
-  const sellerIdentity=(sale)=>String(sale?.sellerId||sale?.sellerAccountId||`name:${sale?.sellerName||sale?.seller||"Noma’lum"}`);
   const isOwnSale=(sale)=>{
     const identity=sale?.sellerId||sale?.sellerAccountId;
     return identity?currentIdentityIds.includes(String(identity)):(sale?.sellerName||sale?.seller)===currentUser?.name;
@@ -50,48 +48,15 @@ function SellerAnalytics() {
   }), [allSales, period, timezone, store, stores, isCashier, currentUser?.name]);
 
   const sellers = useMemo(() => {
-    const map = {};
-    filteredSales.forEach((sale) => {
-      const name = sale.sellerName || sale.seller || "Noma’lum";
-      const identity=sellerIdentity(sale);
-      if (!map[identity]) {
-        map[identity] = {
-          id:identity,name, sales: 0, grossSales: 0, profit: 0, count: 0, discount: 0,
-          returnAmount: 0, returnedSales: 0, cash: 0, card: 0, transfer: 0, products: {},
-        };
-      }
-      const row = map[identity];
-      const netRevenue = saleNetRevenue(sale);
-      const returned = returnedAmountForSale(sale);
-      const payment = saleNetPaymentBreakdown(sale);
-      row.sales += netRevenue;
-      row.grossSales += netRevenue + returned;
-      row.returnAmount += returned;
-      row.returnedSales += returned > 0 ? 1 : 0;
-      row.profit += saleNetProfit(sale);
-      row.count += 1;
-      row.cash += payment.cash;
-      row.card += payment.card;
-      row.transfer += payment.transfer;
-      (sale.items || []).forEach((item) => {
-        const qty = getNetSoldQty(item);
-        row.discount += getItemDiscountPerUnit(item) * qty;
-        if (qty > 0) row.products[item.name] = (row.products[item.name] || 0) + qty;
-      });
+    const visibleEmployees=isCashier?employees.filter((employee)=>{
+      const identity=employee?.id||employee?.accountId;
+      return identity?currentIdentityIds.includes(String(identity)):employee?.name===currentUser?.name;
+    }):employees;
+    return buildSellerAnalyticsRows({
+      employees:visibleEmployees,sales:filteredSales,shiftHistory,period,timezone,
+      businessDay:workspaceSettings.businessDay,store,stores,
     });
-
-    Object.values(map).forEach((row) => {
-      row.avg = row.count ? row.sales / row.count : 0;
-      row.returnRate = row.grossSales ? (row.returnAmount / row.grossSales) * 100 : 0;
-      row.shifts = shiftHistory.filter((shift) => (
-        ((shift.cashierId||shift.cashierAccountId)?String(shift.cashierId||shift.cashierAccountId)===String(row.id):shift.cashierName===row.name)
-        && recordInPeriod(shift, period, { timezone, businessDay:workspaceSettings.businessDay })
-        && matchesStore(shift, store, stores)
-      )).length;
-    });
-
-    return Object.values(map).sort((a, b) => b.sales - a.sales);
-  }, [filteredSales, shiftHistory, period, timezone, store, stores]);
+  }, [employees, filteredSales, shiftHistory, period, timezone, store, stores, isCashier, currentUser?.id, currentUser?.employeeId, currentUser?.name, workspaceSettings.businessDay]);
 
   const visible = sellers.filter((sellerRow) => sellerRow.name.toLowerCase().includes(search.toLowerCase()));
   const totalSales = visible.reduce((sum, row) => sum + row.sales, 0);
