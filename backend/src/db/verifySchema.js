@@ -17,6 +17,7 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "012_customers_credit_sales.sql",
   "013_customer_credit_hardening.sql",
   "014_billing_checkout_schema.sql",
+  "015_workspace_revisions.sql",
 ]);
 
 export const REQUIRED_TABLES = Object.freeze([
@@ -62,6 +63,7 @@ export const REQUIRED_TABLES = Object.freeze([
   "audit_logs",
   "auth_login_attempts",
   "auth_registration_attempts",
+  "workspace_revisions",
 ]);
 
 export const REQUIRED_FOREIGN_KEY_TABLES = Object.freeze([
@@ -103,6 +105,7 @@ export const REQUIRED_FOREIGN_KEY_TABLES = Object.freeze([
   "notification_deliveries",
   "file_assets",
   "audit_logs",
+  "workspace_revisions",
 ]);
 
 export const REQUIRED_UNIQUE_CONSTRAINT_TABLES = Object.freeze([

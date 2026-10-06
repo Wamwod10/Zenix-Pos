@@ -134,12 +134,14 @@ test("schema verification covers all migrations and core backend domains", () =>
     "012_customers_credit_sales.sql",
     "013_customer_credit_hardening.sql",
     "014_billing_checkout_schema.sql",
+    "015_workspace_revisions.sql",
   ]);
 
   for (const table of [
     "organizations", "users", "stores", "products", "inventory_balances",
     "sales", "shifts", "suppliers", "expenses", "billing_payments",
     "telegram_connections", "notification_deliveries", "auth_sessions",
+    "workspace_revisions",
   ]) {
     assert.ok(schemaModule.REQUIRED_TABLES.includes(table), `missing required table definition: ${table}`);
   }
