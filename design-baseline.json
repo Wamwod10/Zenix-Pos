@@ -1,0 +1,22 @@
+{
+  "src/index.css": "0cecb31b8b95770d44c6e5e80872f57bcea937bf3220723ee90d2c723b37cd0d",
+  "src/layout/mainlayout.scss": "154b7704524cf7c51e227a239a9868fa9112cc66dfc1c70890c63d3c52921410",
+  "src/pages/activityLog/activityLog.scss": "d7689c53863c1ff2974d6d18e68724eb95b4837fb67aa5fe7b75ef2d77e74549",
+  "src/pages/analytics/analytics.scss": "a30afd33e53cb36dcf715f64d76179da175ffd7d294b929eca8f2ace8d2908b5",
+  "src/pages/customers/customers.scss": "b1a373dc4e2a3adec4c79f59b8766b3512b5d58b80de759ec59d1770dea9db5c",
+  "src/pages/dashboard/dashboard.scss": "821db6e74f7f79ef9516653009ef2abab03082831c8ec91a1c5c891883bb14ef",
+  "src/pages/expenses/expenses.scss": "dc641197299d604b3085f1b3a18a112887fb07070cd282e5d0d040e039781a3f",
+  "src/pages/help/helpCenter.scss": "e5baccd3bc50c930b26f1de010cdfbf928d6296f81b26d16aaf6ee0f689921ae",
+  "src/pages/history/history.scss": "fdd3e30c8c856fa744f7c3b0ac03fe7e323eaac669cf2fbe5f7a1c8c6309a591",
+  "src/pages/inventory/inventory.scss": "46be838ed05a99ebce3978e5cf7f54d9e1ed318e41ea040949773ee2ad9fb966",
+  "src/pages/login/login.scss": "08aa14ea01a5de884a8a9e1a4124e1e75cc65790b6e9518c58505811d403f33d",
+  "src/pages/products/product.scss": "32414f3be29a5d8bd8ad881bb5147e1d9543a43c7d569cded382749d46b43ce5",
+  "src/pages/profile/profile.scss": "df23c4cbfeca995c03a858a5ad4fdbfbfcb6fcbcbcbb10261b87b778d932b59a",
+  "src/pages/sales/sales.scss": "fe3ee1b7d261c2f56d1e803eb9aabae8f769b6a14d8cb282a43ef9c0a330ac83",
+  "src/pages/sellerAnalytics/sellerAnalytics.scss": "d86fc513d4041f33fd7981a50caa7cc1a185a02eeffd7cbe0a60234bfe307ca1",
+  "src/pages/shifts/shifts.scss": "db7d7b9ba4c43cfe0ac3a0ce439365718f696ef918d58aeff736bb26a554267c",
+  "src/pages/suppliers/supplier.scss": "560a3f1a4de53f5b5007c025f4514ccf0e92311e18fbce362e12c0789fbde8bd",
+  "src/styles/media/_breakpoints.scss": "c4ad9c1d03eec352ae10b4f10551031437f7d410c49e6b62c283c97b803127ab",
+  "src/styles/media/responsive.scss": "a5e956277b1ed6dee0217a6e520a0d7b5e6efe54467ddac100e3af3f08838211",
+  "src/styles/saas.scss": "29037b88590e7af39b5bb2f0a1389916f0cd54033d3f7ce9b93e42b07cd57c50"
+}
