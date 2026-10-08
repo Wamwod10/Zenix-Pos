@@ -22,3 +22,5 @@ npm-debug.log*
 # Separate repositories; never re-introduce vendored copies
 .worktrees/
 .neon/
+/frontend/
+/backend/
