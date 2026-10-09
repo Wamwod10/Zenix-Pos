@@ -1,5 +1,5 @@
 import {
-  BILLING_CONFIG, BILLING_PLANS, billingDaysBetween, priceExtraStoreExtension,
+  BILLING_CONFIG, BILLING_PLANS, billingDaysBetween, priceExtraStoreExtension,priceExtraStoreByMonths,
   pricePlanExtension,
 } from "../config/billing.js";
 
@@ -11,7 +11,7 @@ export const paymentService = {
     const baseAmount=selectedPlan.amount;
     const renewalExtras=Math.max(0,Number(renewalExtraStores||0));
     const amount=type==="EXTRA"
-      ? priceExtraStoreExtension(plan,remainingDays,Math.max(1,extraStores))
+      ? priceExtraStoreByMonths(plan,currentExpiry,targetExpiry,Math.max(1,extraStores))
       : baseAmount+(plan==="MONTHLY"?BILLING_CONFIG.extraStore.monthlyAmount*renewalExtras:BILLING_CONFIG.extraStore.annualAmount*renewalExtras);
     const id=orderId();
     const purpose=type==="EXTRA"
@@ -28,7 +28,7 @@ export const paymentService = {
   buildRenewalOrder({plan="ANNUAL",currentExpiry,targetExpiry,renewalExtraStores=0}={}){
     const extensionDays=billingDaysBetween(currentExpiry,targetExpiry);
     const baseAmount=pricePlanExtension(plan,extensionDays);
-    const extraStoreAmount=priceExtraStoreExtension(plan,extensionDays,renewalExtraStores);
+    const extraStoreAmount=priceExtraStoreByMonths(plan,currentExpiry,targetExpiry,renewalExtraStores);
     const amount=baseAmount+extraStoreAmount;
     const id=orderId();
     const selectedPlan=BILLING_PLANS[plan]||BILLING_PLANS.ANNUAL;

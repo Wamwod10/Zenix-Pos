@@ -17,6 +17,7 @@ import usePersistentColumns from "../../utils/usePersistentColumns";
 import { buildFieldChanges } from "../../utils/auditChanges";
 import { deleteLocalFile, readLocalFile, saveLocalFile } from "../../services/fileStore";
 import "./product.scss";
+import {productCatalogPdf} from "../../utils/productPdf";
 
 const productAuditFields = [
   {key:"name",label:"Nomi"},{key:"sku",label:"SKU"},{key:"barcode",label:"Shtrix-kod"},
@@ -294,15 +295,11 @@ function Products(){
     notify({tone:"success",title:"Mahsulot butunlay o‘chirildi",message:product.name});
   };
 
-  const exportCsv=()=>{
-    const rows=[
-      ["Nomi","SKU","Shtrix-kod","Kategoriya","Brend","Birlik","Qoldiq (ma’lumot uchun)","Sotuv narxi","Ulgurji narx"],
-      ...inventory.map((product)=>[product.name,product.sku,product.barcode,product.category,product.brand,product.unit,product.quantity,product.sellPrice,product.wholesalePrice]),
-    ];
-    const csv="\ufeff"+rows.map((row)=>row.map((value)=>`"${String(value??"").replaceAll('"','""')}"`).join(",")).join("\n");
-    const link=document.createElement("a");
-    link.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-    link.download="zenix-products.csv";link.click();URL.revokeObjectURL(link.href);
+  const exportPdf=()=>{
+    const pdf=productCatalogPdf(inventory.filter(item=>!item.archived));
+    const url=URL.createObjectURL(pdf);
+    const link=document.createElement("a");link.href=url;link.download="zenix-products.pdf";link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 
   const lookupBarcode=()=>{
@@ -318,7 +315,7 @@ function Products(){
 
   return <div className="pro-page products-pro">
     <PageHeader title="Mahsulotlar" subtitle="Katalogni ko‘ring va boshqaring. Yangi tovar kelganda qoldiq Ombor → Kirim orqali qo‘shiladi." actions={<>
-      <button className="pro-btn secondary" onClick={exportCsv}><FiDownload/> CSV eksport</button>
+      <button className="pro-btn secondary" onClick={exportPdf}><FiDownload/> PDF eksport</button>
       {canEdit&&<><button className="pro-btn secondary" onClick={()=>setScanOpen(true)}><FiZap/> Shtrix-kod</button><button className="pro-btn secondary" onClick={()=>openCreate()}><FiPlus/> Katalog yozuvi</button></>}
       {canReceive&&<button className="pro-btn primary" onClick={()=>navigate("/inventory?receive=1")}><FiPlus/> Omborga kirim</button>}
     </>}/>

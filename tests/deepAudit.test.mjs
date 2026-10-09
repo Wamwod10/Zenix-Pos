@@ -61,7 +61,7 @@ test('billing renewal uses an exact target date and prices the selected period',
 test('Billing protects active stores and prices extra slots for the full remaining period',()=>{
   const billingPage=read('src/pages/billing/Billing.jsx');
   assert.match(billingPage,/const remainingDays=expiry\?Math\.max\(1,daysUntil\(expiry\)\):currentPlanDays/);
-  assert.match(billingPage,/minimumRenewExtraStores=Math\.max\(0,used-included\)/);
+  assert.match(billingPage,/minimumRenewExtraStores=Math\.max\(0,used-included-fullTermCoveredExtras\)/);
   assert.match(billingPage,/Math\.max\(minimumRenewExtraStores,value-1\)/);
   const twoYearExtra=paymentService.buildOrder({
     type:'EXTRA',plan:'ANNUAL',remainingDays:730,extraStores:1,currentExpiry:'2026-09-24',targetExpiry:'2028-09-23',

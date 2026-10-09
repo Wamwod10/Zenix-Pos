@@ -78,5 +78,15 @@ export const priceExtraStoreExtension=(plan,days,count=1)=>{
   return Math.round(periodAmount*Math.max(0,Number(days||0))/referenceDays)*Math.max(0,Number(count||0));
 };
 
+export const billableMonths=(start,end)=>{
+  const isCalendarDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&billingDateISO(value)===value;
+  if(!isCalendarDate(start)||!isCalendarDate(end)||start>=end)return 0;
+  const [fromYear,fromMonth]=start.split('-').map(Number);
+  const [untilYear,untilMonth]=end.split('-').map(Number);
+  let whole=(untilYear-fromYear)*12+untilMonth-fromMonth;
+  if(addBillingMonths(start,whole)>end)whole--;
+  return whole+(addBillingMonths(start,whole)<end?1:0);
+};
+export const priceExtraStoreByMonths=(plan,from,to,count=1)=>{const months=billableMonths(from,to),monthly=plan==="MONTHLY"?BILLING_CONFIG.extraStore.monthlyAmount:BILLING_CONFIG.extraStore.annualAmount/12;return Math.round(months*monthly/1000)*1000*Math.max(0,Number(count||0))};
 export const prorateExtraStore = (remainingDays, totalDays = 365) =>
   Math.round(BILLING_CONFIG.extraStore.annualAmount * Math.max(0, Math.min(1, remainingDays / totalDays)));

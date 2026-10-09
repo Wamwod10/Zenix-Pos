@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { normalizeSessionUser, legacyRoleForAppRole, runForOrganizationUser } from "../config/roles";
+import { normalizeSessionUser, legacyRoleForAppRole, runForOrganizationUser, ROLES } from "../config/roles";
 import { api, ApiError } from "../services/apiClient";
 import { formatUzPhone, isValidUzPhone } from "../utils/phone";
 
@@ -67,7 +67,7 @@ export const AuthProvider=({children})=>{
     if(!currentUser){setWorkspaceAccounts([]);setSessions([]);return}
     const started=runForOrganizationUser(currentUser,()=>{
       void refreshSessions();
-      void refreshWorkspaceAccounts();
+      if([ROLES.OWNER,ROLES.ADMIN,ROLES.MANAGER].includes(currentUser.appRole))void refreshWorkspaceAccounts();
     });
     if(!started){setWorkspaceAccounts([]);setSessions([])}
   },[currentUser?.id,currentUser?.organizationId,currentUser?.appRole,refreshSessions,refreshWorkspaceAccounts]);
@@ -88,7 +88,7 @@ export const AuthProvider=({children})=>{
         ownerName:String(form?.ownerName||"").trim(),
         phone:formatUzPhone(form?.phone||""),
         username:String(form?.login||form?.username||"").trim(),
-        password:String(form?.password||""),
+        password:String(form?.password||""),startOption:form?.startOption||"TRIAL",
       });
       const user=cleanUser(data.user);
       setCurrentUser(user);

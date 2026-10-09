@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import MainLayout from "./layout/MainLayout";
 import { useAuth } from "./context/AuthContext";
 import { useStore } from "./context/StoreContext";
@@ -72,6 +72,7 @@ export function WorkspaceLoadFailure({message,onRetry}){
 
 function WorkspaceAccess({children}){
   const { currentUser } = useAuth();
+  const location=useLocation();
   const { organizations, payments, workspaceReady, workspaceLoadError, branchAssignmentValid, reloadStore } = useStore();
   if (currentUser?.appRole === ROLES.PLATFORM_ADMIN) return children;
   const organization = organizations.find((item)=>item.id===currentUser?.organizationId);
@@ -81,6 +82,10 @@ function WorkspaceAccess({children}){
   if(decision==="error")return <WorkspaceLoadFailure message={workspaceLoadError||"Tashkilot ma’lumotlari topilmadi."} onRetry={reloadStore}/>;
   if(decision==="loading")return <Fallback/>;
   if (!branchAssignmentValid) return <Forbidden/>;
+  if(organization?.settings?.billingHold){
+    if(location.pathname==="/")return children;
+    return <section className="pro-card" role="alert" style={{maxWidth:680,margin:"5vh auto",padding:30,textAlign:"center"}}><h2>Akkaunt vaqtincha to‘lovgacha cheklangan</h2><p style={{margin:"14px 0"}}>Obuna to‘lovini yakunlang. Ma’lumotlaringiz saqlanib qolgan, ushbu bo‘lim to‘lov tasdiqlanguncha yopiq.</p><a className="pro-btn primary" href="/billing">Tarif va to‘lovlar</a></section>;
+  }
   return decision==="allowed" ? children : <Navigate to="/billing" replace/>;
 }
 const W=({children})=><WorkspaceAccess>{children}</WorkspaceAccess>;

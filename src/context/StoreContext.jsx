@@ -199,7 +199,9 @@ export const StoreProvider = ({ children }) => {
       setStockMovements(base.stockMovements||[]);setInventoryCounts(base.inventoryCounts||[]);setPaymentsState(base.payments||[]);
       const orgRow=base.organization||{};
       const included=Math.max(1,number(BILLING_PLANS[orgRow.plan]?.includedStores,2));
-      setOrganizationsState(orgRow.id?[{...orgRow,owner:currentUser.name,stores:nextStores.filter((item)=>item.active!==false).length,includedStores:included,purchasedExtraStores:Math.max(0,number(orgRow.storeLimit,included)-included)}]:[]);
+      // Do not charge again for an independently-paid branch pass when the
+      // base license is renewed. Entitlements and base allowances are separate.
+      setOrganizationsState(orgRow.id?[{...orgRow,owner:currentUser.name,stores:nextStores.filter((item)=>item.active!==false).length,includedStores:included,purchasedExtraStores:Math.max(0,number(orgRow.baseStoreLimit??orgRow.storeLimit,included)-included)}]:[]);
       const tgConnections={};
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});

@@ -36,6 +36,9 @@ def main() -> None:
     password = os.getenv("ZENIX_E2E_PASSWORD", "")
     if bool(user) != bool(password):
         raise RuntimeError("Set both ZENIX_E2E_USERNAME and ZENIX_E2E_PASSWORD, or neither")
+    role = os.getenv("ZENIX_E2E_ROLE", "OWNER").upper()
+    if role not in ("OWNER", "PLATFORM_ADMIN"):
+        raise RuntimeError("ZENIX_E2E_ROLE must be OWNER or PLATFORM_ADMIN")
     output = Path(os.getenv("ZENIX_E2E_ARTIFACTS", "browser-smoke-artifacts"))
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
@@ -68,6 +71,22 @@ def main() -> None:
                 page.wait_for_url(lambda url: "/login" not in url.path, timeout=20000)
                 page.screenshot(path=str(output / "post-login.png"), full_page=True)
                 print(f"PASS: staging account login navigates to {urlsplit(page.url).path}")
+                # Read-only route smoke. No product, sale, payment, or customer
+                # records are created. A staging account with relevant role is
+                # required for each module; this does not test write workflows.
+                expected = ["/platform"] if role == "PLATFORM_ADMIN" else [
+                    "/", "/sales", "/history", "/inventory", "/customers", "/billing"
+                ]
+                runtime_errors = []
+                page.on("pageerror", lambda error: runtime_errors.append(str(error)))
+                for route in expected:
+                    response = page.goto(f"{base}{route}", wait_until="domcontentloaded", timeout=30000)
+                    assert response and response.status < 400, f"{route} HTTP {response.status if response else 'no response'}"
+                    page.locator("#root").wait_for(timeout=20000)
+                    page.wait_for_timeout(1000)
+                    assert not runtime_errors, f"JS runtime crash on {route}: {runtime_errors[:2]}"
+                    assert "/login" not in urlsplit(page.url).path, f"Session lost on {route}"
+                    print(f"PASS: authenticated route {route} (read-only)")
                 ctx.close()
             else:
                 print("SKIP: authenticated staging browser navigation (no E2E credentials)")

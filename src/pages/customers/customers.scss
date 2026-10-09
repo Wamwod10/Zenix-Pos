@@ -9,4 +9,9 @@
 .customer-form label{min-width:0}.customer-form input,.customer-form .premium-select{width:100%;min-width:0}.customer-form input:focus{border-color:color-mix(in srgb,var(--primary) 45%,var(--border));box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 7%,transparent)}
 @media(max-width:700px){.customer-stats-error{align-items:stretch;flex-direction:column}.customer-stats-error .pro-btn{width:100%}.customer-modal-actions{position:sticky;bottom:0;background:var(--card-bg);padding-bottom:calc(4px + env(safe-area-inset-bottom))}.customer-modal-actions .pro-btn{flex:1;min-height:48px}}
 
+/* Stable alignment for the customer header and credit payment controls. */
+.customer-payment{grid-template-columns:22px minmax(130px,1fr) auto minmax(110px,130px) auto;align-items:center;}
+.customer-payment>svg{width:18px;height:18px;flex-shrink:0;}
+.customer-payment .field-hint{white-space:nowrap;}
+@media(max-width:850px){.customer-payment{grid-template-columns:22px minmax(0,1fr);}.customer-payment>.pro-btn{grid-column:1/-1;}.customer-payment .field-hint{white-space:normal;}}
 .customer-toolbar{gap:12px;flex-wrap:wrap;align-items:center}.customer-directory-controls{display:flex;gap:8px;flex-wrap:wrap}.customer-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;color:var(--muted);font-size:12px}.customer-pagination>div{display:flex;gap:8px}.customer-pagination button:disabled{cursor:default;opacity:.5}@media(max-width:700px){.customer-pagination{flex-wrap:wrap}.customer-pagination>div{width:100%}.customer-pagination button{flex:1}.customer-directory-controls{width:100%}}

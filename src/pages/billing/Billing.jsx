@@ -2,19 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiArrowLeft, FiCheck, FiClock, FiCopy, FiCreditCard, FiEye, FiFileText,
-  FiGift, FiMapPin, FiPlus, FiShield, FiCheckCircle,
+  FiGift, FiMapPin, FiPlus, FiShield, FiCheckCircle,FiLock,
 } from "react-icons/fi";
 import { BILLING_CONFIG, BILLING_PLANS, addBillingDays, addBillingMonths, billingDateISO, billingDaysBetween } from "../../config/billing";
 import { paymentService } from "../../services/paymentService";
+import { api } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import { formatPrice } from "../../utils/formatPrice";
-import { FilePicker, PageHeader, StatusBadge, PremiumDateInput, ColumnPicker } from "../../components/Ui";
+import { FilePicker, PageHeader, StatusBadge, PremiumDateInput, PremiumSelect, ColumnPicker } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import { useFeedback } from "../../context/FeedbackContext";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { billingPaymentReviewState, hasPendingBillingPayment, startBillingPaymentPolling } from "./billingPolling";
+import { coveredExtraStoresForPeriod } from "./extraStoreCoverage";
 
 const STATUS_LABELS={ACTIVE:"Faol",APPROVED:"Faol",REVIEW:"Tekshiruvda",REJECTED:"Rad etildi",EXPIRED:"Muddati tugagan",SUSPENDED:"Administrator tomonidan bloklangan",PAYMENT_REQUIRED:"To‘lov kutilmoqda",PENDING:"Kutilmoqda"};
 const statusTone=status=>["ACTIVE","APPROVED"].includes(status)?"success":status==="REJECTED"||status==="EXPIRED"||status==="SUSPENDED"?"danger":status==="REVIEW"?"warning":"neutral";
@@ -45,22 +47,29 @@ function Billing({activation=false}){
   const included=(BILLING_PLANS[currentPlan]||BILLING_PLANS.ANNUAL).includedStores;
   const used=stores.filter(store=>store.active!==false).length;
   const storeLimit=Math.max(included,Number(currentOrg?.storeLimit||included));
-  const purchasedExtras=Math.max(0,Number(currentOrg?.purchasedExtraStores??(storeLimit-included)));
+  const purchasedExtras=Math.max(0,Number(currentOrg?.purchasedExtraStores??(Number(currentOrg?.baseStoreLimit??storeLimit)-included)));
   const currentPlanDays=Number((BILLING_PLANS[currentPlan]||BILLING_PLANS.ANNUAL).referenceDays||365);
   // Extra-store pricing must cover the whole real remaining service period.
   // Do not clamp to one plan cycle because an owner can renew multiple years ahead.
   const remainingDays=expiry?Math.max(1,daysUntil(expiry)):currentPlanDays;
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
   const [flow,setFlow]=useState(()=>paymentReviewState==="waiting"?"waiting":activation||["PAYMENT_REQUIRED","REJECTED"].includes(status)?"plans":status==="EXPIRED"?"renew":"overview");
   const [plan,setPlan]=useState(currentPlan);
   const [licenseIntent,setLicenseIntent]=useState(()=>activation||!["ACTIVE","APPROVED","EXPIRED"].includes(status)?"ACTIVATE":"RENEW");
   const renewalBaseDate=billingDateISO(expiry&&String(expiry).slice(0,10)>=localDateISO()?expiry:new Date());
   const defaultRenewTargetDate=addBillingMonths(renewalBaseDate,currentPlan==="MONTHLY"?1:12);
   const [renewTargetDate,setRenewTargetDate]=useState(()=>defaultRenewTargetDate);
-  const minimumRenewExtraStores=Math.max(0,used-included);
+  const fullTermCoveredExtras=coveredExtraStoresForPeriod(currentOrg?.extraStoreEntitlements,renewalBaseDate,renewTargetDate);
+  const minimumRenewExtraStores=Math.max(0,used-included-fullTermCoveredExtras);
   const defaultRenewExtraStores=Math.max(purchasedExtras,minimumRenewExtraStores);
   const [renewExtraStores,setRenewExtraStores]=useState(defaultRenewExtraStores);
   const [paymentType,setPaymentType]=useState("LICENSE");
   const [extraStores,setExtraStores]=useState(1);
+  const [extraDuration,setExtraDuration]=useState("UNTIL_LICENSE");
+  const [promoCode,setPromoCode]=useState("");
+  const [promoPreview,setPromoPreview]=useState(null);
+  const [promoBusy,setPromoBusy]=useState(false);
   const [checkoutDraft,setCheckoutDraft]=useState(null);
   const [file,setFile]=useState(null);
   const [error,setError]=useState("");
@@ -109,7 +118,10 @@ function Billing({activation=false}){
     void loadBillingDraft().then((result)=>{
       const draft=result?.draft;if(!active||!draft||hasPendingPayment)return;
       setCheckoutDraft(draft);setPaymentType(draft.type||"LICENSE");setPlan(draft.plan||currentPlan);setLicenseIntent(draft.intent||draft.metadata?.intent||"RENEW");
-      if(draft.type==="EXTRA")setExtraStores(Math.max(1,Number(draft.extraStoreCount||1)));
+      if(draft.type==="EXTRA"){
+        setExtraStores(Math.max(1,Number(draft.extraStoreCount||1)));
+        setExtraDuration(draft.metadata?.extraDuration||"UNTIL_LICENSE");
+      }
       if(draft.type==="LICENSE"&&(draft.intent||draft.metadata?.intent)==="RENEW"){setRenewTargetDate(draft.selectedEndDate||defaultRenewTargetDate);setRenewExtraStores(Math.max(0,Number(draft.extraStoreCount||0)));}
       setFlow("payment");
     });
@@ -138,6 +150,8 @@ function Billing({activation=false}){
   const annualMonthlyEquivalent=Math.round(BILLING_CONFIG.annual.amount/12);
   const renewalExtraAmount=plan==="MONTHLY"?BILLING_CONFIG.extraStore.monthlyAmount*purchasedExtras:BILLING_CONFIG.extraStore.annualAmount*purchasedExtras;
 
+  const verifyPromo=async()=>{setPromoBusy(true);setError("");try{const data=await api.post("/api/billing/promo/preview",{code:promoCode.trim(),plan});setPromoPreview(data.promo||null)}catch(e){setPromoPreview(null);setError(e?.message||"Promokod yaroqsiz") }finally{setPromoBusy(false)}};
+  const redeemFree=async()=>{setPromoBusy(true);setError("");try{await api.post("/api/billing/promo/redeem-free",{code:promoCode.trim(),plan});await reloadStore();setPromoCode("");setPromoPreview(null);setFlow("overview");notify({tone:"success",title:"Bepul tarif faollashdi"})}catch(e){setError(e?.message||"Promokodni ishlatib bo‘lmadi")}finally{setPromoBusy(false)}};
   const copy=async(key,value)=>{try{await navigator.clipboard.writeText(String(value));setCopied(key);setTimeout(()=>setCopied(""),1400)}catch{setCopied("")}};
   const choose=fileValue=>{setError("");if(!fileValue)return;if(!BILLING_CONFIG.receipt.accepted.includes(fileValue.type)){setError("Faqat JPG, PNG yoki PDF qabul qilinadi");return}if(fileValue.size>BILLING_CONFIG.receipt.maxBytes){setError("Fayl hajmi 5MB dan oshmasligi kerak");return}setFile(fileValue)};
   const discardDraft=async()=>{const id=checkoutDraft?.id||billingDraft?.id;if(id)await cancelBillingDraft(id);setCheckoutDraft(null)};
@@ -149,8 +163,8 @@ function Billing({activation=false}){
   const startPlan=()=>{if(!canWrite)return;void discardDraft();setPaymentType("LICENSE");setLicenseIntent(["ACTIVE","APPROVED","EXPIRED"].includes(status)?"CHANGE_PLAN":"ACTIVATE");setPlan(currentPlan);setError("");setFile(null);setFlow("plans")};
   const startExtra=async()=>{
     if(!canWrite||!["ACTIVE","APPROVED"].includes(status)||hasPendingPayment)return;
-    setPreparing(true);setError("");setFile(null);setPaymentType("EXTRA");setLicenseIntent("EXTRA");setPlan(currentPlan);setExtraStores(1);
-    const result=await createBillingDraft({type:"EXTRA",plan:currentPlan,intent:"EXTRA",extraStoreCount:1,metadata:{source:"extra",purpose:"Qo‘shimcha filial limiti · 1 ta"}});
+    setPreparing(true);setError("");setFile(null);setPaymentType("EXTRA");setLicenseIntent("EXTRA");setPlan(currentPlan);setExtraStores(1);setExtraDuration("UNTIL_LICENSE");
+    const result=await createBillingDraft({type:"EXTRA",plan:currentPlan,intent:"EXTRA",extraStoreCount:1,extraDuration:"UNTIL_LICENSE",metadata:{source:"extra"}});
     setPreparing(false);if(!result?.success){setError(result?.message||"To‘lov ma’lumotlarini tayyorlab bo‘lmadi.");return}
     setCheckoutDraft(result.draft);setFlow("payment");
   };
@@ -158,26 +172,27 @@ function Billing({activation=false}){
     if(!canWrite||hasPendingPayment){setError("Boshqa to‘lov hali tekshiruvda. Avval uni yakunlang.");return}
     if(!renewalDateValid){setError("Uzaytirish sanasi joriy davr tugashidan keyin bo‘lishi kerak.");return}
     setPreparing(true);setError("");setPaymentType("LICENSE");setLicenseIntent("RENEW");
-    const result=await createBillingDraft({type:"LICENSE",plan:currentPlan,intent:"RENEW",selectedEndDate:renewTargetDate,extraStoreCount:renewExtraStores,metadata:{source:"renewal",purpose:renewalOrder.purpose,currentStoreLimit:storeLimit,nextStoreLimit:renewalNextStoreLimit,usedStores:used,includedStores:included}});
+    const result=await createBillingDraft({type:"LICENSE",plan:currentPlan,intent:"RENEW",selectedEndDate:renewTargetDate,extraStoreCount:renewExtraStores,promoCode:promoPreview?.percent<100?promoCode.trim():"",metadata:{source:"renewal",purpose:renewalOrder.purpose,currentStoreLimit:storeLimit,nextStoreLimit:renewalNextStoreLimit,usedStores:used,includedStores:included}});
     setPreparing(false);if(!result?.success){setError(result?.message||"To‘lov ma’lumotlarini tayyorlab bo‘lmadi.");return}
     setCheckoutDraft(result.draft);setFlow("payment");
   };
   const proceedPlan=async()=>{
     if(!canWrite||hasPendingPayment){setError("Boshqa to‘lov hali tekshiruvda. Avval uni yakunlang.");return}
     setPreparing(true);setError("");setPaymentType("LICENSE");
-    const result=await createBillingDraft({type:"LICENSE",plan,intent:licenseIntent,extraStoreCount:purchasedExtras,metadata:{source:"plan",purpose:order.purpose,currentStoreLimit:storeLimit,usedStores:used,includedStores:included}});
+    const result=await createBillingDraft({type:"LICENSE",plan,intent:licenseIntent,extraStoreCount:purchasedExtras,promoCode:promoPreview?.percent<100?promoCode.trim():"",metadata:{source:"plan",purpose:order.purpose,currentStoreLimit:storeLimit,usedStores:used,includedStores:included}});
     setPreparing(false);if(!result?.success){setError(result?.message||"To‘lov ma’lumotlarini tayyorlab bo‘lmadi.");return}
     setCheckoutDraft(result.draft);setFlow("payment");
   };
-  const changeExtraStoreCount=async(nextValue)=>{
+  const changeExtraStoreCount=async(nextValue,nextDuration=extraDuration)=>{
     if(!canWrite||preparing)return;
     const next=Math.max(1,Math.min(20,Number(nextValue||1)));
-    if(next===extraStores&&checkoutDraft?.id)return;
+    if(next===extraStores&&nextDuration===extraDuration&&checkoutDraft?.id)return;
     const previous=extraStores;
-    setExtraStores(next);setPreparing(true);setError("");
-    const result=await createBillingDraft({type:"EXTRA",plan:currentPlan,intent:"EXTRA",extraStoreCount:next,metadata:{source:"extra",purpose:`Qo‘shimcha filial limiti · ${next} ta`}});
+    const previousDuration=extraDuration;
+    setExtraStores(next);setExtraDuration(nextDuration);setPreparing(true);setError("");
+    const result=await createBillingDraft({type:"EXTRA",plan:currentPlan,intent:"EXTRA",extraStoreCount:next,extraDuration:nextDuration,metadata:{source:"extra"}});
     setPreparing(false);
-    if(!result?.success){setExtraStores(previous);setError(result?.message||"Filial limiti summasini yangilab bo‘lmadi.");return}
+    if(!result?.success){setExtraStores(previous);setExtraDuration(previousDuration);setError(result?.message||"Filial limiti summasini yangilab bo‘lmadi.");return}
     setCheckoutDraft(result.draft);
   };
   const leaveToOverview=()=>guardBillingExit(()=>{void discardDraft();setFile(null);setError("");setPlan(currentPlan);setRenewTargetDate(defaultRenewTargetDate);setRenewExtraStores(defaultRenewExtraStores);setFlow("overview")});
@@ -254,15 +269,16 @@ function Billing({activation=false}){
       <button type="button" className={`pricing-card ${plan==="MONTHLY"?"selected":""}`} onClick={()=>{if(canWrite){setCheckoutDraft(null);setPlan("MONTHLY")}}}><div className="pricing-top"><span>Oylik</span>{plan==="MONTHLY"&&<FiCheck/>}</div><strong>{billingPrice(BILLING_CONFIG.monthly.amount)}</strong><small>/ oy</small><ul><li><FiCheck/> {BILLING_CONFIG.monthly.includedStores} ta filial</li><li><FiCheck/> Barcha asosiy modullar</li><li><FiCheck/> Har oy yangilanadi</li></ul></button>
       <button type="button" className={`pricing-card featured ${plan==="ANNUAL"?"selected":""}`} onClick={()=>{if(canWrite){setCheckoutDraft(null);setPlan("ANNUAL")}}}><span className="best-badge"><FiGift/> Tejamkor</span><div className="pricing-top"><span>Yillik</span>{plan==="ANNUAL"&&<FiCheck/>}</div><strong>{billingPrice(BILLING_CONFIG.annual.amount)}</strong><small>/ 12 oy · oyiga {billingPrice(annualMonthlyEquivalent)}</small><div className="saving-pill">{billingPrice(BILLING_CONFIG.annual.saving)} tejaysiz</div><ul><li><FiCheck/> {BILLING_CONFIG.annual.includedStores} ta filial</li><li><FiCheck/> Barcha asosiy modullar</li><li><FiCheck/> 12 oyga bitta to‘lov</li></ul></button>
     </div>
+    <div className="pro-card" style={{marginTop:12,padding:14}}><label className="pro-field"><span>Promokod (ixtiyoriy)</span><input value={promoCode} onChange={e=>{setPromoCode(e.target.value.toUpperCase());setPromoPreview(null)}} placeholder="ZENIX-FREE30"/></label><button type="button" className="pro-btn secondary" disabled={!promoCode.trim()||promoBusy} onClick={verifyPromo}>Promokodni tekshirish</button>{promoPreview&&<div className="pro-alert success" style={{marginTop:10}}>{promoPreview.percent}% chegirma · {billingPrice(promoPreview.due)}{promoPreview.percent===100&&<button className="pro-btn primary" onClick={redeemFree} disabled={promoBusy}>Bepul faollashtirish</button>}</div>}</div>
     {purchasedExtras>0&&<div className="billing-renewal-extra"><FiMapPin/><span><strong>{purchasedExtras} ta qo‘shimcha filial limiti keyingi davrda ham davom etadi.</strong><small>Qo‘shimcha filiallar: {billingPrice(renewalExtraAmount)} · Jami: {billingPrice(checkoutOrder.amount)}</small></span></div>}
     <div className="billing-flow-footer"><span>Jami: <strong>{billingPrice(checkoutOrder.amount)}</strong></span><button className="pro-btn primary" onClick={proceedPlan} disabled={!canWrite||!!hasPendingPayment||preparing}>Davom etish</button></div>
   </section>;
 
   const payment=flow==="payment"&&<section className="pro-card billing-checkout-card">
     <div className="billing-flow-head"><button className="billing-back" onClick={back}><FiArrowLeft/></button><div><h2>{paymentType==="EXTRA"?"Filial limitini oshirish":"To‘lov"}</h2><p>Rekvizitlarni tekshiring, to‘lovni qiling va chekni biriktiring.</p></div></div>
-    {paymentType==="EXTRA"&&<div className="billing-extra-quantity"><div><span>Qo‘shimcha filial</span><small>{`Joriy tarif tugashigacha ${remainingDays} kun uchun hisoblanadi.`}</small></div><div className="quantity-stepper"><button disabled={preparing||extraStores<=1} onClick={()=>void changeExtraStoreCount(extraStores-1)}>−</button><strong>{extraStores}</strong><button disabled={preparing||extraStores>=20} onClick={()=>void changeExtraStoreCount(extraStores+1)}>+</button></div></div>}
+    {paymentType==="EXTRA"&&<><div className="billing-extra-quantity"><div><span>Qo‘shimcha filial</span><small>Filiallar sonini va xizmat muddatini tanlang.</small></div><div className="quantity-stepper"><button disabled={preparing||extraStores<=1} onClick={()=>void changeExtraStoreCount(extraStores-1)}>−</button><strong>{extraStores}</strong><button disabled={preparing||extraStores>=20} onClick={()=>void changeExtraStoreCount(extraStores+1)}>+</button></div></div><label className="pro-field"><span>Qo‘shimcha filial muddati</span><PremiumSelect className="pro-select" disabled={preparing} value={extraDuration} onChange={(event)=>void changeExtraStoreCount(extraStores,event.target.value)}><option value="UNTIL_LICENSE">Asosiy tarif tugaguncha (oyma-oy)</option><option value="MONTHLY">1 oy</option><option value="ANNUAL">1 yil</option></PremiumSelect></label></>}
     <div className="billing-checkout-layout">
-      <div className="billing-order-clean"><div><span>{paymentType==="EXTRA"?"Filial limiti":"Tarif"}</span><strong>{paymentType==="EXTRA"?`+${extraStores} ta filial`:BILLING_PLANS[plan].label}</strong></div>{paymentType==="LICENSE"&&Number(checkoutOrder.renewalExtraStores||0)>0&&<div><span>Qo‘shimcha filiallar</span><strong>{checkoutOrder.renewalExtraStores} ta · {billingPrice(checkoutOrder.extraStoreAmount||0)}</strong></div>}{checkoutOrder.servicePeriodFrom&&checkoutOrder.servicePeriodTo&&<div><span>Xizmat davri</span><strong>{fmtDate(checkoutOrder.servicePeriodFrom)} → {fmtDate(checkoutOrder.servicePeriodTo)}</strong></div>}<div><span>To‘lov summasi</span><strong className="billing-total-clean">{billingPrice(checkoutOrder.amount)}</strong></div><small>{paymentType==="EXTRA"?`Narx joriy tarifning qolgan ${remainingDays} kuniga proporsional hisoblandi.`:checkoutOrder.extensionDays?`${checkoutOrder.extensionDays} kun uchun avtomatik hisoblandi.`:"Tasdiqlangach tarif ma’lumotlari avtomatik yangilanadi."}</small></div>
+      <div className="billing-order-clean"><div><span>{paymentType==="EXTRA"?"Filial limiti":"Tarif"}</span><strong>{paymentType==="EXTRA"?`+${extraStores} ta filial`:BILLING_PLANS[plan].label}</strong></div>{paymentType==="LICENSE"&&Number(checkoutOrder.renewalExtraStores||0)>0&&<div><span>Qo‘shimcha filiallar</span><strong>{checkoutOrder.renewalExtraStores} ta · {billingPrice(checkoutOrder.extraStoreAmount||0)}</strong></div>}{checkoutOrder.servicePeriodFrom&&checkoutOrder.servicePeriodTo&&<div><span>Xizmat davri</span><strong>{fmtDate(checkoutOrder.servicePeriodFrom)} → {fmtDate(checkoutOrder.servicePeriodTo)}</strong></div>}<div><span>To‘lov summasi</span><strong className="billing-total-clean">{billingPrice(checkoutOrder.amount)}</strong></div><small>{paymentType==="EXTRA"?"Tanlangan muddat va yakuniy summa serverda hisoblandi. Muddat tugagach qo‘shimcha filial limiti yangilanadi.":checkoutOrder.extensionDays?`${checkoutOrder.extensionDays} kun uchun avtomatik hisoblandi.`:"Tasdiqlangach tarif ma’lumotlari avtomatik yangilanadi."}</small></div>
       <div className="billing-pay-clean">
         <div className="billing-copy-row"><span>Karta</span><strong>{BILLING_CONFIG.manualPayment.cardNumber}</strong><button onClick={()=>copy("card",BILLING_CONFIG.manualPayment.cardNumber)}>{copied==="card"?<FiCheck/>:<FiCopy/>}</button></div>
         <div className="billing-copy-row"><span>Summa</span><strong>{billingPrice(checkoutOrder.amount)}</strong><button onClick={()=>copy("amount",checkoutOrder.amount)}>{copied==="amount"?<FiCheck/>:<FiCopy/>}</button></div>
@@ -289,6 +305,9 @@ function Billing({activation=false}){
 
   const content=<div className="pro-page billing-pro">
     <PageHeader title={activation?"Tarifni aktivlashtirish":"Tarif va to‘lovlar"} subtitle={activation?"Tarifni tanlang va to‘lov chekini yuboring.":"Joriy tarif, filial limiti va to‘lovlar tarixi."} actions={!activation&&<StatusBadge tone={statusTone(status)}>{statusLabel}</StatusBadge>}/>
+    {currentOrg?.settings?.billingNotice&&<div className="pro-alert warning"><FiShield/><div><strong>Platforma administratori xabari</strong><span>{currentOrg.settings.billingNotice}</span></div></div>}
+    {currentOrg?.settings?.billingHold&&<div className="pro-alert danger"><FiLock/><div><strong>To‘lovgacha vaqtincha cheklangan</strong><span>Boshqaruv paneli va Billing ochiq qoladi. Obunani faollashtiring yoki administratorga murojaat qiling.</span></div></div>}
+    {currentOrg?.settings?.trialEndsAt&&["ACTIVE","APPROVED"].includes(status)&&<div className="billing-renewal-reminder"><FiClock/><span><strong>14 kunlik sinov muddati</strong><small>{(()=>{const seconds=Math.max(0,Math.ceil((new Date(currentOrg.settings.trialEndsAt).getTime()-now)/1000));return `${Math.floor(seconds/86400)} kun ${Math.floor(seconds%86400/3600)} soat ${Math.floor(seconds%3600/60)} daqiqa ${seconds%60} soniya qoldi`})()}</small></span>{canWrite&&<button className="pro-btn secondary" onClick={startPlan}>Tarif tanlash</button>}</div>}
     {status==="EXPIRED"&&<div className="pro-alert danger"><FiClock/><div><strong>Tarif muddati tugagan</strong><span>Platformadan foydalanishni davom ettirish uchun tarifni uzaytiring.</span></div></div>}
     {!activation&&["ACTIVE","APPROVED"].includes(status)&&expiry&&daysUntil(expiry)<=30&&<div className="billing-renewal-reminder"><FiClock/><span><strong>Tarif muddati yaqinlashmoqda</strong><small>{daysUntil(expiry)} kun qoldi · hozir uzaytirsangiz yangi davr joriy muddat tugaganidan keyin boshlanadi.</small></span>{canWrite&&<button className="pro-btn secondary" onClick={startRenew}>Uzaytirish</button>}</div>}
     {status==="REJECTED"&&!(["ACTIVE","APPROVED"].includes(storedStatus))&&<div className="pro-alert danger">Oxirgi to‘lov rad etildi. Sabab: {latestLicensePayment?.rejectReason||"To‘lov ma’lumotlarini tekshirib, yangi chek yuboring."}</div>}

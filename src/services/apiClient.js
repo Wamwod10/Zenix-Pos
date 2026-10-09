@@ -23,6 +23,9 @@ const FRIENDLY_ERRORS={
   SERIAL_QUANTITY_MISMATCH:"Har bir dona uchun alohida serial/IMEI kiriting.",
   SERIAL_NOT_AVAILABLE:"Tanlangan serial/IMEI omborda mavjud emas.",
   DUPLICATE_SERIAL:"Serial/IMEI qiymatlari takrorlangan.",
+  STORE_ENTITLEMENT_EXPIRED:"Ushbu filialning pullik muddati tugagan. Billing bo‘limida filial obunasini uzaytiring.",
+  STORE_TRADING_HOLD:"Filialda savdo administrator tomonidan vaqtincha cheklangan. Administrator bilan bog‘laning.",
+  STORE_INACTIVE:"Filial faol emas. Faol filialni tanlang.",
   SHIFT_REQUIRED:"Bu amal uchun avval joriy filialda smenani oching.",STORE_NAME_EXISTS:"Bu nomdagi filial allaqachon mavjud. Boshqa nom kiriting.",STORE_LIMIT:"Tarifingizdagi filial limiti tugagan. Tarif va to‘lovlar bo‘limidan limitni oshiring.",LAST_ACTIVE_STORE:"Oxirgi faol filialni arxivlab bo‘lmaydi.",CUSTOMER_PHONE_EXISTS:"Bu telefon raqami bilan mijoz allaqachon mavjud.",CUSTOMER_PAYMENT_EXCEEDS_BALANCE:"To‘lov summasi mijozning joriy qarzidan katta.",PAYMENT_EXCEEDS_DEBT:"To‘lov summasi ochiq ta’minotchi qarzidan katta.",SUPPLIER_HAS_DEBT:"Ta’minotchida ochiq qarz bor. Avval qarzni yoping.",PRODUCT_HAS_HISTORY:"Mahsulot tarixiy hujjatlarda ishlatilgan. Uni arxivlash mumkin, lekin butunlay o‘chirib bo‘lmaydi.",PRODUCT_HAS_STOCK:"Mahsulotda qoldiq mavjud. Qoldiqni qayerdaligini tekshirib, transfer/sotuv/inventarizatsiya orqali yakunlang.",PRODUCT_HAS_TRANSFER:"Mahsulot ochiq transferga biriktirilgan. Avval transferni qabul qiling yoki bekor qiling, keyin qayta urinib ko‘ring.",INVENTORY_COUNT_CONFLICT:"Sanash vaqtida qoldiq o‘zgargan. Yangilangan qoldiqni tekshirib, mahsulotlarni qayta sanang.",STORE_HAS_DEPENDENCIES:"Filialda yakunlanmagan operatsiyalar bor. Ko‘rsatilgan smena, qoldiq, xodim, transfer yoki inventarizatsiyani yakunlang."
 };
 const friendlyStatusMessage=(status)=>{

@@ -8,7 +8,7 @@ import "../login/login.scss";
 function Register(){
   const { register, isLoginTaken } = useAuth();
   const navigate = useNavigate();
-  const [form,setForm]=useState({businessName:"",ownerName:"",phone:"+998 ",login:"",password:""});
+  const [form,setForm]=useState({businessName:"",ownerName:"",phone:"+998 ",login:"",password:"",startOption:"TRIAL"});
   const [errors,setErrors]=useState({});
   const [submitting,setSubmitting]=useState(false);
   const [showPassword,setShowPassword]=useState(false);
@@ -24,7 +24,7 @@ function Register(){
     if(form.password.length<8)next.password="Parol kamida 8 ta belgidan iborat bo‘lsin";
     setErrors(next);return Object.keys(next).length===0;
   };
-  const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;setSubmitting(true);const result=await register(form);if(!result.success){setErrors({form:result.message});setSubmitting(false);return}navigate("/activation")};
+  const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;setSubmitting(true);const result=await register(form);if(!result.success){setErrors({form:result.message});setSubmitting(false);return}navigate(form.startOption==="TRIAL"?"/":"/activation")};
   return <main className="auth-page register-auth">
     <section className="auth-showcase">
       <div className="auth-brand"><span className="auth-brand-mark">Z</span><span>ZENIX POS</span></div>
@@ -43,6 +43,7 @@ function Register(){
           <label className="auth-field"><span>Kirish nomi</span><div className={`auth-input ${errors.login?"invalid":""}`}><FiUser/><input value={form.login} onBlur={()=>{if(form.login&&isLoginTaken(form.login))setErrors(p=>({...p,login:"Bu kirish nomi band"}))}} onChange={e=>set("login",e.target.value)} placeholder="Kirish nomi" autoComplete="username"/></div>{errors.login&&<small className="auth-field-error">{errors.login}</small>}</label>
           <label className="auth-field"><span>Parol</span><div className={`auth-input ${errors.password?"invalid":""}`}><FiLock/><input type={showPassword?"text":"password"} value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Kamida 8 ta belgi" autoComplete="new-password"/><button className="auth-eye" type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<FiEyeOff/>:<FiEye/>}</button></div>{errors.password&&<small className="auth-field-error">{errors.password}</small>}<div className="password-strength" aria-label="Parol kuchi"><i className={strength>=1?"on":""}/><i className={strength>=2?"on":""}/><i className={strength>=3?"on":""}/><i className={strength>=4?"on":""}/><span>{strength<=1?"Oddiy":strength===2?"Yaxshi":strength===3?"Kuchli":"Juda kuchli"}</span></div></label>
         </div>
+        <div className="auth-field full" style={{marginBottom:14}}><span>Qanday boshlamoqchisiz?</span><div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>{[["TRIAL","14 kun bepul"],["MONTHLY","1 oylik tarif"],["ANNUAL","1 yillik tarif"]].map(([value,label])=><button type="button" key={value} className={`pro-btn ${form.startOption===value?"primary":"secondary"}`} onClick={()=>set("startOption",value)}>{label}</button>)}</div><small>Bepul sinov tugaganda to‘lov qilmaguncha operatsiyalar cheklanadi.</small></div>
         <button className="auth-submit" disabled={submitting} type="submit">{submitting?"Tizim tayyorlanmoqda...":"Davom etish"}</button>
       </form>
       <div className="auth-privacy"><FiCheckCircle/> Ma’lumotlaringiz alohida va toza ish maydonida saqlanadi.</div>
