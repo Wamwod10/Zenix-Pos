@@ -16,3 +16,16 @@ test('product exporter creates valid PDF header and product fields',async()=>{
  assert.ok(body.includes('Olma'));
  assert.ok(body.includes('12000'));
 });
+test('PDF catalog transliterates Cyrillic names, categories and search labels readably',async()=>{
+ const products=[
+  {name:'Олма',category:'Мева',sku:'ҚИДИРУВ'},
+  {name:'Ўзбекистон Ғалла Ҳосил Қовун',category:'ЎРИК ҒЎЗА'},
+  {name:'Ёжик Щука Чай Жук',category:'Сыр Эхо Юла Яблоко'},
+  {name:'ЖУК ЧАЙ ШАР ЩУКА',category:'Объект тень'},
+ ];
+ const body=new TextDecoder().decode(await productCatalogPdf(products).arrayBuffer());
+ for(const text of ['Olma','Meva','QIDIRUV',"O'zbekiston G'alla Hosil Qovun","O'RIK G'O'ZA",'Yozhik Shchuka Chay Zhuk','Syr Ekho Yu','ZHUK CHAY SHAR SHCHUKA',"Ob'ekt ten"]){
+  assert.ok(body.includes(text),`missing readable transliteration: ${text}`);
+ }
+ assert.ok(!body.includes('?'),'ordinary Cyrillic catalog text must not become question marks');
+});

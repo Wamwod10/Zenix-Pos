@@ -2,7 +2,19 @@
  * WinAnsi's limited repertoire requires transliteration of Uzbek Cyrillic.
  * Prices and barcodes retain ASCII digits; never place user text in PDF commands.
  */
-const ascii=(v)=>String(v??"").normalize("NFKD").replace(/[‘’ʻʼ`]/g,"'").replace(/[^\x20-\x7e]/g,"?").slice(0,150);
+const cyrillic=Object.freeze({
+  а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'y',
+  к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',
+  ц:'ts',ч:'ch',ш:'sh',щ:'shch',ъ:"'",ы:'y',ь:'',э:'e',ю:'yu',я:'ya',
+  ў:"o'",қ:'q',ғ:"g'",ҳ:'h',һ:'h',і:'i',ї:'yi',є:'ye',ґ:'g',
+});
+const ascii=(value)=>String(value??'').replace(/[А-ЯЁа-яёЎўҚқҒғҲҳҺһІіЇїЄєҐґ]/g,(letter,offset,text)=>{
+  const latin=cyrillic[letter.toLowerCase()];
+  if(!latin||letter===letter.toLowerCase())return latin;
+  // Digraphs preserve title case in names and all caps in SKU/search labels.
+  const upperNeighbor=/[A-ZА-ЯЁЎҚҒҲҺІЇЄҐ]/.test(text[offset-1]||'')||/[A-ZА-ЯЁЎҚҒҲҺІЇЄҐ]/.test(text[offset+1]||'');
+  return upperNeighbor?latin.toUpperCase():latin[0].toUpperCase()+latin.slice(1);
+}).normalize('NFKD').replace(/\p{Mark}/gu,'').replace(/[‘’ʻʼ`]/g,"'").replace(/[^\x20-\x7e]/g,'?').slice(0,150);
 const esc=(v)=>ascii(v).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
 export function productCatalogPdf(products=[]){
   const objects=[null];const obj=(value)=>{objects.push(value);return objects.length-1};
