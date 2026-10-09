@@ -113,6 +113,8 @@ export const StoreProvider = ({ children }) => {
   currentWorkspaceIdentityRef.current=currentWorkspaceIdentity;
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
   const settingsSaveQueueRef=useRef(Promise.resolve());
+  const userThemeKey=currentUser?.id?`zenix:theme:v1:${currentUser.id}`:null;
+  const getUserTheme=()=>{try{return userThemeKey?window.localStorage.getItem(userThemeKey):null}catch{return null}};
 
   const activeStores = stores.filter((store) => store.active !== false);
   const branchLockedRole=[ROLES.CASHIER,ROLES.SALES,ROLES.WAREHOUSE].includes(currentUser?.appRole);
@@ -202,7 +204,7 @@ export const StoreProvider = ({ children }) => {
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});
       if(!settingsLoaded){
-        setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState(DEFAULT_UI_PREFERENCES);
+        setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(getUserTheme()?{theme:getUserTheme()}: {})});
       }
       if(settingsLoaded){
         const rawWorkspace=settingsData.workspaceSettings||{};
@@ -223,7 +225,7 @@ export const StoreProvider = ({ children }) => {
         setWorkspaceSettings(nextWorkspaceSettings);
         setBusinessFeatures(nextBusinessFeatures);
         setRolePermissions(nextRolePermissions);
-        setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{})});
+        setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{}),...(getUserTheme()?{theme:getUserTheme()}: {})});
       }
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
       setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
@@ -300,11 +302,12 @@ export const StoreProvider = ({ children }) => {
   const setUiPreferences=useCallback((updater)=>{
     setUiPreferencesState((previous)=>{
       const patch=typeof updater==="function"?updater(previous):updater;const next={...previous,...(patch||{})};
+      try{if(userThemeKey&&next.theme)window.localStorage.setItem(userThemeKey,next.theme)}catch{}
       runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:next}).catch((error)=>setPersistenceError(error?.message||"Interfeys sozlamalarini saqlab bo‘lmadi"))});
       return next;
     });
-  },[currentUser?.organizationId,currentUser?.appRole]);
-  const resetUiPreferences=useCallback(()=>{setUiPreferencesState(DEFAULT_UI_PREFERENCES);runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:DEFAULT_UI_PREFERENCES}).catch(()=>{})})},[currentUser?.organizationId,currentUser?.appRole]);
+  },[currentUser?.organizationId,currentUser?.appRole,userThemeKey]);
+  const resetUiPreferences=useCallback(()=>{try{if(userThemeKey)window.localStorage.removeItem(userThemeKey)}catch{}setUiPreferencesState(DEFAULT_UI_PREFERENCES);runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:DEFAULT_UI_PREFERENCES}).catch(()=>{})})},[currentUser?.organizationId,currentUser?.appRole,userThemeKey]);
 
   const generateBarcode = useCallback(async ({ reserved = [] } = {}) => {
     const blocked=new Set((reserved||[]).map((value)=>String(value||"").trim()).filter(Boolean));

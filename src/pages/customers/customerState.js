@@ -4,7 +4,7 @@ export function buildCustomerPaymentPayload({ amount, paymentMethod, note = "", 
 
 export function resolveCustomerLoadResults(listResult, statsResult) {
   const list = listResult.status === "fulfilled"
-    ? { customers:listResult.value?.customers || [], total:Number(listResult.value?.total || 0) }
+    ? { customers:listResult.value?.items || [], total:Number(listResult.value?.total || 0) }
     : null;
   return {
     list,

@@ -26,13 +26,24 @@ test("workspace persistence is server-authoritative and surfaces API failures",(
   assert.match(store,/setPersistenceError\(message\);if\(!silent\)\{setWorkspaceLoadError\(message\);setWorkspaceLoading\(false\);\}/);
   assert.match(store,/const apiFailure=/);
   assert.match(apiClient,/credentials:"include"/);
-  assert.doesNotMatch(store,/localStorage|sessionStorage|indexedDB/i);
+  // Only the three per-user theme operations are allowed in this provider;
+  // all remaining business state must retain the original API-only contract.
+  const authoritativeStore=store.replace(/window\.localStorage\.(?:getItem|removeItem)\(userThemeKey\)|window\.localStorage\.setItem\(userThemeKey,next\.theme\)/g,"");
+  assert.doesNotMatch(authoritativeStore,/localStorage|sessionStorage|indexedDB/i);
 });
 
 test("branch lifecycle guards are enforced by backend dependencies and store limit",()=>{
   const stores=read("../backend/src/routes/stores.js");
   assert.match(stores,/requirePermission\("settingsWrite"\)/);
-  assert.match(stores,/store_limit/);
+  const authorization=read("../backend/src/services/storeTradingHolds.js");
+  const entitlements=read("../backend/src/services/extraStoreEntitlements.js");
+  assert.match(stores,/await lockStoreTradingAuthorization\(client,\{organizationId:req\.user\.organizationId\}\)/);
+  assert.match(stores,/await lockStoreTradingAuthorization\(client,\{organizationId:orgId\}\)/);
+  assert.match(stores,/count >= org\.effectiveStoreLimit/);
+  assert.match(stores,/activeCount >= org\.effectiveStoreLimit/);
+  assert.match(authorization,/organizations WHERE id=\$1 FOR UPDATE/);
+  assert.match(authorization,/await effectiveStoreLimit\(client,org,businessDate\)/);
+  assert.match(entitlements,/store_limit/);
   assert.match(stores,/STORE_LIMIT/);
   assert.match(stores,/shifts/);
   assert.match(stores,/inventory_balances/);

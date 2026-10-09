@@ -11,6 +11,12 @@ import { paymentService } from '../src/services/paymentService.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=(p)=>fs.readFileSync(path.join(root,p),'utf8');
 
+test('frontend browser CI installs one exact Playwright version',()=>{
+  const workflow=read('.github/workflows/verify.yml');
+  assert.match(workflow,/python -m pip install playwright==1\.56\.0(?:\s|$)/);
+  assert.doesNotMatch(workflow,/pip install playwright(?:\s|$)|playwright(?:>=|~=|\^|latest)/);
+});
+
 test('legacy auth sessions normalize to SaaS roles',()=>{
   assert.equal(normalizeSessionUser({role:'admin'}).appRole,ROLES.ADMIN);
   assert.equal(normalizeSessionUser({role:'cashier'}).appRole,ROLES.CASHIER);

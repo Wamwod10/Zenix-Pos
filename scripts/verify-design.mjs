@@ -15,7 +15,12 @@ async function scan(directory){
     if(entry.isDirectory())await scan(full);
     else if(entry.isFile()&&/\.(css|scss)$/.test(entry.name)){
       const relative=path.relative(root,full).replaceAll(path.sep,'/');
-      collected.push([relative,createHash('sha256').update(await readFile(full)).digest('hex')]);
+      // Compare checkout-independent line endings while retaining existing
+      // Windows baselines. LF baselines from earlier intentional edits remain
+      // valid too; neither form can hide a substantive stylesheet change.
+      const source=(await readFile(full,'utf8')).replace(/\r\n/g,'\n');
+      const hashes=[source.replace(/\n/g,'\r\n'),source].map(text=>createHash('sha256').update(text).digest('hex'));
+      collected.push([relative,hashes.includes(manifest[relative])?manifest[relative]:hashes[0]]);
     }
   }
 }

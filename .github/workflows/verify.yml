@@ -22,3 +22,23 @@ jobs:
       - run: npm run audit
       - run: npm run verify:production
       - run: npm run build
+
+      # Read-only browser check against a local Vite preview; no Neon credentials.
+      - name: Install Playwright Chromium for local login smoke
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Login responsive browser smoke (320/375/430/1440)
+        shell: bash
+        env:
+          ZENIX_STAGING_URL: http://localhost:4173
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/zenix-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:4173/login > /dev/null; then break; fi
+            sleep 1
+          done
+          python tests/browser_smoke.py

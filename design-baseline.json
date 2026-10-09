@@ -3,7 +3,7 @@
   "src/layout/mainlayout.scss": "154b7704524cf7c51e227a239a9868fa9112cc66dfc1c70890c63d3c52921410",
   "src/pages/activityLog/activityLog.scss": "d7689c53863c1ff2974d6d18e68724eb95b4837fb67aa5fe7b75ef2d77e74549",
   "src/pages/analytics/analytics.scss": "a30afd33e53cb36dcf715f64d76179da175ffd7d294b929eca8f2ace8d2908b5",
-  "src/pages/customers/customers.scss": "b1a373dc4e2a3adec4c79f59b8766b3512b5d58b80de759ec59d1770dea9db5c",
+  "src/pages/customers/customers.scss": "ca9cc0c9e6da20b11049b084f5b0205b15cc4f0932931f2e9298f60d062e5ab7",
   "src/pages/dashboard/dashboard.scss": "821db6e74f7f79ef9516653009ef2abab03082831c8ec91a1c5c891883bb14ef",
   "src/pages/expenses/expenses.scss": "dc641197299d604b3085f1b3a18a112887fb07070cd282e5d0d040e039781a3f",
   "src/pages/help/helpCenter.scss": "e5baccd3bc50c930b26f1de010cdfbf928d6296f81b26d16aaf6ee0f689921ae",
