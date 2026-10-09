@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import MainLayout from "./layout/MainLayout";
 import { useAuth } from "./context/AuthContext";
@@ -13,6 +13,7 @@ import AppErrorBoundary from "./components/AppErrorBoundary";
 const Login=lazy(()=>import("./pages/login/Login"));
 const Register=lazy(()=>import("./pages/register/Register"));
 const ChangePassword=lazy(()=>import("./pages/login/ChangePassword"));
+const ResetPassword=lazy(()=>import('./pages/login/ResetPassword'));
 const Dashboard=lazy(()=>import("./pages/dashboard/Dashboard"));
 const Sales=lazy(()=>import("./pages/sales/Sales"));
 const Customers=lazy(()=>import("./pages/customers/Customers"));
@@ -74,15 +75,17 @@ function WorkspaceAccess({children}){
   const { currentUser } = useAuth();
   const location=useLocation();
   const { organizations, payments, workspaceReady, workspaceLoadError, branchAssignmentValid, reloadStore } = useStore();
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);
   if (currentUser?.appRole === ROLES.PLATFORM_ADMIN) return children;
   const organization = organizations.find((item)=>item.id===currentUser?.organizationId);
   const orgPayments = payments.filter((item)=>item.organizationId===currentUser?.organizationId);
-  const access = organization ? workspaceAccessState({ organization, payments: orgPayments }) : { allowed:false };
+  const access = organization ? workspaceAccessState({ organization, payments: orgPayments,now:now+(organization.serverClockOffset||0) }) : { allowed:false };
   const decision=workspaceRouteDecision({workspaceReady,workspaceLoadError,organization,licenseAllowed:access.allowed});
   if(decision==="error")return <WorkspaceLoadFailure message={workspaceLoadError||"Tashkilot ma’lumotlari topilmadi."} onRetry={reloadStore}/>;
   if(decision==="loading")return <Fallback/>;
   if (!branchAssignmentValid) return <Forbidden/>;
-  if(organization?.settings?.billingHold){
+  if(!access.allowed&&organization?.licenseStatus!=='SUSPENDED'){
     if(location.pathname==="/")return children;
     return <section className="pro-card" role="alert" style={{maxWidth:680,margin:"5vh auto",padding:30,textAlign:"center"}}><h2>Akkaunt vaqtincha to‘lovgacha cheklangan</h2><p style={{margin:"14px 0"}}>Obuna to‘lovini yakunlang. Ma’lumotlaringiz saqlanib qolgan, ushbu bo‘lim to‘lov tasdiqlanguncha yopiq.</p><a className="pro-btn primary" href="/billing">Tarif va to‘lovlar</a></section>;
   }
@@ -92,7 +95,7 @@ const W=({children})=><WorkspaceAccess>{children}</WorkspaceAccess>;
 const Fallback=()=> <PageSkeleton/>;
 
 function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fallback/>}><Routes>
- <Route path="/login" element={<Login/>}/><Route path="/register" element={<Register/>}/><Route path="/change-password" element={<Protected allowPasswordChange><ChangePassword/></Protected>}/>
+ <Route path="/reset-password" element={<ResetPassword/>}/><Route path="/login" element={<Login/>}/><Route path="/register" element={<Register/>}/><Route path="/change-password" element={<Protected allowPasswordChange><ChangePassword/></Protected>}/>
  <Route path="/activation" element={<Protected><Access roles={[ROLES.OWNER]}><Billing activation/></Access></Protected>}/>
  <Route path="/" element={<Protected><MainLayout/></Protected>}>
   <Route index element={<PermissionAccess permission="moduleDashboard"><W><Dashboard/></W></PermissionAccess>}/>

@@ -233,6 +233,31 @@ test("reversed organization usage responses keep B visible and closing invalidat
   },{id:"platform-1",appRole:"PLATFORM_ADMIN",name:"Admin"});
 });
 
+test("late reset token cannot appear in another user's reset workflow",async()=>{
+  const pending=deferred();
+  await withSession("/src/pages/platformAdmin/PlatformAdmin.jsx",path=>{
+    if(path.includes('/page'))return {items:[{id:'org-a',name:'A'}],total:1};
+    if(path.endsWith('/detail'))return {organization:{id:'org-a',name:'A',users:[{id:'user-a',name:'Alice'},{id:'user-b',name:'Bob'}]}};
+    if(path.endsWith('/usage'))return {usage:{receiptBytes:0}};
+    if(path.includes('/audit-logs'))return {logs:[]};
+    return {};
+  },async({container,dom,api})=>{
+    api.post=()=>pending.promise;
+    await act(async()=>button(container,'Mijozlar').click());await pause();
+    await act(async()=>container.querySelector('tbody .pro-icon-btn').click());await pause();
+    const users=()=>Array.from(document.querySelectorAll('.platform-detail-list button')).filter(node=>node.textContent==='Parolni tiklash');
+    await act(async()=>users()[0].click());
+    await inputValue(Array.from(document.querySelectorAll('input')).find(node=>node.previousElementSibling?.textContent.includes('Sabab')),'Identity checked by support',dom);
+    await act(async()=>button(document,'Bir martalik token yaratish').click());
+    await act(async()=>button(document,'Token yaratish').click());
+    const resetDialog=Array.from(document.querySelectorAll('[role="dialog"]')).find(node=>node.textContent.includes('Bir martalik token yaratish')||node.textContent.includes('Yaratilmoqda...'));
+    await act(async()=>resetDialog.querySelector('[aria-label="Yopish"]').click());
+    await act(async()=>users()[1].click());
+    await act(async()=>pending.resolve({reset:{token:'SECRET-FOR-ALICE',expiresAt:'2099-01-01'}}));
+    assert.equal(Boolean(document.querySelector('[aria-label="Tiklash tokeni"]')),false);
+  },{id:'platform-1',appRole:'PLATFORM_ADMIN',name:'Admin'});
+});
+
 test("same-role user switching writes and resets only the current complete theme key",async()=>{
   await withSession(null,()=>({}),async({api,store,auth,dom})=>{
     await act(async()=>store().setUiPreferences({theme:"dark"}));

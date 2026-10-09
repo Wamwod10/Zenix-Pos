@@ -114,7 +114,27 @@ export const StoreProvider = ({ children }) => {
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
   const settingsSaveQueueRef=useRef(Promise.resolve());
   const userThemeKey=currentUser?.id?`zenix:theme:v1:${currentUser.id}`:null;
-  const getUserTheme=()=>{try{return userThemeKey?window.localStorage.getItem(userThemeKey):null}catch{return null}};
+  const getUserTheme=()=>{try{const value=userThemeKey?window.localStorage.getItem(userThemeKey):null;return ['light','dark','system'].includes(value)?value:null}catch{return null}};
+  useEffect(()=>{
+    const saved=getUserTheme();
+    setUiPreferencesState(previous=>({...previous,theme:saved||DEFAULT_UI_PREFERENCES.theme}));
+    const sync=event=>{
+      if(event.key!==userThemeKey&&event.key!==null)return;
+      setUiPreferencesState(previous=>({...previous,theme:getUserTheme()||DEFAULT_UI_PREFERENCES.theme}));
+    };
+    window.addEventListener('storage',sync);
+    return()=>window.removeEventListener('storage',sync);
+  },[userThemeKey]);
+  useEffect(()=>{
+    const media=window.matchMedia?.('(prefers-color-scheme: dark)');
+    const apply=()=>{
+      const dark=uiPreferences.theme==='dark'||(uiPreferences.theme==='system'&&Boolean(media?.matches));
+      document.body.classList.toggle('dark-mode',dark);
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#111315':'#f3f4f4');
+    };
+    apply();media?.addEventListener('change',apply);
+    return()=>media?.removeEventListener('change',apply);
+  },[uiPreferences.theme]);
 
   const activeStores = stores.filter((store) => store.active !== false);
   const branchLockedRole=[ROLES.CASHIER,ROLES.SALES,ROLES.WAREHOUSE].includes(currentUser?.appRole);
@@ -201,7 +221,7 @@ export const StoreProvider = ({ children }) => {
       const included=Math.max(1,number(BILLING_PLANS[orgRow.plan]?.includedStores,2));
       // Do not charge again for an independently-paid branch pass when the
       // base license is renewed. Entitlements and base allowances are separate.
-      setOrganizationsState(orgRow.id?[{...orgRow,owner:currentUser.name,stores:nextStores.filter((item)=>item.active!==false).length,includedStores:included,purchasedExtraStores:Math.max(0,number(orgRow.baseStoreLimit??orgRow.storeLimit,included)-included)}]:[]);
+      setOrganizationsState(orgRow.id?[{...orgRow,serverClockOffset:orgRow.serverNow?Date.parse(orgRow.serverNow)-Date.now():0,owner:currentUser.name,stores:nextStores.filter((item)=>item.active!==false).length,includedStores:included,purchasedExtraStores:Math.max(0,number(orgRow.baseStoreLimit??orgRow.storeLimit,included)-included)}]:[]);
       const tgConnections={};
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});

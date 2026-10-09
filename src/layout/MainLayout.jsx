@@ -260,6 +260,7 @@ function MainLayout(){
       if(review)items.unshift({id:"pay",tone:"info",title:`${review} ta to‘lov tekshiruvda`,text:"To‘lovlar navbatini tekshiring",path:"/platform"});
       return items;
     }
+    if(currentOrg?.settings?.billingNotice&&currentUser?.appRole===ROLES.OWNER)items.unshift({id:`billing-notice-${currentOrg.settings.billingNoticeAt}`,tone:"warning",title:"Platforma administratori xabari",text:currentOrg.settings.billingNotice,path:"/billing"});
     const notify=workspaceSettings.notifications||{};
     if(hasPermission("moduleInventory",currentUser?.appRole)){
       if(notify.outOfStock!==false)inventory.filter(p=>Number(p.quantity)<=0).slice(0,2).forEach(p=>items.push({id:`out-${p.id}`,tone:"danger",title:"Mahsulot tugagan",text:p.name,path:"/inventory"}));
