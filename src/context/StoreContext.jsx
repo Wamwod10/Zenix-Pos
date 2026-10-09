@@ -63,10 +63,13 @@ const projectInventory = (items = [], storeId = DEFAULT_STORE_ID) => items.map((
   return { ...item, quantity:qty, stock:qty };
 });
 const productFromApi=(row,storeIds=[])=>normalizeProduct({
+  ...(row.metadata||{}),metadata:row.metadata||{},
   id:row.id,name:row.name,sku:row.sku||"",barcode:row.barcode||"",category:row.category||"",brand:row.brand||"",unit:row.unit||"dona",
   costPrice:number(row.cost_price??row.costPrice,0),sellPrice:number(row.sell_price??row.sellPrice,0),wholesalePrice:number(row.wholesale_price??row.wholesalePrice,0),
   minStock:number(row.min_stock??row.minStock,0),archived:Boolean(row.archived),stockByStore:row.stock_by_store||row.stockByStore||{},
-  ...(row.metadata||{}),metadata:row.metadata||{},
+  // Bootstrap tracking is database state; metadata may contain old snapshots.
+  serializedUnits:Array.isArray(row.serializedUnits)?row.serializedUnits:[],
+  stockBatches:Array.isArray(row.stockBatches)?row.stockBatches:[],
 },storeIds);
 const apiFailure=(error,fallback)=>({success:false,message:error instanceof ApiError?error.message:(error?.message||fallback),code:error instanceof ApiError?error.code:undefined,details:error instanceof ApiError?error.details:undefined});
 
@@ -318,7 +321,7 @@ export const StoreProvider = ({ children }) => {
   const saveProduct=useCallback(async({id=null,payload})=>{
     const metadata={variant:payload.variant||"",size:payload.size||"",color:payload.color||"",weight:payload.weight||"",warranty:payload.warranty||"",imageKey:payload.imageKey||"",imageName:payload.imageName||""};
     const body={name:payload.name,sku:payload.sku||"",barcode:payload.barcode||"",category:payload.category||"",brand:payload.brand||"",unit:payload.unit||"dona",costPrice:number(payload.costPrice,0),sellPrice:number(payload.sellPrice??payload.price,0),wholesalePrice:number(payload.wholesalePrice,0),minStock:number(payload.minStock,0),metadata};
-    try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore}:item):[product,...items]);return {success:true,product}}
+    try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore,serializedUnits:Array.isArray(data.product.serializedUnits)?product.serializedUnits:item.serializedUnits,stockBatches:Array.isArray(data.product.stockBatches)?product.stockBatches:item.stockBatches}:item):[product,...items]);return {success:true,product}}
     catch(error){return {success:false,message:error?.message||"Mahsulotni saqlab bo‘lmadi"}}
   },[stores]);
 
