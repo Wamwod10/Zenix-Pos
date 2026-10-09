@@ -52,12 +52,84 @@ async function withSession(page, get, run, user = owner) {
   }
 }
 
-const button=(container,text)=>Array.from(container.querySelectorAll("button")).find(node=>node.textContent===text);
+const button=(container,text)=>Array.from(container.querySelectorAll("button")).find(node=>node.textContent.trim()===text);
 async function select(container,label,option) {
   assert.ok(container.querySelector(`[aria-label="${label}"]`),`missing accessible ${label} control`);
   await act(async()=>container.querySelector(`[aria-label="${label}"]`).click());
-  await act(async()=>button(document,option).click());
+  const choice=Array.from(document.querySelectorAll('[role="option"]')).find(node=>node.textContent.trim()===option);
+  assert.ok(choice,`missing actual ${option} option`);
+  await act(async()=>choice.click());
   await pause();
+}
+
+async function inputValue(input,value,dom) {
+  await act(async()=>{
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,"value").set.call(input,value);
+    input.dispatchEvent(new dom.window.Event("input",{bubbles:true}));
+  });
+}
+
+for(const [label,option] of [["Mijozlar filtri","Barcha mijozlar"],["Mijozlarni saralash","Ism bo‘yicha"],["Saralash yo‘nalishi","O‘sish"]]) {
+  test(`reselecting ${label} preserves page one and resets a later page`,async()=>{
+    const calls=[];
+    await withSession("/src/pages/customers/Customers.jsx",path=>{
+      if(path==="/api/customers/stats")return {};
+      const params=Object.fromEntries(new URL(path,"http://localhost").searchParams);calls.push(params);
+      return {items:[customer(`page-${params.offset}`)],total:125,limit:60,offset:Number(params.offset)};
+    },async({container})=>{
+      const initialCalls=calls.length;
+      await select(container,label,option);
+      assert.equal(container.querySelector(".customer-main strong")?.textContent,"page-0","unchanged selection must retain rows");
+      assert.equal(button(container,"Keyingi").disabled,false,"unchanged selection must not strand loading");
+      assert.equal(calls.length,initialCalls,"page-one no-op must not fetch or invalidate");
+      await act(async()=>button(container,"Keyingi").click());await pause();
+      assert.equal(calls.at(-1).offset,"60");
+      await select(container,label,option);
+      assert.equal(calls.at(-1).offset,"0");
+      assert.equal(container.querySelector(".customer-main strong")?.textContent,"page-0");
+    });
+  });
+}
+
+for(const mutation of ["create","edit","payment"]) {
+  test(`pending customer ${mutation} refreshes the current VIP query after controls change`,async()=>{
+    const pending=deferred(),calls=[],writes=[];
+    const detail={customer:{...customer("c-1","Existing Customer"),balance:100,creditLimit:200,phone:"",email:"",address:""},ledger:[],sales:[],openCredits:[]};
+    await withSession("/src/pages/customers/Customers.jsx",path=>{
+      if(path==="/api/customers/stats")return {};
+      if(path.startsWith("/api/customers/c-1?"))return detail;
+      assert.ok(path.startsWith("/api/customers?"),`unexpected GET ${path}`);
+      const params=Object.fromEntries(new URL(path,"http://localhost").searchParams);calls.push(params);
+      return {items:[customer("c-1",params.filter==="vip"?"Current VIP":"All Customer")],total:1,limit:60,offset:0};
+    },async({container,dom,api})=>{
+      const write=async(path,payload)=>{writes.push({path,payload});return pending.promise;};
+      if(mutation==="edit")api.patch=write;else api.post=write;
+      if(mutation==="create") {
+        await act(async()=>button(container,"Mijoz qo‘shish").click());
+        await inputValue(document.querySelector('[role="dialog"] .customer-form input'),"New Customer",dom);
+        await act(async()=>button(document.querySelector('[role="dialog"]'),"Saqlash").click());
+      } else {
+        await act(async()=>container.querySelector('.customer-card').click());
+        if(mutation==="edit") {
+          await act(async()=>button(document,"Tahrirlash").click());
+          await act(async()=>button(document.querySelector('[role="dialog"]'),"Saqlash").click());
+        } else {
+          await inputValue(document.querySelector('.customer-payment input'),"10",dom);
+          await act(async()=>button(document,"To‘lov qabul qilish").click());
+        }
+      }
+      assert.equal(writes.length,1,`${mutation} must be pending before changing controls`);
+      assert.equal(writes[0].path,mutation==="create"?"/api/customers":mutation==="edit"?"/api/customers/c-1":"/api/customers/c-1/payments");
+      while(document.querySelector('[role="dialog"]'))await act(async()=>document.querySelector('[aria-label="Yopish"]').click());
+      await select(container,"Mijozlar filtri","VIP");
+      const beforeResolve=calls.length;
+      assert.equal(container.querySelector('.customer-main strong').textContent,"Current VIP");
+      await act(async()=>pending.resolve({customer:detail.customer,payment:{id:"payment-1"}}));await pause();
+      assert.ok(calls.length>beforeResolve,"successful mutation must refresh the directory");
+      assert.ok(calls.slice(beforeResolve).every(params=>params.filter==="vip"&&params.offset==="0"),"mutation must never fetch its obsolete pre-await query");
+      assert.equal(container.querySelector('.customer-main strong')?.textContent,"Current VIP");
+    });
+  });
 }
 
 test("customer directory reaches records past 60, keeps server order and bounds final/empty ranges",async()=>{
