@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft} from '../src/utils/posDraft.js';
 import {reconcilePersistedCart as reconcile} from '../src/utils/posCartReconciliation.js';
+import {allocateTrackedStock} from '../src/utils/stockTracking.js';
 const product = {id:'p1',name:'Current phone',sellPrice:120,taxRate:12,serialTracking:true,batchTracking:true,stockByStore:{s1:5,s2:50},serializedUnits:[],stockBatches:[]};
 const savedLine = {id:'p1',name:'Old phone',sellPrice:100,taxRate:0,serialTracking:false,cartQty:3,discountPercent:10,quantity:999};
 
@@ -99,6 +100,24 @@ test('duplicate persisted lines cannot each claim the same stock independently',
  assert.deepEqual(result.lines.map(line=>line.cartQty),[3,3]);
  assert.ok(result.changes.some(change=>change.type==='insufficient_stock'&&change.requested===6&&change.available===5));
 });
+test('duplicate IDs block checkout even when stock covers all lines',()=>{
+ const result=reconcile({lines:[{...savedLine,cartQty:1},{...savedLine,cartQty:1,discountPercent:5}],products:[product],storeId:'s1'});
+ assert.equal(result.hasBlockingStockIssue,true);
+ assert.ok(result.changes.some(change=>change.type==='duplicate_product'));
+ assert.deepEqual(result.lines.map(line=>line.discountPercent),[10,5]);
+});
+test('allocation honors selected serial and batch instead of automatic first units',()=>{
+ const current={id:'p',name:'Tracked',quantity:2,serializedUnits:[{id:'first',serial:'FIRST',storeId:'s1'},{id:'chosen',serial:'CHOSEN',storeId:'s1'}],stockBatches:[{id:'early',storeId:'s1',remaining:1,expiryDate:'2026-10-10'},{id:'chosen-b',storeId:'s1',remaining:1,expiryDate:'2026-11-10'}]};
+ const result=allocateTrackedStock(current,'s1',1,{selection:{serials:[{id:'chosen'}],batches:[{batchId:'chosen-b',quantity:1}]}});
+ assert.equal(result.success,true);
+ assert.deepEqual(result.tracking.serials.map(row=>row.id),['chosen']);
+ assert.deepEqual(result.tracking.batches.map(row=>[row.batchId,row.quantity]),[['chosen-b',1]]);
+ assert.equal(result.product.serializedUnits[0].status,undefined);
+ assert.equal(result.product.stockBatches[0].remaining,1);
+ for(const selection of [{serials:[{id:'missing'}]},{batches:[{batchId:'missing',quantity:1}]},{serials:[{id:'chosen'},{id:'chosen'}]},{batches:[{batchId:'chosen-b',quantity:2}]}]){
+  assert.equal(allocateTrackedStock(current,'s1',1,{selection}).success,false);
+ }
+});
 
 test('Sales waits for bootstrap tracking and reconciles draft, local and server restores identically',async()=>{
  const React=await import('react');
@@ -130,7 +149,7 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
    if(source==='local')dom.window.localStorage.setItem(`${key}:holds`,JSON.stringify([hold]));
    const original=dom.window.localStorage.getItem(key);
    let releaseBootstrap,bootstrapRequested=false,store;
-   const bootstrap=new Promise(resolve=>releaseBootstrap=resolve);
+   let bootstrap=new Promise(resolve=>releaseBootstrap=resolve);
    const calls=[];
    api.get=async path=>{
     calls.push(path);
@@ -178,6 +197,37 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
    assert.equal(draft.cart[0].cartQty,3);assert.equal(draft.cart[0].discountPercent,10);
    assert.deepEqual(draft.cart[0].tracking.serials.map(row=>[row.id,row.serial]),[['u1','CURRENT']]);
    assert.deepEqual(draft.cart[0].tracking.batches.map(row=>[row.batchId,row.batchNo,row.quantity]),[['b1','CURRENT-B',2]]);
+   if(source==='draft'){
+    const submitted=[];
+    api.post=async(path,body)=>{assert.equal(path,'/api/sales');submitted.push(body);return {sale:{id:'committed',saleNumber:'1'}};};
+    const refreshed={...current,name:'Renamed phone',sellPrice:160,serializedUnits:[{id:'first',serial:'FIRST',storeId,status:'IN_STOCK'},...current.serializedUnits],stockBatches:[{id:'early',storeId,remaining:1,expiryDate:'2026-10-10'},...current.stockBatches]};
+    bootstrap=Promise.resolve({stores:[{id:storeId,name:'Main',active:true}],inventory:[refreshed],organization:{id:'org-1',plan:'MONTHLY',storeLimit:2},activeShifts:{[storeId]:{id:'shift',openedAtISO:'2026-10-09T10:00:00Z'}}});
+    await React.act(async()=>store.reloadStore());
+    assert.match(container.querySelector('.pos-checkout').textContent,/Renamed phone/);
+    assert.match(container.querySelector('[role="status"]').textContent,/120.*160/);
+    const notice=container.querySelector('[role="status"]').textContent;
+    await React.act(async()=>store.reloadStore());
+    assert.equal(container.querySelector('[role="status"]').textContent,notice,'identical refresh must not duplicate notices');
+    await React.act(async()=>container.querySelector('.checkout-primary').click());
+    assert.equal(submitted.length,0,'first checkout after refreshed catalog must stop for review');
+    await React.act(async()=>container.querySelector('[aria-label="Miqdorni kamaytirish"]').click());
+    // Quantity 2 now exactly matches the saved batch allocation and the two
+    // tracked serials are partial legacy stock: preserve the selected unit.
+    await React.act(async()=>container.querySelector('.checkout-primary').click());
+    assert.equal(submitted.length,0,'quantity changes also require canonical tracking review');
+    await React.act(async()=>container.querySelector('.checkout-primary').click());
+    assert.equal(submitted.length,1);
+    assert.equal(submitted[0].items[0].unitPrice,144);
+    assert.deepEqual(submitted[0].items[0].metadata.tracking.serials.map(row=>row.id),['u1']);
+    assert.deepEqual(submitted[0].items[0].metadata.tracking.batches.map(row=>[row.batchId,row.quantity]),[['b1',2]]);
+   }
+   if(source!=='draft'){
+    bootstrap=Promise.resolve({stores:[{id:storeId,name:'Main',active:true}],inventory:source==='local'?[{...current,archived:true}]:[],organization:{id:'org-1',plan:'MONTHLY',storeLimit:2},activeShifts:{}});
+    await React.act(async()=>store.reloadStore());
+    assert.equal(container.querySelectorAll('.cart-item').length,0,'archived or deleted catalog products must be removed after held-cart restore');
+    assert.match(container.querySelector('[role="status"]').textContent,/olib tashlandi/);
+    assert.equal(container.querySelector('.checkout-primary').disabled,true);
+   }
    await React.act(async()=>root.unmount());root=null;container.remove();
   }
   assert.deepEqual(outcomes[0],outcomes[1]);assert.deepEqual(outcomes[1],outcomes[2]);

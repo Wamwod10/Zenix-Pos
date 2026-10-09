@@ -105,6 +105,8 @@ function Sales(){
   const restoreContextRef=useRef(null);
   restoreContextRef.current={draftKey,restoreReady,reconcileRestore,cart};
   const holdRestorePendingRef=useRef(false);
+  const reconciledCatalogRef=useRef(null);
+  const checkoutReviewRequiredRef=useRef(false);
   const localHoldsKey=draftKey?`${draftKey}:holds`:null;
   const readLocalHolds=()=>{try{const value=JSON.parse(window.localStorage.getItem(localHoldsKey)||"[]");return Array.isArray(value)?value.filter(h=>String(h.id).startsWith("local-")).slice(0,50):[]}catch{return []}};
   const saveLocalHolds=(list)=>{
@@ -119,12 +121,26 @@ function Sales(){
     if(!restoreReady||restoredDraftKey===draftKey)return;
     const draft=readPosDraft(window.localStorage,draftKey);
     const restored=reconcileRestore(draft);
+    reconciledCatalogRef.current=reconcileRestore;checkoutReviewRequiredRef.current=false;
     setCart(restored.lines);setReconciliationNotice(cartReconciliationMessage(restored.changes));
     setCustomer(draft?.customer||"");setCustomerId(draft?.customerId||"");setNote(draft?.note||"");
     setPayment(draft?.payment||workspaceSettings.pos.defaultPayment||"cash");setCashTendered(draft?.cashTendered||"");
     setCartDiscountPct(restored.cartDiscountPct);setCartDiscountInput(String(restored.cartDiscountPct));setCreditDueDate(draft?.creditDueDate||"");setCreditPaid(draft?.creditPaid||"");
     setRestoredDraftKey(draftKey);
   },[restoreReady,draftKey,restoredDraftKey,reconcileRestore,workspaceSettings.pos.defaultPayment]);
+  useEffect(()=>{
+    if(!draftReady||holdRestoring||reconciledCatalogRef.current===reconcileRestore)return;
+    reconciledCatalogRef.current=reconcileRestore;
+    const current=reconcileRestore({cart,cartDiscountPct});
+    if(JSON.stringify(current.lines)===JSON.stringify(cart)&&current.cartDiscountPct===cartDiscountPct)return;
+    setCart(current.lines);setCartDiscountPct(current.cartDiscountPct);setCartDiscountInput(String(current.cartDiscountPct));
+    const meaningful=current.changes.length||current.lines.some((line,index)=>line.quantity!==cart[index]?.quantity||JSON.stringify(line.tracking)!==JSON.stringify(cart[index]?.tracking));
+    if(meaningful){
+      checkoutReviewRequiredRef.current=true;
+      setReconciliationNotice(cartReconciliationMessage(current.changes.length?current.changes:[{type:"product_updated",name:"Savat"}]));
+      setSaleConfirmOpen(false);
+    }
+  },[draftReady,holdRestoring,reconcileRestore,cart,cartDiscountPct]);
   useEffect(()=>{
     if(!draftKey||!draftReady||holdRestoring)return;
     // Debounce keystrokes, but always flush a draft at pagehide before tab close.
@@ -336,6 +352,7 @@ function Sales(){
     }
     if(local)saveLocalHolds(readLocalHolds().filter(item=>item.id!==heldCart.id));
     const current=latest.reconcileRestore(heldCart);
+    reconciledCatalogRef.current=latest.reconcileRestore;checkoutReviewRequiredRef.current=false;
     setCart(current.lines);setReconciliationNotice(cartReconciliationMessage(current.changes));setCustomer(heldCart.customer||"");setCustomerId("");setNote(heldCart.note||"");
     setCashTendered("");setCreditPaid("");setCreditDueDate("");
     setCartDiscountPct(current.cartDiscountPct);setCartDiscountInput(String(current.cartDiscountPct));
@@ -353,6 +370,14 @@ function Sales(){
   };
   const completeSale=async()=>{
     if(processing||!draftReady||holdRestorePendingRef.current)return;
+    const current=reconcileRestore({cart,cartDiscountPct});
+    const changed=JSON.stringify(current.lines)!==JSON.stringify(cart)||current.cartDiscountPct!==cartDiscountPct;
+    if(changed||current.changes.length||current.hasBlockingStockIssue||checkoutReviewRequiredRef.current){
+      if(changed){setCart(current.lines);setCartDiscountPct(current.cartDiscountPct);setCartDiscountInput(String(current.cartDiscountPct));}
+      if(current.changes.length)setReconciliationNotice(cartReconciliationMessage(current.changes));
+      checkoutReviewRequiredRef.current=false;setSaleConfirmOpen(false);
+      setError("Savat yangilandi. Narx, miqdor va tanlovlarni tekshirib, savdoni qayta yakunlang.");return;
+    }
     if(!activeShift){setError("Savdo qilish uchun avval smenani oching");return}
     if(!cart.length)return;
     if(cartStockIssue){setError("Joriy filial qoldig‘i yetarli emas. Savat miqdorini tuzating.");return;}
@@ -370,7 +395,7 @@ function Sales(){
     for(const line of cart){
       const product=inventory.find((item)=>item.id===line.id);
       if(!product){setError(`${line.name}: mahsulot topilmadi`);return}
-      const planned=allocateTrackedStock(product,currentStoreId,Number(line.cartQty||0),{saleId,soldAt});
+      const planned=allocateTrackedStock(product,currentStoreId,Number(line.cartQty||0),{saleId,soldAt,selection:line.tracking});
       if(!planned.success){setError(planned.message||`${line.name}: qoldiqni yangilab bo‘lmadi`);return}
       trackedUpdates.push(planned.product);
       trackingByProduct.set(line.id,planned.tracking);

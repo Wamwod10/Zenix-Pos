@@ -15,9 +15,11 @@ export function reconcilePersistedCart({lines = [], products = [], inventory = p
   const changes = [];
   const reconciled = [];
   const requestedByProduct = new Map();
+  const countsByProduct = new Map();
   for (const saved of rows(lines)) {
     const productId = id(saved?.id);
     requestedByProduct.set(productId, number(requestedByProduct.get(productId)) + Math.max(0, number(saved?.cartQty)));
+    countsByProduct.set(productId, number(countsByProduct.get(productId)) + 1);
   }
   let hasBlockingStockIssue = false;
   for (const saved of rows(lines)) {
@@ -25,6 +27,10 @@ export function reconcilePersistedCart({lines = [], products = [], inventory = p
     const product = catalog.get(productId);
     const name = product?.name || saved?.name || productId;
     const report = (type, details = {}) => changes.push({type, productId, name, ...details});
+    if (countsByProduct.get(productId) > 1 && !changes.some(change => change.type === 'duplicate_product' && change.productId === productId)) {
+      hasBlockingStockIssue = true;
+      report('duplicate_product');
+    }
     if (!product || product.archived) {
       report('product_removed', {reason:product ? 'archived' : 'missing'});
       continue;
@@ -37,6 +43,7 @@ export function reconcilePersistedCart({lines = [], products = [], inventory = p
       : currentStock?.quantity ?? currentStock?.stock));
     const requested = number(saved.cartQty);
     const currentPrice = price(product);
+    if (['name','taxRate','tax','serialTracking','batchTracking','trackingConfig'].some(field => Object.hasOwn(saved, field) && JSON.stringify(saved[field]) !== JSON.stringify(product[field]))) report('product_updated');
     if (saved.sellPrice != null || saved.price != null) {
       const previousPrice = price(saved);
       if (previousPrice !== currentPrice) report(currentPrice > previousPrice ? 'price_increased' : 'price_decreased', {previousPrice, currentPrice});
@@ -105,6 +112,8 @@ export function cartReconciliationMessage(changes = []) {
       case 'serial_removed': return label + `Serial / IMEI tanlovi olib tashlandi (${change.selectionId}).`;
       case 'batch_removed': return label + `partiya tanlovi olib tashlandi (${change.selectionId}).`;
       case 'discount_changed': return label + `chegirma yangilandi (${change.previousDiscount}% → ${change.currentDiscount}%).`;
+      case 'duplicate_product': return label + 'takroriy qatorlar bor. Chegirma va tanlovlarni tekshirib, ortiqcha qatorni olib tashlang.';
+      case 'product_updated': return label + 'mahsulot ma’lumotlari yangilandi. Savatni tekshiring.';
       default: return '';
     }
   }).filter(Boolean).join(' ');

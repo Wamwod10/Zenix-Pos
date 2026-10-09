@@ -35,7 +35,15 @@ export function allocateTrackedStock(product, storeId, quantity, meta = {}) {
   if (fullySerialized && availableSerials.length < qty) {
     return { success:false, message:`${product.name || "Mahsulot"}: sotuv uchun Serial / IMEI birliklari yetarli emas` };
   }
-  const serialSelection = availableSerials.slice(0, Math.min(qty, availableSerials.length));
+  const requestedSerials = Array.isArray(meta.selection?.serials) ? meta.selection.serials : [];
+  let serialSelection = availableSerials.slice(0, Math.min(qty, availableSerials.length));
+  if (requestedSerials.length) {
+    const selectedIds = requestedSerials.map(entry => String(entry?.id ?? entry));
+    serialSelection = selectedIds.map(id => availableSerials.find(unit => String(unit.id) === id && (!unit.productId || String(unit.productId) === String(product.id))));
+    if (new Set(selectedIds).size !== selectedIds.length || serialSelection.some(unit => !unit) || selectedIds.length > qty || (fullySerialized && selectedIds.length !== qty)) {
+      return {success:false, message:`${product.name || "Mahsulot"}: tanlangan Serial / IMEI mavjud emas yoki miqdori mos emas`};
+    }
+  }
   if (serialSelection.length) {
     const selectedIds = new Set(serialSelection.map((unit) => unit.id));
     next.serializedUnits = (product.serializedUnits || []).map((unit) => selectedIds.has(unit.id)
@@ -62,16 +70,31 @@ export function allocateTrackedStock(product, storeId, quantity, meta = {}) {
   if (fullyBatched && batchAvailable + 1e-9 < qty) {
     return { success:false, message:`${product.name || "Mahsulot"}: partiya qoldig‘i yetarli emas` };
   }
+  const requestedBatches = Array.isArray(meta.selection?.batches) ? meta.selection.batches : [];
+  let selectedBatches = batches;
+  const requestedByBatch = new Map();
+  if (requestedBatches.length) {
+    selectedBatches = [];
+    for (const selection of requestedBatches) {
+      const key = String(selection.batchId ?? selection.id);
+      const batch = batches.find(row => String(row.id) === key && (!row.productId || String(row.productId) === String(product.id)));
+      const take = positive(selection.quantity);
+      if (!batch || requestedByBatch.has(batch.id) || take <= 0 || take > positive(batch.remaining) || (batch.status && batch.status !== 'IN_STOCK')) return {success:false, message:`${product.name || "Mahsulot"}: tanlangan partiya mavjud emas yoki qoldiq yetarli emas`};
+      requestedByBatch.set(batch.id, take);selectedBatches.push(batch);
+    }
+    const selectedQuantity = [...requestedByBatch.values()].reduce((sum, take) => sum + take, 0);
+    if (Math.abs(selectedQuantity - Math.min(qty, batchAvailable)) > 1e-9) return {success:false, message:`${product.name || "Mahsulot"}: tanlangan partiya miqdori sotuvga mos emas`};
+  }
 
   if (batches.length) {
     let left = qty;
     let offset = 0;
     const allocations = [];
     const remainingById = new Map();
-    for (const batch of batches) {
+    for (const batch of selectedBatches) {
       if (left <= 0) break;
       const available = positive(batch.remaining);
-      const take = Math.min(available, left);
+      const take = requestedByBatch.has(batch.id) ? requestedByBatch.get(batch.id) : Math.min(available, left);
       if (take <= 0) continue;
       allocations.push({
         batchId:batch.id,
