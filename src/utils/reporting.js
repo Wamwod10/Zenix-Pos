@@ -201,3 +201,8 @@ const capturedPayment=sale=>{
  if(sale.paymentBreakdown){for(const method of Object.keys(result))result[method]=Number(sale.paymentBreakdown[method]||0);return result}
  return saleGrossPaymentBreakdown(sale);
 };
+export const netItemContribution = (item = {}) => {
+  const sign = item._financialSign === -1 ? -1 : 1;
+  const qty = sign * Math.max(0, Number(item.quantity ?? item.qty ?? 0) - Number(item.returnedQty || 0));
+  return {qty, revenue: Number(item.finalPrice ?? item.price ?? 0) * qty};
+};

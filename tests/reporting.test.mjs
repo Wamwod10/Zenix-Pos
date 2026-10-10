@@ -62,3 +62,5 @@ test("seller analytics includes active cashiers and sales staff before their fir
     {sales:0,count:0,avg:0},{sales:0,count:0,avg:0},
   ]);
 });
+
+test('product ranking preserves negative refund-period quantity and revenue',()=>{assert.deepEqual(reporting.netItemContribution({quantity:0.4,finalPrice:100000,_financialSign:-1}),{qty:-0.4,revenue:-40000});assert.deepEqual(reporting.netItemContribution({quantity:2,returnedQty:0.5,finalPrice:100}),{qty:1.5,revenue:150})});

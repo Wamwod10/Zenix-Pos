@@ -7,7 +7,7 @@ import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
 import {
   financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
-  saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale,
+  saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale, netItemContribution,
 } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
 import ResponsiveChart from "../../components/ResponsiveChart";
@@ -106,8 +106,7 @@ function Analytics() {
   const productMap = {};
   filteredSales.forEach((sale) => (sale.items || []).forEach((item) => {
     const key = String(item.productId || item.id || item.name);
-    const qty = Math.max(0, Number(item.quantity || item.qty || 0) - Number(item.returnedQty || 0));
-    const value = Number(item.finalPrice || item.price || 0) * qty;
+    const {qty, revenue:value} = netItemContribution(item);
     productMap[key] = productMap[key] || { name:item.name, qty:0, revenue:0 };
     productMap[key].qty += qty;
     productMap[key].revenue += value;
