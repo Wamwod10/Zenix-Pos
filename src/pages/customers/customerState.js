@@ -1,5 +1,5 @@
-export function buildCustomerPaymentPayload({ amount, paymentMethod, note = "", storeId = null }) {
-  return { amount:Number(amount), paymentMethod, note, storeId:storeId || null };
+export function buildCustomerPaymentPayload({ amount, paymentMethod, note = "", storeId = null,clientReference }) {
+  return { amount:Number(amount), paymentMethod, note, storeId:storeId || null,...(clientReference?{clientReference}:{}) };
 }
 
 export function resolveCustomerLoadResults(listResult, statsResult) {
