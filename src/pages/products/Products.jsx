@@ -295,11 +295,13 @@ function Products(){
     notify({tone:"success",title:"Mahsulot butunlay o‘chirildi",message:product.name});
   };
 
-  const exportPdf=()=>{
-    const pdf=productCatalogPdf(inventory.filter(item=>!item.archived));
+  const exportPdf=async()=>{
+    try{const response=await fetch(`${import.meta.env.BASE_URL}fonts/NotoSans.ttf`);if(!response.ok)throw new Error("PDF font yuklanmadi");const fontBytes=new Uint8Array(await response.arrayBuffer());
+    const pdf=productCatalogPdf(filtered,{fontBytes,storeName:stores.find(store=>store.id===currentStoreId)?.name||"",exportDate:new Date().toISOString().slice(0,10)});
     const url=URL.createObjectURL(pdf);
     const link=document.createElement("a");link.href=url;link.download="zenix-products.pdf";link.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(error){notify({tone:"error",title:"PDF eksport bajarilmadi",message:error.message})}
   };
 
   const lookupBarcode=()=>{
