@@ -187,7 +187,7 @@ export const financialSalesEvents=(sales=[],returns=[])=>{
    const sale=byId.get(ret.saleId),item=sale?.items?.find(line=>String(line.productId||line.id)===String(ret.productId));
    const amount=Number(ret.amount||0),qty=Number(ret.quantity||0),cost=Number(ret.unitCost??ret.metadata?.unitCost??item?.unitCost??item?.metadata?.unitCost??item?.costPrice??0);
    const breakdown=ret.refundBreakdown||ret.metadata?.refundBreakdown;
-   events.push({...sale,...ret,id:`refund:${ret.id}`,sellerId:sale?.sellerId,sellerName:sale?.sellerName,storeId:ret.storeId||sale?.storeId,
+    events.push({...sale,...ret,id:`refund:${ret.id}`,originalSellerId:sale?.sellerId,originalSellerName:sale?.sellerName,sellerId:ret.createdBy||ret.actorId||ret.metadata?.actorId||sale?.sellerId,sellerAccountId:ret.createdBy||ret.actorId||ret.metadata?.actorId||sale?.sellerId,sellerName:ret.actorName||ret.createdByName||ret.metadata?.actorName||sale?.sellerName,seller:ret.actorName||ret.createdByName||ret.metadata?.actorName||sale?.sellerName,storeId:ret.storeId||sale?.storeId,
      businessDateISO:recordDateKey(ret),dateISO:ret.dateISO||recordDateKey(ret),date:ret.date,createdAt:ret.createdAt,
      _financialType:'refund',_financialAmount:amount,_financialProfit:-amount+qty*cost,returnedTotal:amount,total:amount,saleTotal:amount,
      items:[{...item,_financialSign:-1,productId:ret.productId,name:item?.name||ret.productName,quantity:qty,returnedQty:0,finalPrice:qty?amount/qty:0}],

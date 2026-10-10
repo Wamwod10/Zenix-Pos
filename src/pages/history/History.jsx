@@ -4,6 +4,7 @@ import { FiCalendar, FiEye, FiFilter, FiPrinter, FiRefreshCw, FiRotateCcw, FiSea
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
+import useScopedReport from "../../utils/useScopedReport";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
 import { applyReturnToSale, getRefundAllocation, getRefundCashAdjustment, RETURN_REASONS } from "../../utils/returns";
@@ -21,8 +22,12 @@ const net=(sale)=>Math.max(0,Number(sale.saleTotal||sale.total||0)-Number(sale.r
 function History(){
   const {currentUser}=useAuth();
   const location=useLocation();
-  const {dailySales,salesHistory,returns,effectiveWorkspaceSettings:workspaceSettings,stores,getStoreProduct,currentStoreId,hasPermission,activeShift,commitReturnTransaction}=useStore();
+  const {returns:bootstrapReturns,effectiveWorkspaceSettings:workspaceSettings,stores,getStoreProduct,currentStoreId,hasPermission,activeShift,commitReturnTransaction}=useStore();
   const [search,setSearch]=useState(()=>new URLSearchParams(location.search).get("search")||"");const [from,setFrom]=useState("");const [to,setTo]=useState("");const [seller,setSeller]=useState("all");const [payment,setPayment]=useState("all");const [store,setStore]=useState("all");const [shift,setShift]=useState("all");
+  const [page,setPage]=useState(0);
+  useEffect(()=>setPage(0),[search,from,to,seller,payment,store,shift]);
+  const report=useScopedReport({from,to,sellerId:seller,paymentMethod:payment,storeId:store,shiftId:shift,search,limit:100,offset:page*100},{revision:bootstrapReturns[0]?.id});
+  const {returns}=report;
   useEffect(()=>{const query=new URLSearchParams(location.search).get("search");if(query!=null)setSearch(query)},[location.search]);
   const [selected,setSelected]=useState(null);const [returnSale,setReturnSale]=useState(null);const [returnItem,setReturnItem]=useState(null);const [returnQty,setReturnQty]=useState(1);const [returnReason,setReturnReason]=useState("");const [refundMethod,setRefundMethod]=useState("original");const [returnError,setReturnError]=useState("");
   const historyColumnDefs=[{id:"seller",label:"Sotuvchi"},{id:"store",label:"Filial / Smena"},{id:"payment",label:"To‘lov"},{id:"gross",label:"Jami"},{id:"returns",label:"Qaytarish"},{id:"net",label:"Sof"}];
@@ -36,13 +41,10 @@ function History(){
     const identity=sale?.sellerId||sale?.sellerAccountId;
     return identity?currentIdentityIds.includes(String(identity)):(sale?.sellerName||sale?.seller||"")===currentUser?.name;
   };
-  const all=useMemo(()=>[
-    ...(dailySales||[]).filter(Boolean).map(s=>({...s,_source:"daily",dateISO:s.dateISO||workspaceDateISO(new Date(),workspaceSettings.organization.timezone)})),
-    ...(salesHistory||[]).filter(Boolean).flatMap(day=>(day.sales||[]).filter(Boolean).map(s=>({...s,_source:"history",_dayId:day.id,dateISO:iso(s,day),date:s.date||day.date}))),
-  ],[dailySales,salesHistory,workspaceSettings.organization.timezone]);
+  const all=report.sales;
   const sellers=[...new Map(all.map((sale)=>[sellerKey(sale),{key:sellerKey(sale),name:sale.sellerName||sale.seller||"Noma’lum"}])).values()];const shifts=[...new Set(all.map(s=>s.shiftId).filter(Boolean))];const shiftLabels=new Map(shifts.map((id,index)=>[id,`Smena ${index+1}`]));
   const filtered=useMemo(()=>all.filter(s=>{const q=search.trim().toLowerCase(),key=s.dateISO||"",name=s.sellerName||s.seller||"",customer=customerDisplayName(s.customer,"");if(isCashier&&!isOwnSale(s))return false;if(from&&key<from)return false;if(to&&key>to)return false;if(seller!=="all"&&sellerKey(s)!==seller)return false;if(payment!=="all"&&s.paymentMethod!==payment)return false;if(store!=="all"&&((s.storeId&&s.storeId!==store)||(!s.storeId&&(s.store||stores[0]?.name)!==stores.find(x=>x.id===store)?.name)))return false;if(shift!=="all"&&s.shiftId!==shift)return false;if(q&&!`${s.id} ${name} ${customer} ${(s.items||[]).filter(Boolean).map(i=>i?.name||"").join(" ")}`.toLowerCase().includes(q))return false;return true}).sort((a,b)=>`${b.dateISO||""} ${b.time||""}`.localeCompare(`${a.dateISO||""} ${a.time||""}`)),[all,search,from,to,seller,payment,store,shift,isCashier,currentUser,stores]);
-  const revenue=filtered.reduce((sum,s)=>sum+net(s),0);const returned=filtered.reduce((sum,s)=>sum+Number(s.returnedTotal||0),0);const avg=filtered.length?revenue/filtered.length:0;
+  const revenue=report.aggregate?.lifetimeNetRevenue||0;const returned=report.aggregate?.lifetimeReturnedAmount||0;const count=report.aggregate?.saleCount||0;const avg=count?revenue/count:0;
   const openReturn=(sale)=>{setReturnSale(sale);setReturnItem(null);setReturnQty(1);setReturnReason("");setRefundMethod("original");setReturnError("")};
   const applyReturn=async()=>{
     if(!canReturn||!returnSale||!returnItem||!returnReason)return;
@@ -68,11 +70,15 @@ function History(){
     const committed=await commitReturnTransaction({saleId:returnSale.id,updatedSale:result.sale,productUpdates,stockStoreId:returnStoreId,returnRecord:record,cashMovement,activity:{type:"return",title:"Qaytarish qilindi",description:`${returnItem.name} · ${result.quantity} dona · ${formatPrice(result.amount)}`}});
     if(!committed.success){rejectRefund(window.localStorage,attemptKey,committed);setReturnError(committed.message||"Qaytarishni saqlab bo‘lmadi.");return}
     acknowledgeRefund(window.localStorage,attemptKey);
+    report.reload();
     setReturnSale(null);setSelected(null);
   };
   const reset=()=>{setSearch("");setFrom("");setTo("");setSeller("all");setPayment("all");setStore("all");setShift("all")};
   return <div className="pro-page history-pro"><PageHeader title="Savdo tarixi" subtitle="Cheklar, to‘lovlar, kassirlar va qaytarishlarni bitta joydan boshqaring." actions={<><ColumnPicker columns={historyColumnDefs} visible={historyColumns} order={historyColumnsControl.order} widths={historyColumnsControl.widths} views={historyColumnsControl.views} onToggle={toggleHistoryColumn} onMove={historyColumnsControl.move} onWidth={historyColumnsControl.setWidth} onReset={historyColumnsControl.reset} onSaveView={historyColumnsControl.saveView} onApplyView={historyColumnsControl.applyView} onDeleteView={historyColumnsControl.deleteView}/><button className="pro-btn secondary" onClick={reset}><FiRefreshCw/> Filtrlarni tozalash</button></>}/>
-    <div className="pro-stat-grid"><StatCard icon={FiShoppingBag} label="Savdolar" value={filtered.length} hint="Filtr natijasi" tone="blue"/><StatCard icon={FiCalendar} label="Sof savdo" value={formatPrice(revenue)} hint={`Qaytarish: ${formatPrice(returned)}`} tone="green"/><StatCard icon={FiFilter} label="O‘rtacha chek" value={formatPrice(avg)} hint="Sof summa bo‘yicha" tone="purple"/><StatCard icon={FiRotateCcw} label="Qaytarishlar" value={(returns||[]).length} hint="Barcha qaytarish yozuvlari" tone="orange"/></div>
+    {report.error&&<div className="pro-alert danger" role="alert">{report.error}</div>}
+    {report.loading&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
+    <div className="pro-stat-grid"><StatCard icon={FiShoppingBag} label="Savdolar" value={count} hint="Filtr natijasi" tone="blue"/><StatCard icon={FiCalendar} label="Sof savdo" value={formatPrice(revenue)} hint={`Qaytarish: ${formatPrice(returned)}`} tone="green"/><StatCard icon={FiFilter} label="O‘rtacha chek" value={formatPrice(avg)} hint="Sof summa bo‘yicha" tone="purple"/><StatCard icon={FiRotateCcw} label="Qaytarishlar" value={report.aggregate?.returnCount||0} hint="Filtr natijasi" tone="orange"/></div>
+    <div className="pro-filter-bar"><button className="pro-btn secondary" disabled={page===0||report.loading} onClick={()=>setPage(value=>value-1)}>Oldingi</button><span>{page+1} / {Math.max(1,Math.ceil((report.pagination.total||0)/100))}</span><button className="pro-btn secondary" disabled={(page+1)*100>=report.pagination.total||report.loading} onClick={()=>setPage(value=>value+1)}>Keyingi</button></div>
     <section className="pro-card history-table-card"><div className="history-filter-grid"><div className="pro-search"><FiSearch/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Savdo ID, mahsulot, mijoz yoki sotuvchi..."/></div><PremiumDateInput className="pro-date" value={from} onChange={e=>setFrom(e.target.value)} aria-label="Boshlanish sanasi"/><PremiumDateInput className="pro-date" value={to} onChange={e=>setTo(e.target.value)} aria-label="Tugash sanasi"/><PremiumSelect className="pro-select" value={seller} onChange={e=>setSeller(e.target.value)} disabled={isCashier}><option value="all">Barcha sotuvchilar</option>{sellers.map(x=><option key={x.key} value={x.key}>{x.name}</option>)}</PremiumSelect><PremiumSelect className="pro-select" value={payment} onChange={e=>setPayment(e.target.value)}><option value="all">Barcha to‘lovlar</option><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option><option value="split">Aralash</option></PremiumSelect><PremiumSelect className="pro-select" value={shift} onChange={e=>setShift(e.target.value)}><option value="all">Barcha smenalar</option>{shifts.map(x=><option key={x} value={x}>{shiftLabels.get(x)}</option>)}</PremiumSelect><PremiumSelect className="pro-select" value={store} onChange={e=>setStore(e.target.value)}><option value="all">Barcha filiallar</option>{stores.filter(s=>s.active!==false).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect></div>
       <div className="pro-table-wrap mobile-card-wrap"><table className="pro-table mobile-card-table"><thead><tr><th>Sana / Savdo</th>{orderedHistoryColumns.map((column)=><th key={column.id} style={historyColumnStyle(column.id)}>{column.label}</th>)}<th/></tr></thead><tbody>{filtered.length?filtered.map(s=><tr key={`${s._source}-${s.id}`}><td data-label="Sana / Savdo"><strong>{s.date||s.dateISO}</strong><small>{s.time||"—"} · {s.id}</small></td>{orderedHistoryColumns.map((column)=>{
         if(column.id==="seller")return <td key={column.id} style={historyColumnStyle(column.id)} data-label={column.label}><strong>{s.sellerName||s.seller||"—"}</strong><small>{customerDisplayName(s.customer)}</small></td>;
