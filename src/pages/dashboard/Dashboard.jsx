@@ -1,3 +1,4 @@
+import {financialSalesEvents} from "../../utils/reporting";
 import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
@@ -38,11 +39,12 @@ function Dashboard(){
     return storeId===defaultStoreId;
   };
 
-  const allSales=useMemo(()=>[
+  const saleRecords=useMemo(()=>[
     ...dailySales,
     ...salesHistory.flatMap(day=>(day.sales||[]).map(s=>({...s,dateISO:s.dateISO||day.dateISO,date:s.date||day.date,storeId:s.storeId||day.storeId,store:s.store||day.store}))),
   ],[dailySales,salesHistory]);
 
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
   const range=useMemo(()=>{
     const endKey=workspaceDateISO(new Date(),organizationSettings.timezone);
     if(period==="all")return{startKey:"0000-01-01",endKey,previousStartKey:null,previousEndKey:null,days:14};
@@ -66,8 +68,8 @@ function Dashboard(){
   const previousExpense=previousExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const netProfit=grossProfit-expenseTotal;
   const previousNet=previousGross-previousExpense;
-  const transactions=sales.length;
-  const previousTransactions=previousSales.length;
+  const transactions=sales.filter(sale=>sale._financialType!=="refund").length;
+  const previousTransactions=previousSales.filter(sale=>sale._financialType!=="refund").length;
   const average=transactions?revenue/transactions:0;
   const previousAverage=previousTransactions?previousRevenue/previousTransactions:0;
   const margin=revenue?grossProfit/revenue*100:0;
@@ -140,7 +142,7 @@ function Dashboard(){
   const branchPerformance=useMemo(()=>activeStores.map(branch=>{
     const branchSales=allSales.filter(sale=>belongsToStore(sale,branch.id)&&(period==="all"||isBetween(sale.dateISO||sale.date,range.startKey,range.endKey,organizationSettings.timezone)));
     return {
-      id:branch.id,name:branch.name,transactions:branchSales.length,
+      id:branch.id,name:branch.name,transactions:branchSales.filter(sale=>sale._financialType!=="refund").length,
       revenue:branchSales.reduce((sum,sale)=>sum+getSaleNetTotal(sale),0),
       profit:branchSales.reduce((sum,sale)=>sum+getSaleProfit(sale),0),
     };
@@ -148,7 +150,7 @@ function Dashboard(){
 
   const sellerPerformance=useMemo(()=>{
     const map=new Map();
-    sales.forEach(sale=>{const name=sale.sellerName||sale.seller||"Noma’lum";const current=map.get(name)||{name,revenue:0,transactions:0};current.revenue+=getSaleNetTotal(sale);current.transactions+=1;map.set(name,current)});
+    sales.forEach(sale=>{const name=sale.sellerName||sale.seller||"Noma’lum";const current=map.get(name)||{name,revenue:0,transactions:0};current.revenue+=getSaleNetTotal(sale);current.transactions+=sale._financialType==="refund"?0:1;map.set(name,current)});
     return [...map.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,4);
   },[sales]);
 

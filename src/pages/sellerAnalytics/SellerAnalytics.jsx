@@ -1,3 +1,4 @@
+import {financialSalesEvents} from "../../utils/reporting";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { FiAward, FiCreditCard, FiSearch, FiShoppingCart, FiTrendingUp, FiUserCheck } from "react-icons/fi";
@@ -14,7 +15,7 @@ import "./sellerAnalytics.scss";
 
 function SellerAnalytics() {
   const { currentUser } = useAuth();
-  const { dailySales, salesHistory, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { returns,dailySales, salesHistory, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("30");
   const [store, setStore] = useState("all");
@@ -29,7 +30,7 @@ function SellerAnalytics() {
     return identity?currentIdentityIds.includes(String(identity)):(sale?.sellerName||sale?.seller)===currentUser?.name;
   };
 
-  const allSales = useMemo(() => [
+  const saleRecords = useMemo(() => [
     ...dailySales,
     ...salesHistory.flatMap((day) => (day.sales || []).map((sale) => ({
       ...sale,
@@ -40,6 +41,7 @@ function SellerAnalytics() {
     }))),
   ], [dailySales, salesHistory]);
 
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
   const filteredSales = useMemo(() => allSales.filter((sale) => {
     if (!recordInPeriod(sale, period, { timezone, businessDay:workspaceSettings.businessDay })) return false;
     if (!matchesStore(sale, store, stores)) return false;

@@ -10,7 +10,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const owner = { id:"owner-a", organizationId:"org-1", appRole:"OWNER", name:"Owner A" };
 const customer = (id, name = id) => ({ id, name, customerType:"REGULAR", balance:0, overdue:0, totalPurchases:0, saleCount:0 });
 
-async function withSession(page, get, run, user = owner) {
+async function withSession(page, get, run, user = owner, requests = []) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url:"http://localhost", pretendToBeVisual:true });
   const previous = { window:globalThis.window, document:globalThis.document, navigator:globalThis.navigator, act:globalThis.IS_REACT_ACT_ENVIRONMENT, frame:globalThis.requestAnimationFrame };
   globalThis.window=dom.window; globalThis.document=dom.window.document; globalThis.IS_REACT_ACT_ENVIRONMENT=true;
@@ -25,6 +25,7 @@ async function withSession(page, get, run, user = owner) {
       page?vite.ssrLoadModule(page):Promise.resolve(null),
     ]);
     api.get=async path=>{
+      requests.push(path);
       if(path==="/api/auth/me")return {user};
       if(path==="/api/users/me/sessions")return {sessions:[]};
       if(path==="/api/users")return {users:[]};
@@ -256,6 +257,14 @@ test("late reset token cannot appear in another user's reset workflow",async()=>
     await act(async()=>pending.resolve({reset:{token:'SECRET-FOR-ALICE',expiresAt:'2099-01-01'}}));
     assert.equal(Boolean(document.querySelector('[aria-label="Tiklash tokeni"]')),false);
   },{id:'platform-1',appRole:'PLATFORM_ADMIN',name:'Admin'});
+});
+
+test("owner enumerates staff but manager and cashier never call forbidden users API",async()=>{
+ for(const appRole of ['OWNER','MANAGER','CASHIER']){
+  const calls=[];
+  await withSession(null,()=>({}),async()=>{}, {...owner,appRole},calls);
+  assert.equal(calls.includes('/api/users'),appRole==='OWNER');
+ }
 });
 
 test("same-role user switching writes and resets only the current complete theme key",async()=>{

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { normalizeSessionUser, legacyRoleForAppRole, runForOrganizationUser, ROLES } from "../config/roles";
 import { api, ApiError } from "../services/apiClient";
 import { formatUzPhone, isValidUzPhone } from "../utils/phone";
+import {DEFAULT_ROLE_PERMISSIONS} from '../config/uiDefaults';
 
 const AuthContext=createContext(null);
 
@@ -33,6 +34,8 @@ export const AuthProvider=({children})=>{
   },[]);
 
   const refreshWorkspaceAccounts=useCallback(async()=>{
+    const allowed=currentUser?.appRole===ROLES.OWNER||Boolean(currentUser?.permissionOverrides?.settingsWrite??currentUser?.rolePermissions?.[currentUser?.appRole]?.settingsWrite??DEFAULT_ROLE_PERMISSIONS[currentUser?.appRole]?.settingsWrite);
+    if(!currentUser?.organizationId||!allowed){setWorkspaceAccounts([]);return []}
     try{
       const data=await api.get("/api/users");
       const users=(data.users||[]).map(cleanUser).filter(Boolean);
@@ -43,7 +46,7 @@ export const AuthProvider=({children})=>{
       if(error?.status!==403)setWorkspaceAccounts([]);
       return [];
     }
-  },[]);
+  },[currentUser]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -67,7 +70,7 @@ export const AuthProvider=({children})=>{
     if(!currentUser){setWorkspaceAccounts([]);setSessions([]);return}
     const started=runForOrganizationUser(currentUser,()=>{
       void refreshSessions();
-      if([ROLES.OWNER,ROLES.ADMIN,ROLES.MANAGER].includes(currentUser.appRole))void refreshWorkspaceAccounts();
+      void refreshWorkspaceAccounts();
     });
     if(!started){setWorkspaceAccounts([]);setSessions([])}
   },[currentUser?.id,currentUser?.organizationId,currentUser?.appRole,refreshSessions,refreshWorkspaceAccounts]);

@@ -71,7 +71,7 @@ const productFromApi=(row,storeIds=[])=>normalizeProduct({
   serializedUnits:Array.isArray(row.serializedUnits)?row.serializedUnits:[],
   stockBatches:Array.isArray(row.stockBatches)?row.stockBatches:[],
 },storeIds);
-const apiFailure=(error,fallback)=>({success:false,message:error instanceof ApiError?error.message:(error?.message||fallback),code:error instanceof ApiError?error.code:undefined,details:error instanceof ApiError?error.details:undefined});
+const apiFailure=(error,fallback)=>({success:false,status:error?.status||0,message:error instanceof ApiError?error.message:(error?.message||fallback),code:error instanceof ApiError?error.code:undefined,details:error instanceof ApiError?error.details:undefined});
 
 
 
@@ -496,12 +496,12 @@ export const StoreProvider = ({ children }) => {
     catch(error){return apiFailure(error,"Ushlab turilgan savatlarni yuklab bo‘lmadi")}
   },[currentStoreId]);
 
-  const createSaleHold = useCallback(async ({ name, cart, customer = "", note = "", cartDiscountPct = 0, total = 0, storeId = currentStoreId, shiftId = activeShift?.id || null } = {}) => {
+  const createSaleHold = useCallback(async ({ name, cart, customer = "", customerId = "", clientReference = "", note = "", cartDiscountPct = 0, total = 0, storeId = currentStoreId, shiftId = activeShift?.id || null } = {}) => {
     if(!storeId||!(cart||[]).length)return {success:false,message:"Savat bo‘sh"};
     try{
-      const data=await api.post("/api/sales/holds",{storeId,shiftId,name:String(name||"Savat").trim()||"Savat",cart,customer:String(customer||""),note:String(note||""),cartDiscountPct:number(cartDiscountPct,0),total:number(total,0)});
+      const data=await api.post("/api/sales/holds",{storeId,shiftId,name:String(name||"Savat").trim()||"Savat",cart,customerId:customerId||null,clientReference,customer:String(customer||""),note:String(note||""),cartDiscountPct:number(cartDiscountPct,0),total:number(total,0)});
       return {success:true,hold:data.hold||data};
-    }catch(error){return apiFailure(error,"Savatni ushlab turib bo‘lmadi")}
+    }catch(error){const failure=apiFailure(error,"Savat saqlanmadi");if(error?.code==="VALIDATION_ERROR"&&Array.isArray(error.details))failure.message=error.details.map(issue=>`${issue.path}: ${issue.message}`).join("; ");return failure;}
   },[currentStoreId,activeShift?.id]);
 
   const deleteSaleHold = useCallback(async (holdId) => {
@@ -532,7 +532,7 @@ export const StoreProvider = ({ children }) => {
     try{
       const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,{
         productId:returnRecord.productId,quantity:number(returnRecord.quantity,0),reason:String(returnRecord.reason||"Qaytarish").trim(),refundMethod:returnRecord.refundMethod||"original",
-        refundShiftId:returnRecord.refundShiftId||cashMovement&&activeShift?.id||null,refundBreakdown:returnRecord.refundBreakdown||undefined,
+        refundShiftId:returnRecord.refundShiftId||activeShift?.id||null,refundBreakdown:undefined,
         clientReference:String(returnRecord.clientReference||returnRecord.id||""),
         metadata:{businessDateISO:returnRecord.businessDateISO||"",dateISO:returnRecord.dateISO||"",tracking:returnRecord.tracking||null},
       });

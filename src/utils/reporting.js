@@ -91,7 +91,7 @@ export const buildSellerAnalyticsRows = ({
     row.returnAmount+=returned;
     row.returnedSales+=returned>0?1:0;
     row.profit+=saleNetProfit(sale);
-    row.count+=1;
+    row.count+=sale._financialType==='refund'?0:1;
     row.cash+=payment.cash;
     row.card+=payment.card;
     row.transfer+=payment.transfer;
@@ -125,11 +125,11 @@ export const projectInventoryScope = (inventoryState = [], storeId = "all") => i
 export const scopedSale = (sale, itemPredicate) => {
   const normalized = normalizeSaleReturns(sale);
   if (!itemPredicate) return normalized;
-  return { ...normalized, items: normalized.items.filter(itemPredicate) };
+  return { ...normalized, _itemScoped:true, items: normalized.items.filter(itemPredicate) };
 };
 
 export const saleNetRevenue = (sale) => getSaleNetTotal(normalizeSaleReturns(sale));
-export const saleNetProfit = (sale) => getSaleProfit(normalizeSaleReturns(sale));
+export const saleNetProfit = (sale) => sale?._financialType==='refund'?Number(sale._financialProfit||0):getSaleProfit(normalizeSaleReturns(sale));
 
 export const saleGrossPaymentBreakdown = (sale) => {
   const result={cash:0,card:0,transfer:0};
@@ -147,6 +147,7 @@ export const saleGrossPaymentBreakdown = (sale) => {
 };
 
 export const saleNetPaymentBreakdown = (sale) => {
+  if(sale?._financialPayment)return {...sale._financialPayment};
   const normalized = normalizeSaleReturns(sale);
   const net = saleNetRevenue(normalized);
   const result = { cash: 0, card: 0, transfer: 0 };
@@ -173,6 +174,30 @@ export const saleNetPaymentBreakdown = (sale) => {
 };
 
 export const returnedAmountForSale = (sale) => {
+  if(sale?._financialType==='refund')return Number(sale._financialAmount||0);
   const normalized = normalizeSaleReturns(sale);
   return Math.max(0, Number(normalized.saleTotal || normalized.total || 0) - saleNetRevenue(normalized));
+};
+
+// Reports use dated sale and refund events; sale history keeps lifetime net values.
+export const financialSalesEvents=(sales=[],returns=[])=>{
+ const byId=new Map(sales.map(sale=>[sale.id,sale]));
+ const events=sales.map(sale=>({...sale,_financialType:'sale',returnedTotal:0,returnedAmount:0,items:(sale.items||[]).map(item=>({...item,returnedQty:0,returnStatus:'none'})),_financialPayment:capturedPayment(sale)}));
+ for(const ret of returns){
+   const sale=byId.get(ret.saleId),item=sale?.items?.find(line=>String(line.productId||line.id)===String(ret.productId));
+   const amount=Number(ret.amount||0),qty=Number(ret.quantity||0),cost=Number(ret.unitCost??ret.metadata?.unitCost??item?.unitCost??item?.metadata?.unitCost??item?.costPrice??0);
+   const breakdown=ret.refundBreakdown||ret.metadata?.refundBreakdown;
+   events.push({...sale,...ret,id:`refund:${ret.id}`,sellerId:sale?.sellerId,sellerName:sale?.sellerName,storeId:ret.storeId||sale?.storeId,
+     businessDateISO:recordDateKey(ret),dateISO:ret.dateISO||recordDateKey(ret),date:ret.date,createdAt:ret.createdAt,
+     _financialType:'refund',_financialAmount:amount,_financialProfit:-amount+qty*cost,returnedTotal:amount,total:amount,saleTotal:amount,
+     items:[{...item,_financialSign:-1,productId:ret.productId,name:item?.name||ret.productName,quantity:qty,returnedQty:0,finalPrice:qty?amount/qty:0}],
+     _financialPayment:{cash:-Number(breakdown?.cash||0),card:-Number(breakdown?.card||0),transfer:-Number(breakdown?.transfer||0)}});
+ }
+ return events;
+};
+const capturedPayment=sale=>{
+ const result={cash:0,card:0,transfer:0};
+ if(Array.isArray(sale.payments)&&sale.payments.length){for(const payment of sale.payments)if(Object.hasOwn(result,payment.method))result[payment.method]+=Number(payment.amount||0);return result}
+ if(sale.paymentBreakdown){for(const method of Object.keys(result))result[method]=Number(sale.paymentBreakdown[method]||0);return result}
+ return saleGrossPaymentBreakdown(sale);
 };

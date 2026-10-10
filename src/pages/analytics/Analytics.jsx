@@ -5,7 +5,7 @@ import { useStore } from "../../context/StoreContext";
 import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
 import {
-  matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, previousPeriodRange, returnedAmountForSale,
+  financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, previousPeriodRange, returnedAmountForSale,
   saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale,
 } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
@@ -15,7 +15,7 @@ import "./analytics.scss";
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
 
 function Analytics() {
-  const { dailySales, salesHistory, expenses, inventoryState, stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { dailySales, salesHistory, returns, expenses, inventoryState, stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [period, setPeriod] = useState("30 kun");
   const [store, setStore] = useState("all");
   const [category, setCategory] = useState("all");
@@ -25,7 +25,7 @@ function Analytics() {
   const timezone = workspaceSettings.organization.timezone || "Asia/Tashkent";
   const periodOptions = { from, to, timezone, businessDay:workspaceSettings.businessDay };
 
-  const allSales = useMemo(() => [
+  const saleRecords = useMemo(() => [
     ...dailySales,
     ...salesHistory.flatMap((day) => (day.sales || []).map((sale) => ({
       ...sale,
@@ -36,6 +36,7 @@ function Analytics() {
     }))),
   ], [dailySales, salesHistory]);
 
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
   const productById = useMemo(() => new Map(inventoryState.map((product) => [String(product.id), product])), [inventoryState]);
   const sellerIdentity = (sale) => String(sale?.sellerId || sale?.sellerAccountId || sale?.sellerName || sale?.seller || "");
   const sellers = useMemo(() => {
@@ -89,7 +90,8 @@ function Analytics() {
   const previousExpenseTotal=previousExpenses.reduce((sum,expense)=>sum+Number(expense.amount||0),0);
   const canCalculateNet = category === "all" && seller === "all";
   const net = canCalculateNet ? gross - expenseTotal : null;
-  const avg = filteredSales.length ? revenue / filteredSales.length : 0;
+  const transactionCount=filteredSales.filter(sale=>sale._financialType!=="refund").length;
+  const avg = transactionCount ? revenue / transactionCount : 0;
   const previousRevenue=previousSales.reduce((sum,sale)=>sum+saleNetRevenue(sale),0);
   const previousGross=previousSales.reduce((sum,sale)=>sum+saleNetProfit(sale),0);
   const previousNet=canCalculateNet?previousGross-previousExpenseTotal:null;
@@ -156,7 +158,7 @@ function Analytics() {
   const exportCsv = () => {
     const rows = [
       ["Ko‘rsatkich","Qiymat"], ["Sof savdo",revenue], ["Yalpi foyda",gross], ["Xarajat",canCalculateNet ? expenseTotal : "Filtr sabab hisoblanmadi"],
-      ["Sof foyda",canCalculateNet ? net : "Filtr sabab hisoblanmadi"], ["Tranzaksiyalar",filteredSales.length], ["O‘rtacha chek",avg], ["Qaytarish",returnTotal],
+      ["Sof foyda",canCalculateNet ? net : "Filtr sabab hisoblanmadi"], ["Tranzaksiyalar",transactionCount], ["O‘rtacha chek",avg], ["Qaytarish",returnTotal],
     ];
     const csvCell=(value)=>{const text=String(value??"");return /[",\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text};
     const csv = "\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
@@ -181,7 +183,7 @@ function Analytics() {
     </section>
 
     <div className="pro-stat-grid analytics-kpis">
-      <StatCard icon={FiShoppingCart} label="Sof savdo" value={formatPrice(revenue)} hint={compareHint(revenue,previousRevenue,`${filteredSales.length} ta tranzaksiya`)} tone="blue"/>
+      <StatCard icon={FiShoppingCart} label="Sof savdo" value={formatPrice(revenue)} hint={compareHint(revenue,previousRevenue,`${transactionCount} ta tranzaksiya`)} tone="blue"/>
       <StatCard icon={FiTrendingUp} label="Yalpi foyda" value={formatPrice(gross)} hint={compareHint(gross,previousGross,`${revenue ? Math.round(gross / revenue * 100) : 0}% marja`)} tone="green"/>
       <StatCard icon={FiCreditCard} label="Sof foyda" value={canCalculateNet ? formatPrice(net) : "—"} hint={canCalculateNet ? compareHint(net,previousNet,`Xarajat: ${formatPrice(expenseTotal)}`) : "Kategoriya/sotuvchi filterida xarajat taqsimlanmaydi"} tone="purple"/>
       <StatCard icon={FiDollarSign} label="O‘rtacha chek" value={formatPrice(avg)} hint={compareHint(avg,previousAvg,storeLabel)} tone="orange"/>
