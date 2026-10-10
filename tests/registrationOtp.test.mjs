@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { otpPhone, otpRemaining, canRegisterTrial } from '../src/utils/registrationOtp.js';
+import { otpPhone, otpRemaining, canRegisterTrial, trialRequiresOtp } from '../src/utils/registrationOtp.js';
+
+test('only an unexpired server temporary policy hides OTP; missing/expired policy is required',()=>{
+ const now=Date.parse('2026-10-10T00:00:00Z');
+ assert.equal(trialRequiresOtp(null,now),true);
+ assert.equal(trialRequiresOtp({mode:'temporary_disabled',phoneVerificationRequired:false,temporaryUntil:'2026-10-11T00:00:00Z'},now),false);
+ assert.equal(trialRequiresOtp({mode:'temporary_disabled',phoneVerificationRequired:false,temporaryUntil:'2026-10-10T00:00:00Z'},now),true);
+ assert.equal(trialRequiresOtp({mode:'required',phoneVerificationRequired:false},now),true);
+});
 
 test('verified token is bound to the exact Uzbekistan phone and expires',()=>{
   const proof={phone:'+998901234567',registrationToken:'opaque',expiresAt:'2026-10-10T12:05:00Z'};

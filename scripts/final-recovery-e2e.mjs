@@ -49,7 +49,7 @@ try{
  const receipt=(await pool.query("SELECT count(*) count,sum(b.quantity) qty FROM products p JOIN inventory_balances b ON b.product_id=p.id WHERE p.organization_id=$1 AND p.name='Recovery apple'",[org])).rows[0];if(Number(receipt.count)!==1||Number(receipt.qty)!==15.5)throw new Error('Receipt recovery duplicate product/stock');evidence.push('Fractional receipt commit + response loss + reload reconciles one 15.5kg product');
  const apple=(await pool.query("SELECT id FROM products WHERE organization_id=$1 AND name='Recovery apple'",[org])).rows[0].id;
  const prepare=async(target)=>{await target.goto('http://localhost:5173/customers');await target.evaluate(({key,id})=>localStorage.setItem(key,JSON.stringify({v:1,cart:[{id,cartQty:1,name:'Recovery apple',sellPrice:12000,discountPercent:0}],payment:'card',savedAt:Date.now()})),{key:draftKey,id:apple});await target.goto('http://localhost:5173/sales');await target.locator('.cart-item').waitFor()};
- const checkout=async(target)=>{await target.locator('.checkout-primary').click();const dialog=target.getByRole('dialog',{name:'Savdoni tasdiqlash'});await dialog.waitFor({state:'visible',timeout:1000}).catch(()=>{});if(await dialog.isVisible())await dialog.getByRole('button',{name:/Tasdiqlash/}).click()};
+ const checkout=async(target,timeout=30000)=>{await target.locator('.checkout-primary').click({timeout});const dialog=target.getByRole('dialog',{name:'Savdoni tasdiqlash'});await dialog.waitFor({state:'visible',timeout:1000}).catch(()=>{});if(await dialog.isVisible())await dialog.getByRole('button',{name:/Tasdiqlash/}).click()};
  await prepare(page);
  await page.route('**/api/sales',route=>route.request().method()==='POST'?route.abort('failed'):route.continue());
  await checkout(page);await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
@@ -77,7 +77,17 @@ try{
  await scopedFetch('/api/auth/logout',{});await scopedFetch('/api/auth/login',{username,password});await scopedFetch('/api/settings/preferences',{selectedStoreId:store},'PATCH');await page.goto('http://localhost:5173/sales');await page.getByRole('button',{name:'Shu savdoni qayta yuborish'}).click();await page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor();
  if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==4)throw new Error('Restart/scope retry duplicated checkout');
  evidence.push('Actual Edge process restart retains unknown intent; branch/cashier switches isolate it; original owner retry commits once');
- await prepare(page);await page.waitForTimeout(700);const simultaneous=await context.newPage();await simultaneous.goto('http://localhost:5173/sales');await simultaneous.locator('.cart-item').waitFor();await Promise.all([checkout(page),checkout(simultaneous)]);await Promise.race([page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor(),simultaneous.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor()]);await page.waitForTimeout(800);
+ await prepare(page);await page.waitForTimeout(700);const simultaneous=await context.newPage();await simultaneous.goto('http://localhost:5173/sales');await simultaneous.locator('.cart-item').waitFor();
+ const tabs=[page,simultaneous];
+ for(const tab of tabs)await tab.waitForFunction(()=>document.querySelector('.checkout-primary')?.disabled===false);
+ const attempts=await Promise.allSettled(tabs.map(tab=>checkout(tab,2000)));
+ if(!attempts.some(result=>result.status==='fulfilled'))throw new Error('Both checkout clicks failed');
+ for(let i=0;i<attempts.length;i++)if(attempts[i].status==='rejected'){
+   // Cross-tab synchronization can disable the second button before Playwright
+   // dispatches its click. That is the intended duplicate-checkout protection.
+   if(attempts[i].reason.name!=='TimeoutError'||!(await tabs[i].locator('.checkout-primary').isDisabled()))throw attempts[i].reason;
+ }
+ await Promise.race([page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor(),simultaneous.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor()]);await page.waitForTimeout(800);
  if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==5)throw new Error('Simultaneous tabs duplicated checkout');
  if(Number((await pool.query('SELECT quantity FROM inventory_balances WHERE product_id=$1 AND store_id=$2',[apple,store])).rows[0].quantity)!==11.5)throw new Error('Simultaneous stock decremented incorrectly');
  evidence.push('Simultaneous fresh checkouts in two tabs create one sale and one stock decrement');await simultaneous.close();

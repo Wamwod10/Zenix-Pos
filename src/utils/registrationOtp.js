@@ -9,3 +9,4 @@ export const otpRemaining = (deadline,now=Date.now()) => {
 export const canRegisterTrial = (proof,phone,now=Date.now()) => Boolean(
   proof?.registrationToken && otpPhone(phone) && proof.phone===otpPhone(phone) && otpRemaining(proof.expiresAt,now)>0
 );
+export const trialRequiresOtp=(policy,now=Date.now())=>!(policy?.mode==='temporary_disabled'&&policy.phoneVerificationRequired===false&&otpRemaining(policy.temporaryUntil,now)>0);

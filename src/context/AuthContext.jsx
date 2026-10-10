@@ -119,7 +119,7 @@ export const AuthProvider=({children})=>{
       sessionRevision.current+=1;setAuthLoading(false);notifyAuthChanged();
       setCurrentUser(user);
       return {success:true,user};
-    }catch(error){return {success:false,message:apiMessage(error,"Ro‘yxatdan o‘tib bo‘lmadi")}}
+    }catch(error){return {success:false,code:error?.code,message:apiMessage(error,"Ro‘yxatdan o‘tib bo‘lmadi")}}
   };
 
   // Availability is always enforced by PostgreSQL. This synchronous helper only
