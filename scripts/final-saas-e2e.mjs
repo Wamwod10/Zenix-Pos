@@ -4,9 +4,11 @@ import {randomUUID,randomInt} from 'node:crypto';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {takeTestSms} from '../../backend/src/services/smsProvider.js';
 import {assertSafeTestDatabaseUrl} from '../../backend/scripts/assertTestDatabase.js';
 assertSafeTestDatabaseUrl(process.env.TEST_DATABASE_URL,{nodeEnv:process.env.NODE_ENV});
 assert.equal(process.env.DATABASE_URL,process.env.TEST_DATABASE_URL);
+process.env.SMS_PROVIDER='test';process.env.OTP_HMAC_SECRET=randomUUID()+randomUUID();
 process.env.FRONTEND_ORIGIN='http://localhost:5184';process.env.VITE_API_URL='http://localhost:5190';
 const [{app},{pool},{default:bcrypt}]=await Promise.all([import('../../backend/src/app.js'),import('../../backend/src/db/pool.js'),import('../../backend/node_modules/bcryptjs/index.js')]);
 const out=path.resolve('../artifacts/final-saas');await fs.mkdir(out,{recursive:true});
@@ -133,9 +135,10 @@ try{
    assert.equal(pass.length,1);assert.equal(pass[0].duration,duration);assert.equal(Number(pass[0].quantity),1);
  }
  evidence.push('three branch options actual browser checkout/upload; exact month/year amounts, until-license quote; concurrent admin approval creates one entitlement');
- const trialContext=await browser.newContext(),trialPage=await trialContext.newPage();
+ const trialContext=await browser.newContext({extraHTTPHeaders:{'X-Forwarded-For':'192.0.2.'+randomInt(1,250)}}),trialPage=await trialContext.newPage();
  await trialPage.goto(base+'/register');await trialPage.getByText('14 kun bepul sinab ko‘rish',{exact:true}).waitFor();
  await trialPage.getByPlaceholder('Masalan: Baraka Market').fill('Final trial '+randomUUID());await trialPage.getByPlaceholder('Ism familiya').fill('Trial owner');await trialPage.locator('input[type="tel"]').fill('99890'+randomInt(1000000,10000000));await trialPage.locator('input[autocomplete="username"]').fill('trial-'+randomUUID());await trialPage.locator('input[autocomplete="new-password"]').fill(randomUUID()+'Cc3!');
+ const otpSent=trialPage.waitForResponse(r=>r.url().endsWith('/api/auth/otp/request'));await trialPage.getByRole('button',{name:'SMS kod yuborish',exact:true}).click();const otpResponse=await otpSent;assert.equal(otpResponse.status(),200);const otpChallenge=(await otpResponse.json()).data;const otpRow=(await pool.query('SELECT provider_message_id FROM auth_otp_challenges WHERE id=$1',[otpChallenge.challengeId])).rows[0];const otpCapture=takeTestSms(otpRow.provider_message_id);await trialPage.getByRole('textbox',{name:'SMS kod',exact:true}).fill(otpCapture.code);await trialPage.getByRole('button',{name:'Kodni tasdiqlash',exact:true}).click();await trialPage.getByRole('status').filter({hasText:'Telefon tasdiqlandi'}).waitFor();
  await trialPage.getByRole('button',{name:'Davom etish',exact:true}).click();await trialPage.waitForURL(base+'/');
  const registered=(await request(trialPage,'/api/auth/me')).user;
  const trialRow=(await pool.query('SELECT created_at,settings FROM organizations WHERE id=$1',[registered.organizationId])).rows[0];
