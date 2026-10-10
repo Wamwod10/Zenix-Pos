@@ -5,6 +5,7 @@ import {
   FiClipboard, FiFileText, FiPackage, FiPlus, FiRefreshCw, FiSearch, FiTruck, FiUpload, FiX, FiCamera,
 } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
+import {attemptKey,readAttempt} from '../../utils/checkoutAttempt';
 import { useStore } from "../../context/StoreContext";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
@@ -97,9 +98,14 @@ function Inventory(){
   const {
     inventory,suppliers,stores,currentStore,currentStoreId,uiPreferences,setUiPreferences,generateBarcode,
     effectiveWorkspaceSettings:workspaceSettings,businessFeatures,addActivityLog,getStoreStock,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,hasPermission,
-    inventoryTransfers,stockMovements,inventoryCounts,
+    inventoryTransfers,stockMovements,inventoryCounts,recoverInventoryReceipt,
   }=useStore();
   const canAdjust=hasPermission("inventoryAdjust",currentUser?.appRole);
+  const receiptKey=attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'receipt');
+  const [pendingReceipt,setPendingReceipt]=useState(null);
+  const [recoveringReceipt,setRecoveringReceipt]=useState(false);
+  useEffect(()=>{const refresh=()=>setPendingReceipt(readAttempt(window.localStorage,receiptKey));refresh();window.addEventListener('storage',refresh);return()=>window.removeEventListener('storage',refresh)},[receiptKey]);
+  const checkReceipt=async()=>{if(recoveringReceipt)return;setRecoveringReceipt(true);const result=await recoverInventoryReceipt();setPendingReceipt(readAttempt(window.localStorage,receiptKey));setRecoveringReceipt(false);if(result.success)notify({tone:'success',title:'Kirim tasdiqlandi',message:'Server qoldigi yangilandi.'});else notify({tone:'error',title:'Kirim natijasi nomalum',message:result.message})};
   const canViewTransfers=hasPermission("transferView",currentUser?.appRole);
   const canCreateTransfer=hasPermission("transferCreate",currentUser?.appRole);
   const canApproveTransfer=hasPermission("transferApprove",currentUser?.appRole);
@@ -217,7 +223,7 @@ function Inventory(){
       activity:{type:"inventory",title:"Omborga kirim",description:`${existing?.name||receive.name} · +${Number(receive.qty)} ${existing?.unit||receive.unit||"dona"}`},
     });
     receiptBusyRef.current=false;
-    if(!result.success){setFormError(result.message||"Kirimni saqlab bo‘lmadi.");return}
+    if(!result.success){const pending=readAttempt(window.localStorage,receiptKey);setPendingReceipt(pending);if(pending){setReceiveOpen(false);setQuickOpen(false)}setFormError(result.message||"Kirimni saqlab bo‘lmadi.");return}
     const product=result.products?.[0];
     setReceive(emptyReceive);setReceiveOpen(false);setTab("stock");
     notify({tone:"success",title:"Kirim qabul qilindi",message:`${product?.name||receive.name} · +${Number(receive.qty)} ${product?.unit||receive.unit||"dona"}`});
@@ -449,7 +455,7 @@ function Inventory(){
       activity:{type:"inventory",title:"Tezkor kirim",description:`${validRows.length} ta mahsulot · ${quickMeta.invoiceNo||"bitta kirim hujjati"}`},
     });
     receiptBusyRef.current=false;
-    if(!result.success){setFormError(result.message||"Kirimni saqlab bo‘lmadi.");return}
+    if(!result.success){const pending=readAttempt(window.localStorage,receiptKey);setPendingReceipt(pending);if(pending){setReceiveOpen(false);setQuickOpen(false)}setFormError(result.message||"Kirimni saqlab bo‘lmadi.");return}
     setQuickRows([emptyQuickRow()]);setQuickImportNotice("");setQuickExpectedTotal(0);setQuickMeta({supplierId:"",payment:"paid",paidAmount:"",invoiceNo:"",dueDate:"",note:"",newSupplierName:"",newSupplierPhone:"",clientReference:`RECEIVE-${crypto.randomUUID()}`});setQuickOpen(false);setTab("stock");
     notify({tone:"success",title:"Tezkor kirim qabul qilindi",message:`${result.accepted} ta mahsulot`});
   };
@@ -578,7 +584,8 @@ function Inventory(){
   const statusTone=(value)=>["RECEIVED","Received"].includes(value)?"success":value==="RECEIVED_WITH_DIFFERENCE"?"warning":["REJECTED","Rejected"].includes(value)?"danger":["IN_TRANSIT","In Transit"].includes(value)?"info":value==="PENDING"?"warning":"neutral";
 
   return <div className="pro-page inventory-pro">
-    <PageHeader title="Ombor" subtitle="Tovar keldi — shu yerda kirim qiling. Mahsulot yangi bo‘lsa Zenix POS uni avtomatik katalogga ham yaratadi." actions={canAdjust&&<><button className="pro-btn secondary" onClick={()=>{setTab("revision");setCounts({})}}><FiClipboard/> Inventarizatsiya</button><button className="pro-btn secondary" onClick={()=>{setTab("receive");openQuickForm()}}><FiPackage/> Tezkor kirim</button><button className="pro-btn primary" onClick={()=>{setTab("receive");openReceiveForm()}}><FiPlus/> Kirim</button></>}/>
+    {pendingReceipt&&<div className="pro-alert warning" role="status"><strong>Kirim natijasi tekshirilmoqda</strong><p>Oldingi kirim saqlangan. Server natijasi aniqlanmaguncha yangi kirim boshlanmang.</p><button className="pro-btn primary" disabled={recoveringReceipt} onClick={checkReceipt}>Kirim natijasini tekshirish</button></div>}
+    <PageHeader title="Ombor" subtitle="Tovar keldi — shu yerda kirim qiling. Mahsulot yangi bo‘lsa Zenix POS uni avtomatik katalogga ham yaratadi." actions={canAdjust&&!pendingReceipt&&<><button className="pro-btn secondary" onClick={()=>{setTab("revision");setCounts({})}}><FiClipboard/> Inventarizatsiya</button><button className="pro-btn secondary" onClick={()=>{setTab("receive");openQuickForm()}}><FiPackage/> Tezkor kirim</button><button className="pro-btn primary" onClick={()=>{setTab("receive");openReceiveForm()}}><FiPlus/> Kirim</button></>}/>
     {!canAdjust&&<div className="pro-alert info">Sizda ombor qoldig‘ini o‘zgartirish huquqi yo‘q. Ma’lumotlarni ko‘rish mumkin, amallar bloklangan.</div>}
 
     <div className="pro-stat-grid"><StatCard icon={FiPackage} label="Qoldiqdagi pozitsiyalar" value={stockedPositions} hint={`${inventory.filter((product)=>!product.archived).length} ta katalog mahsuloti`} tone="blue"/><StatCard icon={FiBox} label="Ombor qiymati" value={formatPrice(value)} hint="O‘rtacha tannarx bo‘yicha" tone="green"/><StatCard icon={FiAlertTriangle} label="Kam qolgan" value={low} hint="Minimal qoldiqdan past" tone="orange"/><StatCard icon={FiArchive} label="Tugagan" value={out} hint="Qoldiq 0" tone="red"/></div>

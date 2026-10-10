@@ -9,6 +9,7 @@ import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspac
 import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
 import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
+import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
 
 const StoreContext = createContext(null);
 const DEFAULT_STORE_ID = "dokon-1";
@@ -422,6 +423,8 @@ export const StoreProvider = ({ children }) => {
     if(!storeId)return {success:false,message:"Filial topilmadi"};
     const sourceLines=(lines||[]).filter((line)=>Math.max(0,number(line?.qty??line?.quantity,0))>0&&(line?.productId||String(line?.name||"").trim()));
     if(!sourceLines.length)return {success:false,message:"Kirim uchun mahsulot topilmadi"};
+    const journalKey=attemptKey(currentUser?.organizationId,storeId,currentUser?.id,'receipt');
+    return withAttemptLock(journalKey,async()=>{
     try{
       const body={
         storeId,
@@ -438,12 +441,31 @@ export const StoreProvider = ({ children }) => {
         reference:String(meta.invoiceNo||"").trim(),note:String(meta.note||"").trim(),
       };
       body.clientReference=meta.clientReference||`RECEIVE-${crypto.randomUUID()}`;
-      const data=await api.post("/api/inventory/receive",body);
+      const pending=readAttempt(window.localStorage,journalKey);
+      if(pending&&pending.clientReference!==body.clientReference)return {success:false,state:'unknown',message:'Avval oldingi kirim natijasini tekshiring.'};
+      const packet=beginAttempt(window.localStorage,journalKey,{clientReference:body.clientReference,payload:body});
+      let data;
+      try{data=await api.post("/api/inventory/receive",packet.payload)}
+      catch(error){if(!pending&&error?.status&&error.status<500&&error.code!=='IDEMPOTENCY_CONFLICT')settleAttempt(window.localStorage,journalKey,'rejected');else settleAttempt(window.localStorage,journalKey,'unknown');throw error}
+      if(!isConfirmedReceipt(data))throw new Error('Kirim javobi toliq emas. Natijani tekshiring.');
+      settleAttempt(window.localStorage,journalKey,'confirmed');
       scheduleWorkspaceRefresh();
       const products=(data.updated||[]).map((row)=>({id:row.productId||row.id,name:row.name,quantity:number(row.quantity,0),stock:number(row.quantity,0),costPrice:number(row.avgCost??row.costPrice,0),unit:row.unit||sourceLines.find((line)=>String(line.productId||"")===String(row.productId||row.id))?.unit||"dona"}));
       return {success:true,accepted:products.length,products,purchaseItems:data.purchaseLines||[],supplier:data.supplier||null,invoice:data.invoice||null,total:number(data.total,0),settlement:data.settlement||{},movements:data.updated||[]};
     }catch(error){return apiFailure(error,"Kirimni saqlab bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh,workspaceSettings.inventory?.defaultLowStock]);
+    });
+  },[currentStoreId,currentUser?.id,currentUser?.organizationId,hydrateWorkspace,scheduleWorkspaceRefresh,workspaceSettings.inventory?.defaultLowStock]);
+  const recoverInventoryReceipt=useCallback(async()=>{
+    const key=attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'receipt');
+    return withAttemptLock(key,async()=>{
+      const packet=readAttempt(window.localStorage,key);if(!packet)return {success:true};
+      try{
+        const found=await api.get(`/api/inventory/receipt-reconciliation?storeId=${encodeURIComponent(currentStoreId)}&clientReference=${encodeURIComponent(packet.clientReference)}`);
+        const data=found.state==='confirmed'?found.receipt:await api.post('/api/inventory/receive',packet.payload);
+        if(!isConfirmedReceipt(data))throw new Error('Kirim javobi toliq emas');settleAttempt(window.localStorage,key,'confirmed');await hydrateWorkspace({silent:true});return {success:true,receipt:data};
+      }catch(error){return {...apiFailure(error,'Kirim natijasi nomalum. Aloqa tiklangach qayta tekshiring.'),state:'unknown'}}
+    });
+  },[currentUser?.id,currentUser?.organizationId,currentStoreId,hydrateWorkspace]);
 
   const commitInventoryTransferCreate = useCallback(async ({ toStoreId, items = [], needsApproval = false } = {}) => {
     if(!toStoreId||toStoreId===currentStoreId)return {success:false,message:"Qabul qiluvchi filialni tanlang"};
@@ -511,8 +533,14 @@ export const StoreProvider = ({ children }) => {
     catch(error){return apiFailure(error,"Ushlab turilgan savatni o‘chirib bo‘lmadi")}
   },[]);
 
-  const commitSaleTransaction = useCallback(async ({ sale, productUpdates = [], activity = null, storeId = currentStoreId } = {}) => {
+  const commitSaleTransaction = useCallback(async ({ sale, productUpdates = [], activity = null, storeId = currentStoreId, lockHeld = false } = {}) => {
     if(!sale||!storeId||!(sale.items||[]).length)return {success:false,message:"Savdo ma’lumotlari to‘liq emas"};
+    const journalKey=attemptKey(currentUser?.organizationId,storeId,currentUser?.id,'sale');
+    const execute=async()=>{
+    const pending=readAttempt(window.localStorage,journalKey);
+    if(pending&&pending.clientReference!==String(sale.id))return {success:false,state:'unknown',message:'Avval oldingi savdo natijasini tekshiring.'};
+    try{sale=beginAttempt(window.localStorage,journalKey,{clientReference:String(sale.id),payload:sale}).payload}
+    catch{return {success:false,status:400,message:'Savdo qurilmaga saqlanmadi. Saqlash joyini tekshiring.'}}
     const paymentMix=sale.paymentMethod==="split"?(sale.paymentBreakdown||{}):sale.paymentMethod==="credit"?(sale.paymentBreakdown||{cash:0,card:0,transfer:0}):{[sale.paymentMethod||"cash"]:number(sale.total,0)};
     const payments=["cash","card","transfer"].map((method)=>({method,amount:Math.max(0,number(paymentMix?.[method],0))})).filter((row)=>row.amount>0);
     try{
@@ -521,12 +549,25 @@ export const StoreProvider = ({ children }) => {
         items:(sale.items||[]).map((item)=>({productId:item.productId||item.id,quantity:Math.max(0,number(item.quantity??item.qty,0)),unitPrice:Math.max(0,number(item.finalPrice??item.price??item.sellPrice,0)),discountPercent:0,metadata:{tracking:item.tracking||null,originalUnitPrice:number(item.sellPrice??item.price,0),itemDiscountPercent:number(item.discountPercent,0),cartDiscountPercent:number(item.cartDiscountPercent??sale.cartDiscountPercent,0)}})),
         payments,customer:typeof sale.customer==="object"&&sale.customer!==null?sale.customer:{name:String(sale.customer||"")},customerId:sale.customerId||null,creditAmount:number(sale.creditAmount,0),creditDueDate:sale.creditDueDate||null,metadata:{note:sale.note||"",frontendSubtotal:number(sale.subtotal,0),frontendDiscountTotal:number(sale.discountTotal,0),paymentMethod:sale.paymentMethod||"cash"},
       });
-      const server=data.sale||data;
+      const server=data?.sale||data;
+      if(!isConfirmedSale(server))throw new Error("Savdo javobi toliq emas; natijani tekshiring.");
       scheduleWorkspaceRefresh();
-      const committed={...sale,id:server.id||sale.id,saleNumber:server.sale_number||server.saleNumber||sale.saleNumber,createdAt:server.created_at||server.createdAt||sale.createdAt};
+      const committed={...sale,clientReference:sale.id,id:server.id||sale.id,saleNumber:server.sale_number||server.saleNumber||sale.saleNumber,createdAt:server.created_at||server.createdAt||sale.createdAt};
       return {success:true,sale:committed};
-    }catch(error){return apiFailure(error,"Savdoni saqlab bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
+    }catch(error){
+      if(pending||!error?.status||error.status>=500||error.code==='IDEMPOTENCY_CONFLICT'){
+        try{const found=await api.get(`/api/sales/reconciliation?storeId=${encodeURIComponent(storeId)}&clientReference=${encodeURIComponent(sale.id)}`);
+          if(found.state==='confirmed'&&isConfirmedSale(found.sale)){scheduleWorkspaceRefresh();return {success:true,sale:{...sale,id:found.sale.id,saleNumber:found.sale.sale_number,createdAt:found.sale.created_at},reconciled:true}}
+        }catch{/* Unknown retains the exact intent for a safe retry. */}
+        settleAttempt(window.localStorage,journalKey,'unknown');
+        return {success:false,state:'unknown',message:'Tolov natijasi tekshirilmoqda. Shu savdoni tekshiring yoki xavfsiz qayta urining.'};
+      }
+      settleAttempt(window.localStorage,journalKey,'rejected');
+      return {...apiFailure(error,"Savdoni saqlab bo‘lmadi"),state:'rejected'};
+    }
+    };
+    return lockHeld?execute():withAttemptLock(journalKey,execute);
+  },[currentStoreId,currentUser?.id,currentUser?.organizationId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitReturnTransaction = useCallback(async ({ saleId, updatedSale, productUpdates = [], stockStoreId = currentStoreId, returnRecord, cashMovement = null, activity = null } = {}) => {
     if(!saleId||!returnRecord?.productId||number(returnRecord.quantity,0)<=0)return {success:false,message:"Qaytarish ma’lumotlari to‘liq emas"};
@@ -688,16 +729,16 @@ export const StoreProvider = ({ children }) => {
     });
   }, [stores, currentUser?.organizationId, currentUser?.appRole]);
 
-  const reloadStore = useCallback(()=>hydrateWorkspace(),[hydrateWorkspace]);
+  const reloadStore = useCallback((options)=>hydrateWorkspace(options),[hydrateWorkspace]);
   const value = useMemo(() => ({
-    inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
+    inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
     dailySales,setDailySales,salesHistory,setSalesHistory,suppliers,setSuppliers,
     expenses,setExpenses,returns,setReturns,activeShift,activeShifts,shiftHistory,setShiftHistory,
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
     employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

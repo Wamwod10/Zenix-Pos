@@ -22,6 +22,7 @@ import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import { useFeedback } from "../../context/FeedbackContext";
 import { api } from "../../services/apiClient";
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft,persistedCartIntent} from "../../utils/posDraft";
+import {attemptKey,readAttempt,settleAttempt,withAttemptLock,isConfirmedSale} from '../../utils/checkoutAttempt';
 import {reconcilePersistedCart,cartReconciliationMessage} from "../../utils/posCartReconciliation";
 import "./sales.scss";
 
@@ -30,7 +31,7 @@ function Sales(){
   const {currentUser}=useAuth();
   const {undo,confirm}=useFeedback();
   const {
-    inventory,dailySales,salesHistory,returns,
+    inventory,dailySales,salesHistory,returns,reloadStore,
     activeShift,effectiveWorkspaceSettings:workspaceSettings,addActivityLog,currentStore,currentStoreId,workspaceReady,getStoreStock,getStoreProduct,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,hasPermission,
   }=useStore();
   const [search,setSearch]=useState("");
@@ -91,6 +92,36 @@ function Sales(){
   const draftKey=useMemo(()=>currentUser?.organizationId&&currentUser?.id&&currentStoreId?posDraftKey(currentUser.organizationId,currentUser.id,currentStoreId):null,[currentUser?.organizationId,currentUser?.id,currentStoreId]);
   const [restoredDraftKey,setRestoredDraftKey]=useState(null);
   const checkoutReferenceRef=useRef(null);
+  const saleBusyRef=useRef(false);
+  const checkoutKey=useMemo(()=>attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'sale'),[currentUser?.organizationId,currentStoreId,currentUser?.id]);
+  const [recoveryPacket,setRecoveryPacket]=useState(null);
+  const finishCheckout=(sale,key=checkoutKey,scopeDraft=draftKey)=>{
+    // A late response must never clear the newly selected cashier/branch draft.
+    clearPosDraft(window.localStorage,scopeDraft);
+    window.localStorage.setItem(`${key}:confirmed`,String(sale.clientReference||checkoutReferenceRef.current||sale.id));
+    settleAttempt(window.localStorage,key,'confirmed');
+    if(restoreContextRef.current?.draftKey!==scopeDraft)return;
+    setRecoveryPacket(null);checkoutReferenceRef.current=null;
+    setReceipt(sale);setCart([]);setReconciliationNotice('');setCashTendered('');setSplitCard('');setSplitTransfer('');setSplitCashTendered('');setCustomer('');setCustomerId('');setCreditPaid('');setCreditDueDate('');setNote('');setCartDiscountPct(0);setCartDiscountInput('0');setMobilePane('catalog');setProcessing(false);
+    reloadStore({silent:true});
+  };
+  const recoverCheckout=async(retry=false)=>{
+    if(saleBusyRef.current)return;
+    const key=checkoutKey,scopeDraft=draftKey;const packet=readAttempt(window.localStorage,key);
+    if(!packet){setRecoveryPacket(null);return}
+    saleBusyRef.current=true;setProcessing(true);setError('');
+    try{await withAttemptLock(key,async()=>{
+      // A different tab may have acknowledged this same sale while waiting for the lock.
+      if(!readAttempt(window.localStorage,key)){if(restoreContextRef.current?.draftKey===scopeDraft){setRecoveryPacket(null);setCart([]);reloadStore({silent:true})}return}
+      const found=await api.get(`/api/sales/reconciliation?storeId=${encodeURIComponent(packet.payload.storeId)}&clientReference=${encodeURIComponent(packet.clientReference)}`);
+      let result=found.state==='confirmed'&&isConfirmedSale(found.sale)?{success:true,sale:{...packet.payload,id:found.sale.id,saleNumber:found.sale.sale_number,createdAt:found.sale.created_at}}:null;
+      if(!result&&retry)result=await commitSaleTransaction({sale:packet.payload,storeId:packet.payload.storeId,lockHeld:true});
+      if(result?.success)finishCheckout({...result.sale,clientReference:packet.clientReference},key,scopeDraft);
+      else if(result?.state==='rejected'){setRecoveryPacket(null);setError(result.message);setRestoredDraftKey(null)}
+      else{settleAttempt(window.localStorage,key,'unknown');setError('Tolov natijasi hali nomalum. Savat saqlangan; shu savdoni tekshiring yoki qayta urining.')}
+    })}catch{setError('Aloqa tiklangach savdo natijasini tekshiring. Savat saqlangan.')}
+    finally{saleBusyRef.current=false;setProcessing(false)}
+  };
   const canDiscount=currentUser?.appRole!==ROLES.CASHIER||Boolean(workspaceSettings.pos.cashierDiscountAllowed);
   const discountLimit=Math.max(0,Number(workspaceSettings.pos.discountLimit||0));
   const restoreReady=Boolean(workspaceReady&&draftKey&&currentStore?.id===currentStoreId);
@@ -123,6 +154,9 @@ function Sales(){
   const draftReady=restoreReady&&restoredDraftKey===draftKey;
   useEffect(()=>{
     if(!restoreReady||restoredDraftKey===draftKey)return;
+    const pending=readAttempt(window.localStorage,checkoutKey);
+    if(pending){checkoutReferenceRef.current=pending.clientReference;setRecoveryPacket(pending);setRestoredDraftKey(draftKey);recoverCheckout();return}
+    setRecoveryPacket(null);
     const draft=readPosDraft(window.localStorage,draftKey);
     checkoutReferenceRef.current=draft?.checkoutReference||`POS-${crypto.randomUUID()}`;
     const restored=reconcileRestore(draft);
@@ -132,9 +166,9 @@ function Sales(){
     setSplitCard(draft?.splitCard||"");setSplitTransfer(draft?.splitTransfer||"");setSplitCashTendered(draft?.splitCashTendered||"");setPayment(draft?.payment||workspaceSettings.pos.defaultPayment||"cash");setCashTendered(draft?.cashTendered||"");
     setCartDiscountPct(restored.cartDiscountPct);setCartDiscountInput(String(restored.cartDiscountPct));setCreditDueDate(draft?.creditDueDate||"");setCreditPaid(draft?.creditPaid||"");
     setRestoredDraftKey(draftKey);
-  },[restoreReady,draftKey,restoredDraftKey,reconcileRestore,workspaceSettings.pos.defaultPayment]);
+  },[restoreReady,draftKey,restoredDraftKey,reconcileRestore,workspaceSettings.pos.defaultPayment,checkoutKey]);
   useEffect(()=>{
-    if(!draftReady||holdRestoring||reconciledCatalogRef.current===reconcileRestore)return;
+    if(!draftReady||holdRestoring||recoveryPacket||reconciledCatalogRef.current===reconcileRestore)return;
     reconciledCatalogRef.current=reconcileRestore;
     const current=reconcileRestore({cart,cartDiscountPct});
     if(JSON.stringify(current.lines)===JSON.stringify(cart)&&current.cartDiscountPct===cartDiscountPct)return;
@@ -145,15 +179,21 @@ function Sales(){
       setReconciliationNotice(cartReconciliationMessage(current.changes.length?current.changes:[{type:"product_updated",name:"Savat"}]));
       setSaleConfirmOpen(false);
     }
-  },[draftReady,holdRestoring,reconcileRestore,cart,cartDiscountPct]);
+  },[draftReady,holdRestoring,recoveryPacket,reconcileRestore,cart,cartDiscountPct]);
   useEffect(()=>{
-    if(!draftKey||!draftReady||holdRestoring)return;
+    if(!draftKey||!draftReady||holdRestoring||recoveryPacket)return;
     // Debounce keystrokes, but always flush a draft at pagehide before tab close.
     const persist=()=>{if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});else clearPosDraft(window.localStorage,draftKey)};
     const timeout=setTimeout(persist,180);
     window.addEventListener("pagehide",persist);
     return()=>{clearTimeout(timeout);window.removeEventListener("pagehide",persist)};
-  },[draftKey,draftReady,holdRestoring,cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered]);
+  },[draftKey,draftReady,holdRestoring,recoveryPacket,cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered]);
+  useEffect(()=>{
+    const changed=event=>{if(event.key!==checkoutKey)return;const packet=readAttempt(window.localStorage,checkoutKey);setRecoveryPacket(packet);if(packet)checkoutReferenceRef.current=packet.clientReference;if(!packet&&window.localStorage.getItem(`${checkoutKey}:confirmed`)===checkoutReferenceRef.current){clearPosDraft(window.localStorage,draftKey);setCart([]);checkoutReferenceRef.current=null;reloadStore({silent:true})}};
+    const online=()=>{if(readAttempt(window.localStorage,checkoutKey))recoverCheckout()};
+    window.addEventListener('storage',changed);window.addEventListener('online',online);
+    return()=>{window.removeEventListener('storage',changed);window.removeEventListener('online',online)};
+  },[checkoutKey,draftKey,reloadStore]);
 
 
   useEffect(()=>{
@@ -236,7 +276,7 @@ function Sales(){
   const storeDailySales=useMemo(()=>dailySales.filter(sale=>sale.storeId?String(sale.storeId)===String(currentStoreId):sale.store===currentStore?.name),[dailySales,currentStoreId,currentStore?.name]);
 
   const add=(product)=>{
-    if(!draftReady||holdRestorePendingRef.current)return;
+    if(!draftReady||holdRestorePendingRef.current||processing||recoveryPacket)return;
     setError("");
     if(blockNegative&&Number(product.quantity)<=0){setError(`${product.name} omborda tugagan`);return}
     setCart(items=>{
@@ -303,7 +343,7 @@ function Sales(){
     setCartDiscountPct(value);setCartDiscountInput(String(value));setCartDiscountModal(false);
   };
   const holdCart=async()=>{
-    if(!draftReady||holdRestorePendingRef.current||!workspaceSettings.pos.holdCartEnabled||!cart.length)return;
+    if(!draftReady||processing||recoveryPacket||holdRestorePendingRef.current||!workspaceSettings.pos.holdCartEnabled||!cart.length)return;
     const name=holdName.trim()||`Savat ${held.length+1}`;
     // Never send the temporary pre-hydration store id to the UUID-only API.
     const hasRealStore=workspaceReady&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentStoreId||""));
@@ -371,7 +411,8 @@ function Sales(){
     undo({title:"Savat o‘chirildi",message:item.name,onUndo:async()=>{const restored=await createSaleHold({name:item.name,cart:item.cart,total:item.total,customer:item.customer,note:item.note,cartDiscountPct:item.cartDiscountPct,storeId:currentStoreId,shiftId:item.shiftId||activeShift?.id||null});if(restored?.success)setHeld(items=>[restored.hold,...items.filter(row=>row.id!==restored.hold.id)])}});
   };
   const completeSale=async()=>{
-    if(processing||!draftReady||holdRestorePendingRef.current)return;
+    if(processing||saleBusyRef.current||!draftReady||holdRestorePendingRef.current)return;
+    if(readAttempt(window.localStorage,checkoutKey)){setRecoveryPacket(readAttempt(window.localStorage,checkoutKey));recoverCheckout(true);return}
     const current=reconcileRestore({cart,cartDiscountPct});
     const changed=JSON.stringify(current.lines)!==JSON.stringify(cart)||current.cartDiscountPct!==cartDiscountPct;
     if(changed||current.changes.length||current.hasBlockingStockIssue||checkoutReviewRequiredRef.current){
@@ -404,7 +445,7 @@ function Sales(){
       trackedUpdates.push(planned.product);
       trackingByProduct.set(line.id,planned.tracking);
     }
-    setProcessing(true);setError("");
+    saleBusyRef.current=true;setProcessing(true);setError("");
     const saleItems=cart.map(item=>({...item,quantity:item.cartQty,qty:item.cartQty,finalPrice:getFinalUnitPrice(item),returnedQty:0,cartDiscountPercent:cartDiscountPct,tracking:trackingByProduct.get(item.id)||null}));
     const saleMoment=new Date();
     const sale={
@@ -418,11 +459,14 @@ function Sales(){
       sale,storeId:currentStoreId,productUpdates:trackedUpdates,
       activity:{type:"sale",title:"Savdo amalga oshirildi",description:`${formatPrice(total)} · ${payLabels[payment]}`}
     });
-    if(restoreContextRef.current.draftKey!==draftKey){if(committed.success)clearPosDraft(window.localStorage,draftKey);setProcessing(false);return;}
-    if(!committed.success){setProcessing(false);setError(committed.message||"Savdoni saqlab bo‘lmadi");return}
-    if(draftKey)clearPosDraft(window.localStorage,draftKey);
-    checkoutReferenceRef.current=null;
-    setReceipt(committed.sale||sale);setCart([]);setReconciliationNotice("");setCashTendered("");setSplitCard("");setSplitTransfer("");setSplitCashTendered("");setCustomer("");setCustomerId("");setCreditPaid("");setCreditDueDate("");setNote("");setCartDiscountPct(0);setCartDiscountInput("0");setMobilePane("catalog");setProcessing(false);
+    saleBusyRef.current=false;
+    if(!committed.success){if(restoreContextRef.current.draftKey===draftKey){setRecoveryPacket(readAttempt(window.localStorage,checkoutKey));setError(committed.message||"Savdoni saqlab bo‘lmadi")}setProcessing(false);return}
+    await withAttemptLock(checkoutKey,()=>{
+      const packet=readAttempt(window.localStorage,checkoutKey);
+      if(packet?.clientReference===sale.id)finishCheckout({...committed.sale,clientReference:sale.id},checkoutKey,draftKey);
+      else if(!packet&&restoreContextRef.current.draftKey===draftKey&&checkoutReferenceRef.current===sale.id){setCart([]);setRecoveryPacket(null);checkoutReferenceRef.current=null;reloadStore({silent:true})}
+    });
+    setProcessing(false);
     if(workspaceSettings.pos.autoPrintReceipt)setTimeout(()=>window.print(),80);
   };
   const closeBusinessDay=async()=>{
@@ -483,9 +527,10 @@ function Sales(){
     {!activeShift&&<div className="pos-shift-warning"><div><FiClock/><span><strong>Smena ochilmagan</strong><small>Savdoni yakunlash bloklangan. Avval Kassa / Smena bo‘limidan smenani oching.</small></span></div><Link to="/shifts">Smenani ochish</Link></div>}
     {activeShift&&(longShift||closeWarning)&&<div className="pos-business-warning pro-alert warning"><FiClock/><span><strong>{longShift?"Smena belgilangan vaqtdan oshdi":"Ish kuni yopilishiga yaqin"}</strong><small>{longShift?`Smena ${maxShiftHours} soatlik limitdan oshdi. Yakunlashni tekshiring.`:`Yopilishgacha ${minutesUntilClose} daqiqa · ${businessClose}. Smenani vaqtida yakunlashni unutmang.`}</small></span><Link to="/shifts">Smenaga o‘tish</Link></div>}
     {error&&<div className="pos-error" role="alert">{error}</div>}
+    {recoveryPacket&&<div className="pro-alert warning" role="status"><strong>Tolov natijasi tekshirilmoqda</strong><p>Savat saqlangan. Natija aniqlanmaguncha yangi savdo boshlanmaydi.</p><button className="pro-btn secondary" disabled={processing} onClick={()=>recoverCheckout(false)}>Natijani tekshirish</button><button className="pro-btn primary" disabled={processing} onClick={()=>recoverCheckout(true)}>Shu savdoni qayta yuborish</button></div>}
     {reconciliationNotice&&<div className="pos-error" role="status">Savat yangilandi. {reconciliationNotice}</div>}
     <div className="pos-mobile-pane-tabs" role="tablist" aria-label="POS ko‘rinishi"><button type="button" role="tab" aria-selected={mobilePane==="catalog"} className={mobilePane==="catalog"?"active":""} onClick={()=>setMobilePane("catalog")}>Mahsulotlar</button><button type="button" role="tab" aria-selected={mobilePane==="cart"} className={mobilePane==="cart"?"active":""} onClick={()=>setMobilePane("cart")}>Savat <b>{cart.reduce((sum,item)=>sum+item.cartQty,0)}</b></button></div>
-    <div className="pos-layout-pro">
+    <div className="pos-layout-pro" inert={recoveryPacket||processing?true:undefined}>
       <section className={`pos-catalog pro-card ${mobilePane==="catalog"?"mobile-pane-active":"mobile-pane-hidden"}`}>
         <div className="pos-search-row"><div className="pos-search"><FiSearch/><input ref={searchRef} value={search} onChange={event=>setSearch(event.target.value)} onKeyDown={handleSearchKey} placeholder="Mahsulot nomi, SKU yoki shtrix-kod..." aria-label="Mahsulot qidirish"/></div><button type="button" className="pro-btn secondary pos-camera-scan" onClick={()=>setScannerOpen(true)}><FiCamera/> <span>Skanerlash</span></button></div>
         <div className="pos-categories"><button className={category==="all"?"active":""} onClick={()=>setCategory("all")}>Barchasi</button>{categories.map(item=><button key={item} className={category===item?"active":""} onClick={()=>setCategory(item)}>{item}</button>)}</div>
