@@ -80,7 +80,7 @@ export const normalizeSaleReturns = (sale) => {
   const normalized = {
     ...sale,
     items,
-    returnedTotal: Number(sale?.returnedTotal || 0),
+    returnedTotal: Number(sale?.returnedTotal ?? items.reduce((sum,item)=>sum+getItemFinalPrice(item)*getReturnedQty(item),0)),
   };
 
   const saleSubtotal = Number(sale?.saleSubtotal ?? getSaleSubtotal(normalized));
@@ -101,9 +101,11 @@ export const normalizeSaleReturns = (sale) => {
   };
 };
 
-export const getNetSoldQty = (item) => getAvailableReturnQty(item);
+export const getNetSoldQty = (item) => item?._financialSign===-1?-Number(item.quantity||0):getAvailableReturnQty(item);
 
 export const getSaleNetTotal = (sale) => {
+  if(sale?._financialType==='refund')return -Number(sale._financialAmount||0);
+  if(sale?.returnedTotal!==undefined&&!sale?._itemScoped)return Math.max(0,Number(sale.saleTotal??sale.total??0)-Number(sale.returnedTotal||0));
   const items = sale?.items || [];
 
   if (!items.length) {
@@ -136,23 +138,23 @@ export const getDayNetTotal = (day) => {
 };
 
 export const getSaleProfit = (sale) =>
-  (sale?.items || []).reduce((acc, item) => {
+  sale?._financialType==='refund'?Number(sale._financialProfit||0):(sale?.items || []).reduce((acc, item) => {
     const netQty = getNetSoldQty(item);
     const profitPerItem =
-      getItemFinalPrice(item) - Number(item.costPrice || 0);
+      getItemFinalPrice(item) - Number(item.unitCost??item.metadata?.unitCost??item.costPrice??0);
 
     return acc + profitPerItem * netQty;
   }, 0);
 
 export const clampReturnQty = (item, qty) => {
   const availableQty = getAvailableReturnQty(item);
-  const value = Math.floor(Number(qty || 0));
+  const value = Math.round(Number(qty || 0)*1000)/1000;
 
-  if (availableQty <= 0) {
+  if (availableQty <= 0 || value <= 0 || !Number.isFinite(value)) {
     return 0;
   }
 
-  return Math.min(Math.max(value, 1), availableQty);
+  return Math.min(value, availableQty);
 };
 
 export const applyReturnToSale = (sale, productId, requestedQty) => {

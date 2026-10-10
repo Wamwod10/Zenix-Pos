@@ -8,6 +8,8 @@ export class ApiError extends Error{
 }
 
 const FRIENDLY_ERRORS={
+  HOLD_PRODUCT_UNAVAILABLE:"Savatda arxivlangan yoki topilmagan mahsulot bor. Joriy katalogni tekshiring.",
+  IDEMPOTENCY_CONFLICT:"Bu savdo identifikatori boshqa ma’lumot bilan ishlatilgan. Oldingi amal natijasini tekshiring.",
   INVALID_CREDENTIALS:"Kirish nomi yoki parol noto‘g‘ri.",
   BILLING_DRAFT_STALE:"Tarif, filiallar soni yoki muddat o‘zgargan. Yangi to‘lov hisobini yarating.",
   BILLING_REVIEW_CONFLICT:"Boshqa to‘lov hali tekshiruvda. Avval uni yakunlang.",

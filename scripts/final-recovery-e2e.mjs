@@ -1,0 +1,96 @@
+import {chromium} from '@playwright/test';import {createServer} from 'vite';import {randomUUID} from 'node:crypto';import fs from 'node:fs/promises';import path from 'node:path';
+import os from 'node:os';
+import {posDraftKey} from '../src/utils/posDraft.js';
+import {assertSafeTestDatabaseUrl} from '../../backend/scripts/assertTestDatabase.js';
+assertSafeTestDatabaseUrl(process.env.TEST_DATABASE_URL,{nodeEnv:process.env.NODE_ENV});
+if(process.env.DATABASE_URL!==process.env.TEST_DATABASE_URL)throw new Error('Test database required');
+process.env.FRONTEND_ORIGIN='http://localhost:5173';process.env.VITE_API_URL='http://localhost:5179';
+const [{app},{pool},{default:bcrypt}]=await Promise.all([import('../../backend/src/app.js'),import('../../backend/src/db/pool.js'),import('../../backend/node_modules/bcryptjs/index.js')]);
+const out=path.resolve('../artifacts/final/recovery');await fs.mkdir(out,{recursive:true});
+let browser,vite,server,profile;const evidence=[];
+try{
+ const suffix=randomUUID(),username='e2e-'+suffix,password=randomUUID()+'-Aa1!';
+ const org=(await pool.query("INSERT INTO organizations(name,license_status,expiry_date,store_limit) VALUES('Prompt3 E2E','ACTIVE',CURRENT_DATE+30,2) RETURNING id")).rows[0].id;
+ const store=(await pool.query("INSERT INTO stores(organization_id,name) VALUES($1,'Test filial') RETURNING id",[org])).rows[0].id;
+ const user=(await pool.query("INSERT INTO users(organization_id,store_id,name,username,password_hash,app_role) VALUES($1,$2,'Test owner',$3,$4,'OWNER') RETURNING id",[org,store,username,await bcrypt.hash(password,10)])).rows[0].id;
+ const product=(await pool.query("INSERT INTO products(organization_id,name,sku,unit,sell_price,cost_price) VALUES($1,'Ўзбекистон Ғалла — Grechka','E2E-KG','kg',12000,8000) RETURNING id",[org])).rows[0].id;
+ await pool.query('INSERT INTO inventory_balances(organization_id,store_id,product_id,quantity,avg_cost) VALUES($1,$2,$3,30,8000)',[org,store,product]);
+ await pool.query("INSERT INTO inventory_batches(organization_id,store_id,product_id,batch_no,received_quantity,remaining_quantity,unit_cost) VALUES($1,$2,$3,'Original lot',30,30,8000)",[org,store,product]);
+ const customer=(await pool.query("INSERT INTO customers(organization_id,name,phone,credit_limit) VALUES($1,'Uzun ismli mijoz — Ўзбекистон мижози','998901234567',999999999) RETURNING id",[org])).rows[0].id;
+ await pool.query("INSERT INTO customer_ledger(organization_id,customer_id,store_id,entry_type,amount,reference) VALUES($1,$2,$3,'CREDIT_SALE',123456789,'Test debt')",[org,customer,store]);
+ await pool.query("INSERT INTO shifts(organization_id,store_id,cashier_id,status,opening_cash,expected_cash,register_key) VALUES($1,$2,$3,'open',1000000,1000000,'E2E')",[org,store,user]);
+ server=app.listen(5179,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ vite=await createServer({server:{host:'127.0.0.1',port:5173,strictPort:true,hmr:false,watch:null}});await vite.listen();
+ profile=await fs.mkdtemp(path.join(os.tmpdir(),'zenix-recovery-browser-'));
+ const options={executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,viewport:{width:1440,height:1000},acceptDownloads:true};
+ let context=await chromium.launchPersistentContext(profile,options),page=await context.newPage();browser=context.browser();const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('http://localhost:5173/login');await page.locator('input[autocomplete="username"]').fill(username);await page.locator('input[type="password"]').fill(password);await page.locator('button[type="submit"]').click();await page.waitForURL('http://localhost:5173/');evidence.push('real owner login');
+
+ const draftKey=posDraftKey(org,user,store);
+ await page.evaluate(({key,id})=>localStorage.setItem(key,JSON.stringify({v:1,cart:[{id,cartQty:30,name:'Grechka',sellPrice:12000,discountPercent:0}],payment:'card',savedAt:Date.now()})),{key:draftKey,id:product});
+ await page.goto('http://localhost:5173/sales');await page.locator('.cart-item').waitFor();
+ await page.route('**/api/sales/reconciliation**',route=>route.abort('failed'));
+ await page.route('**/api/sales',async route=>{if(route.request().method()!=='POST')return route.continue();const committed=await route.fetch();if(!committed.ok())throw new Error('Sale did not commit before dropped response');await route.abort('failed')});
+ await page.locator('.checkout-primary').click();const confirm=page.getByRole('dialog',{name:'Savdoni tasdiqlash'});await confirm.waitFor({state:'visible',timeout:1000}).catch(()=>{});if(await confirm.isVisible())await confirm.getByRole('button',{name:/Tasdiqlash/}).click();
+ await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
+ const before=(await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0];if(Number(before.count)!==1)throw new Error('Dropped response created wrong sale count');
+ if(!await page.evaluate(key=>localStorage.getItem(key)!==null,draftKey))throw new Error('Unknown checkout draft lost');
+ await page.screenshot({path:path.join(out,'checkout-unknown.png'),fullPage:true});evidence.push('POST committed then response dropped; unknown retains draft and blocks another sale');
+ await page.unroute('**/api/sales/reconciliation**');await page.unroute('**/api/sales');await page.reload();
+ await page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor({timeout:15000});
+ if(await page.locator('.cart-item').count()!==0)throw new Error('Confirmed recovery did not clear cart');
+ const stock=Number((await pool.query('SELECT quantity FROM inventory_balances WHERE product_id=$1',[product])).rows[0].quantity);if(stock!==0)throw new Error('Stock decremented incorrectly');
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==1)throw new Error('Recovery duplicate sale');
+ if(await page.evaluate(key=>localStorage.getItem(key)!==null,draftKey))throw new Error('Confirmed draft retained');
+ await page.screenshot({path:path.join(out,'checkout-recovered.png'),fullPage:true});evidence.push('Refresh reconciles committed checkout despite zero stock: one sale, one decrement, one receipt');
+ await page.keyboard.press('Escape');await page.goto('http://localhost:5173/inventory');await page.getByRole('button',{name:'Tezkor kirim',exact:true}).click();const quick=page.getByRole('dialog',{name:'Tezkor kirim',exact:true});await quick.getByPlaceholder('Yangi mahsulot nomi').fill('Recovery apple');await quick.getByRole('button',{name:/lchov birligi$/}).click();await page.getByRole('option',{name:'kg',exact:true}).click();const nums=quick.locator('.quick-receive-row input[type="number"]');await nums.nth(0).fill('15.5');await nums.nth(1).fill('8000');await nums.nth(2).fill('12000');
+ await page.route('**/api/inventory/receive',async route=>{const committed=await route.fetch();if(!committed.ok())throw new Error('Receipt commit failed');await route.abort('failed')});await quick.getByRole('button',{name:'Barchasini qabul qilish'}).click();await page.getByRole('button',{name:'Kirim natijasini tekshirish'}).waitFor();await page.reload();await page.getByRole('button',{name:'Kirim natijasini tekshirish'}).waitFor();
+ await context.close();context=await chromium.launchPersistentContext(profile,options);browser=context.browser();page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto('http://localhost:5173/inventory');await page.getByRole('button',{name:'Kirim natijasini tekshirish'}).waitFor();evidence.push('Actual Edge process restart preserves committed-but-unacknowledged receipt journal');await page.getByRole('button',{name:'Kirim natijasini tekshirish'}).click();await page.getByRole('button',{name:'Kirim natijasini tekshirish'}).waitFor({state:'hidden'});
+ const receipt=(await pool.query("SELECT count(*) count,sum(b.quantity) qty FROM products p JOIN inventory_balances b ON b.product_id=p.id WHERE p.organization_id=$1 AND p.name='Recovery apple'",[org])).rows[0];if(Number(receipt.count)!==1||Number(receipt.qty)!==15.5)throw new Error('Receipt recovery duplicate product/stock');evidence.push('Fractional receipt commit + response loss + reload reconciles one 15.5kg product');
+ const apple=(await pool.query("SELECT id FROM products WHERE organization_id=$1 AND name='Recovery apple'",[org])).rows[0].id;
+ const prepare=async(target)=>{await target.goto('http://localhost:5173/customers');await target.evaluate(({key,id})=>localStorage.setItem(key,JSON.stringify({v:1,cart:[{id,cartQty:1,name:'Recovery apple',sellPrice:12000,discountPercent:0}],payment:'card',savedAt:Date.now()})),{key:draftKey,id:apple});await target.goto('http://localhost:5173/sales');await target.locator('.cart-item').waitFor()};
+ const checkout=async(target,timeout=30000)=>{await target.locator('.checkout-primary').click({timeout});const dialog=target.getByRole('dialog',{name:'Savdoni tasdiqlash'});await dialog.waitFor({state:'visible',timeout:1000}).catch(()=>{});if(await dialog.isVisible())await dialog.getByRole('button',{name:/Tasdiqlash/}).click()};
+ await prepare(page);
+ await page.route('**/api/sales',route=>route.request().method()==='POST'?route.abort('failed'):route.continue());
+ await checkout(page);await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
+ const second=await context.newPage();await second.goto('http://localhost:5173/sales');await second.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==1)throw new Error('Failed POST committed unexpectedly');
+ await second.getByRole('button',{name:'Shu savdoni qayta yuborish'}).click();await second.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor();
+ await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor({state:'hidden'});
+ if(await page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).count())throw new Error('Receipt repeated in other tab');
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==2)throw new Error('Cross-tab retry duplicated sale');
+ if(Number((await pool.query('SELECT quantity FROM inventory_balances WHERE product_id=$1',[apple])).rows[0].quantity)!==14.5)throw new Error('Cross-tab stock mismatch');
+ await second.close();await page.unroute('**/api/sales');evidence.push('Uncommitted unknown checkout survives second tab; safe retry one sale, other tab clears without duplicate receipt');
+ await prepare(page);await context.setOffline(true);await page.getByRole('button',{name:'Xabarni yopish'}).first().waitFor();await page.getByRole('button',{name:'Xabarni yopish'}).first().click();await checkout(page);await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();await context.setOffline(false);await page.getByRole('button',{name:'Shu savdoni qayta yuborish'}).click();await page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor();
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==3)throw new Error('Offline retry duplicated sale');
+ if(Number((await pool.query('SELECT quantity FROM inventory_balances WHERE product_id=$1',[apple])).rows[0].quantity)!==13.5)throw new Error('Offline retry stock mismatch');
+ evidence.push('Offline/online preserves intent and commits exactly once on retry');
+
+ await prepare(page);await page.route('**/api/sales',route=>route.request().method()==='POST'?route.abort('failed'):route.continue());await checkout(page);await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
+ await context.close();context=await chromium.launchPersistentContext(profile,options);browser=context.browser();page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto('http://localhost:5173/sales');await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).waitFor();
+ const scopedFetch=(url,body,method='POST')=>page.evaluate(async({url,body,method})=>{const r=await fetch('http://localhost:5179'+url,{method,credentials:'include',headers:{'Content-Type':'application/json','X-Zenix-Client':'web'},body:JSON.stringify(body)});const text=await r.text();if(!r.ok)throw new Error("Fixture HTTP "+r.status);return {status:r.status,data:text?JSON.parse(text):null}},{url,body,method});
+ const storeB=(await pool.query("INSERT INTO stores(organization_id,name) VALUES($1,'Recovery scope B') RETURNING id",[org])).rows[0].id;
+ await scopedFetch('/api/settings/preferences',{selectedStoreId:storeB},'PATCH');await page.reload();if(await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).count())throw new Error('Other branch displayed pending checkout');
+ const cashierName='recovery-cashier-'+suffix;await pool.query("INSERT INTO users(organization_id,store_id,name,username,password_hash,app_role) VALUES($1,$2,'Recovery cashier',$3,$4,'CASHIER')",[org,store,cashierName,await bcrypt.hash(password,10)]);
+ await scopedFetch('/api/auth/logout',{});await scopedFetch('/api/auth/login',{username:cashierName,password});await page.goto('http://localhost:5173/sales');if(await page.getByRole('button',{name:'Natijani tekshirish',exact:true}).count())throw new Error('Other cashier displayed pending checkout');
+ if(!await page.evaluate(key=>localStorage.getItem(key)!==null,draftKey))throw new Error('Actor switch erased owner draft');
+ await scopedFetch('/api/auth/logout',{});await scopedFetch('/api/auth/login',{username,password});await scopedFetch('/api/settings/preferences',{selectedStoreId:store},'PATCH');await page.goto('http://localhost:5173/sales');await page.getByRole('button',{name:'Shu savdoni qayta yuborish'}).click();await page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor();
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==4)throw new Error('Restart/scope retry duplicated checkout');
+ evidence.push('Actual Edge process restart retains unknown intent; branch/cashier switches isolate it; original owner retry commits once');
+ await prepare(page);await page.waitForTimeout(700);const simultaneous=await context.newPage();await simultaneous.goto('http://localhost:5173/sales');await simultaneous.locator('.cart-item').waitFor();
+ const tabs=[page,simultaneous];
+ for(const tab of tabs)await tab.waitForFunction(()=>document.querySelector('.checkout-primary')?.disabled===false);
+ const attempts=await Promise.allSettled(tabs.map(tab=>checkout(tab,2000)));
+ if(!attempts.some(result=>result.status==='fulfilled'))throw new Error('Both checkout clicks failed');
+ for(let i=0;i<attempts.length;i++)if(attempts[i].status==='rejected'){
+   // Cross-tab synchronization can disable the second button before Playwright
+   // dispatches its click. That is the intended duplicate-checkout protection.
+   if(attempts[i].reason.name!=='TimeoutError'||!(await tabs[i].locator('.checkout-primary').isDisabled()))throw attempts[i].reason;
+ }
+ await Promise.race([page.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor(),simultaneous.getByRole('dialog',{name:'Savdo muvaffaqiyatli'}).waitFor()]);await page.waitForTimeout(800);
+ if(Number((await pool.query('SELECT count(*) count FROM sales WHERE organization_id=$1',[org])).rows[0].count)!==5)throw new Error('Simultaneous tabs duplicated checkout');
+ if(Number((await pool.query('SELECT quantity FROM inventory_balances WHERE product_id=$1 AND store_id=$2',[apple,store])).rows[0].quantity)!==11.5)throw new Error('Simultaneous stock decremented incorrectly');
+ evidence.push('Simultaneous fresh checkouts in two tabs create one sale and one stock decrement');await simultaneous.close();
+
+ if(errors.length)throw new Error(errors.join('\n'));await fs.writeFile(path.join(out,'evidence.json'),JSON.stringify({evidence,errors},null,2));console.log(JSON.stringify(evidence));
+}catch(error){for(const context of browser?.contexts()||[])for(const page of context.pages())await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});throw error}finally{await browser?.close();await vite?.close();if(server)await new Promise(resolve=>server.close(resolve));await pool.end();if(profile)await fs.rm(profile,{recursive:true,force:true})}

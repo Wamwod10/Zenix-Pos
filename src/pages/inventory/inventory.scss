@@ -43,7 +43,7 @@ body.dark-mode .inv-icon{background:#262a2d;color:#c7cbce}
 .quick-receive-meta,.quick-new-supplier{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .quick-new-supplier{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px;padding:12px;border-radius:15px;background:color-mix(in srgb,var(--surface) 65%,var(--card-bg));border:1px solid color-mix(in srgb,var(--border) 82%,transparent)}
 .quick-receive-table{margin-top:16px;overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--card-bg)}
-.quick-receive-head,.quick-receive-row{min-width:920px;display:grid;grid-template-columns:1.35fr 1.35fr 1.1fr .68fr .82fr .82fr 38px;gap:7px;align-items:center}
+.quick-receive-head,.quick-receive-row{min-width:920px;display:grid;grid-template-columns:1.35fr 1.35fr 1.1fr minmax(155px,.9fr) .82fr .82fr 38px;gap:7px;align-items:center}
 .quick-receive-head{padding:9px 11px;background:color-mix(in srgb,var(--surface) 78%,var(--card-bg));color:var(--muted);font-size:11.5px;font-weight:600;border-bottom:1px solid var(--border)}
 .quick-receive-row{padding:8px 10px;border-bottom:1px solid color-mix(in srgb,var(--border) 76%,transparent)}
 .quick-receive-row:last-child{border-bottom:0}
@@ -192,3 +192,5 @@ body.dark-mode .pending-counts>div{background:var(--surface)}
 .quick-receive-row,.quick-receive-product,.quick-receive-row .pro-field{min-width:0}.quick-receive-row select,.quick-receive-row input{width:100%;min-width:0}.quick-receive-row .premium-select{min-width:180px;max-width:100%}@media(max-width:760px){.quick-receive-row{grid-template-columns:minmax(0,1fr)!important}.quick-receive-row .premium-select{min-width:0;width:100%}}
 
 .tracked-stock-hint{margin-top:12px;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.tracked-stock-hint span{opacity:.86}.tracked-count-note{display:flex;flex-direction:column;gap:3px;min-width:180px}.tracked-count-note strong{font-size:13px}.tracked-count-note small{opacity:.72;line-height:1.35}
+
+.quick-receive-row .quick-unit-selector .premium-select{min-width:0;width:100%;height:36px;min-height:36px}

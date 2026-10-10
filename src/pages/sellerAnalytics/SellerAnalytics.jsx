@@ -1,11 +1,13 @@
+import {financialSalesEvents} from "../../utils/reporting";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { FiAward, FiCreditCard, FiSearch, FiShoppingCart, FiTrendingUp, FiUserCheck } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
+import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
-import { buildSellerAnalyticsRows, matchesStore, recordInPeriod } from "../../utils/reporting";
+import { buildSellerAnalyticsRows, matchesStore, recordInPeriod,periodRange } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, ColumnPicker } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import usePersistentColumns from "../../utils/usePersistentColumns";
@@ -14,7 +16,7 @@ import "./sellerAnalytics.scss";
 
 function SellerAnalytics() {
   const { currentUser } = useAuth();
-  const { dailySales, salesHistory, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { returns:bootstrapReturns, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("30");
   const [store, setStore] = useState("all");
@@ -29,17 +31,12 @@ function SellerAnalytics() {
     return identity?currentIdentityIds.includes(String(identity)):(sale?.sellerName||sale?.seller)===currentUser?.name;
   };
 
-  const allSales = useMemo(() => [
-    ...dailySales,
-    ...salesHistory.flatMap((day) => (day.sales || []).map((sale) => ({
-      ...sale,
-      dateISO: sale.dateISO || day.dateISO,
-      date: sale.date || day.date,
-      storeId: sale.storeId || day.storeId,
-      store: sale.store || day.store || day.storeName,
-    }))),
-  ], [dailySales, salesHistory]);
+  const range=periodRange(period,{timezone,businessDay:workspaceSettings.businessDay});
+  const report=useScopedReport({storeId:store,from:range.from,to:range.to},{allPages:true,revision:bootstrapReturns[0]?.id});
+  const {returns}=report;
+  const saleRecords=useMemo(()=>reportSales(report),[report.sales,returns]);
 
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
   const filteredSales = useMemo(() => allSales.filter((sale) => {
     if (!recordInPeriod(sale, period, { timezone, businessDay:workspaceSettings.businessDay })) return false;
     if (!matchesStore(sale, store, stores)) return false;
@@ -59,9 +56,9 @@ function SellerAnalytics() {
   }, [employees, filteredSales, shiftHistory, period, timezone, store, stores, isCashier, currentUser?.id, currentUser?.employeeId, currentUser?.name, workspaceSettings.businessDay]);
 
   const visible = sellers.filter((sellerRow) => sellerRow.name.toLowerCase().includes(search.toLowerCase()));
-  const totalSales = visible.reduce((sum, row) => sum + row.sales, 0);
-  const totalProfit = visible.reduce((sum, row) => sum + row.profit, 0);
-  const totalCount = visible.reduce((sum, row) => sum + row.count, 0);
+  const totalSales = !search&&report.aggregate?report.aggregate.netRevenue:visible.reduce((sum, row) => sum + row.sales, 0);
+  const totalProfit = !search&&report.aggregate?report.aggregate.grossProfit:visible.reduce((sum, row) => sum + row.profit, 0);
+  const totalCount = !search&&report.aggregate?report.aggregate.saleCount:visible.reduce((sum, row) => sum + row.count, 0);
   const avgCheck = totalCount ? totalSales / totalCount : 0;
   const top = visible[0];
   const chart = visible.slice(0, 7).map((row) => ({ name: row.name.split(" ")[0], sales: row.sales, profit: row.profit }));
@@ -69,6 +66,8 @@ function SellerAnalytics() {
   const storeLabel = store === "all" ? "Barcha filiallar" : stores.find((item) => item.id === store)?.name || "Filial";
 
   return <div className="pro-page seller-pro">
+    {report.error&&<div className="pro-alert danger" role="alert">{report.error}</div>}
+    {report.loading&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
     <PageHeader
       title={isCashier ? "Mening natijalarim" : "Sotuvchi tahlili"}
       subtitle={isCashier ? "Savdo, foyda, o‘rtacha chek va qaytarish ko‘rsatkichlaringiz." : "Sotuvchilar natijalarini bir xil davr va filial kesimida taqqoslang."}

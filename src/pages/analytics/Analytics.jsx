@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 import { FiBarChart2, FiCreditCard, FiDollarSign, FiDownload, FiPackage, FiRefreshCw, FiShoppingCart, FiTrendingUp } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
+import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
 import {
-  matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, previousPeriodRange, returnedAmountForSale,
-  saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale,
+  financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
+  saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale, netItemContribution,
 } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
 import ResponsiveChart from "../../components/ResponsiveChart";
@@ -15,7 +16,7 @@ import "./analytics.scss";
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
 
 function Analytics() {
-  const { dailySales, salesHistory, expenses, inventoryState, stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { returns:bootstrapReturns, inventoryState, stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [period, setPeriod] = useState("30 kun");
   const [store, setStore] = useState("all");
   const [category, setCategory] = useState("all");
@@ -24,18 +25,15 @@ function Analytics() {
   const [to, setTo] = useState("");
   const timezone = workspaceSettings.organization.timezone || "Asia/Tashkent";
   const periodOptions = { from, to, timezone, businessDay:workspaceSettings.businessDay };
+  const periodKey=period==='Ixtiyoriy'?'Custom':period;
 
-  const allSales = useMemo(() => [
-    ...dailySales,
-    ...salesHistory.flatMap((day) => (day.sales || []).map((sale) => ({
-      ...sale,
-      dateISO: sale.dateISO || day.dateISO,
-      date: sale.date || day.date,
-      storeId: sale.storeId || day.storeId,
-      store: sale.store || day.store || day.storeName,
-    }))),
-  ], [dailySales, salesHistory]);
+  const currentRange=periodRange(periodKey,periodOptions),earlierRange=previousPeriodRange(periodKey,periodOptions);
+  const report=useScopedReport({storeId:store,from:earlierRange?.from||currentRange.from,to:currentRange.to,sellerId:seller},{allPages:true,revision:bootstrapReturns[0]?.id});
+  const summary=useScopedReport({storeId:store,from:currentRange.from,to:currentRange.to,sellerId:seller,limit:1},{revision:bootstrapReturns[0]?.id});
+  const {returns,expenses}=report;
+  const saleRecords=useMemo(()=>reportSales(report),[report.sales,returns]);
 
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
   const productById = useMemo(() => new Map(inventoryState.map((product) => [String(product.id), product])), [inventoryState]);
   const sellerIdentity = (sale) => String(sale?.sellerId || sale?.sellerAccountId || sale?.sellerName || sale?.seller || "");
   const sellers = useMemo(() => {
@@ -50,7 +48,7 @@ function Analytics() {
   const categories = useMemo(() => [...new Set(inventoryState.map((product) => product.category).filter(Boolean))].sort(), [inventoryState]);
 
   const basePeriodSales = useMemo(() => allSales.filter((sale) => (
-    recordInPeriod(sale, period, periodOptions)
+    recordInPeriod(sale, periodKey, periodOptions)
     && (seller === "all" || sellerIdentity(sale) === seller)
   )), [allSales, period, from, to, timezone, workspaceSettings.businessDay, seller]);
 
@@ -65,7 +63,7 @@ function Analytics() {
     .map((sale) => scopedSale(sale, category === "all" ? null : categoryPredicate))
     .filter((sale) => category === "all" || sale.items.length > 0), [basePeriodSales, store, stores, category, productById]);
 
-  const previousRange=useMemo(()=>previousPeriodRange(period,periodOptions),[period,from,to,timezone,workspaceSettings.businessDay]);
+  const previousRange=useMemo(()=>previousPeriodRange(periodKey,periodOptions),[periodKey,from,to,timezone,workspaceSettings.businessDay]);
   const previousSales=useMemo(()=>{
     if(!previousRange)return[];
     return allSales
@@ -76,20 +74,21 @@ function Analytics() {
       .filter((sale)=>category==="all"||sale.items.length>0);
   },[allSales,previousRange,timezone,seller,store,stores,category,productById]);
 
-  const revenue = filteredSales.reduce((sum, sale) => sum + saleNetRevenue(sale), 0);
-  const gross = filteredSales.reduce((sum, sale) => sum + saleNetProfit(sale), 0);
-  const returnTotal = filteredSales.reduce((sum, sale) => sum + returnedAmountForSale(sale), 0);
+  const revenue = category==='all'&&summary.aggregate?summary.aggregate.netRevenue:filteredSales.reduce((sum, sale) => sum + saleNetRevenue(sale), 0);
+  const gross = category==='all'&&summary.aggregate?summary.aggregate.grossProfit:filteredSales.reduce((sum, sale) => sum + saleNetProfit(sale), 0);
+  const returnTotal = category==='all'&&summary.aggregate?summary.aggregate.refundAmount:filteredSales.reduce((sum, sale) => sum + returnedAmountForSale(sale), 0);
   const returnedSales = filteredSales.filter((sale) => returnedAmountForSale(sale) > 0).length;
 
   const filteredExpenses = useMemo(() => expenses.filter((expense) => (
-    recordInPeriod(expense, period, periodOptions) && matchesStore(expense, store, stores)
+    recordInPeriod(expense, periodKey, periodOptions) && matchesStore(expense, store, stores)
   )), [expenses, period, from, to, timezone, workspaceSettings.businessDay, store, stores]);
-  const expenseTotal = filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const expenseTotal = summary.aggregate?.expenseTotal??filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const previousExpenses=useMemo(()=>previousRange?expenses.filter((expense)=>recordInRange(expense,previousRange,timezone)&&matchesStore(expense,store,stores)):[],[expenses,previousRange,timezone,store,stores]);
   const previousExpenseTotal=previousExpenses.reduce((sum,expense)=>sum+Number(expense.amount||0),0);
   const canCalculateNet = category === "all" && seller === "all";
   const net = canCalculateNet ? gross - expenseTotal : null;
-  const avg = filteredSales.length ? revenue / filteredSales.length : 0;
+  const transactionCount=category==='all'&&summary.aggregate?summary.aggregate.saleCount:filteredSales.filter(sale=>sale._financialType!=="refund").length;
+  const avg = transactionCount ? revenue / transactionCount : 0;
   const previousRevenue=previousSales.reduce((sum,sale)=>sum+saleNetRevenue(sale),0);
   const previousGross=previousSales.reduce((sum,sale)=>sum+saleNetProfit(sale),0);
   const previousNet=canCalculateNet?previousGross-previousExpenseTotal:null;
@@ -107,8 +106,7 @@ function Analytics() {
   const productMap = {};
   filteredSales.forEach((sale) => (sale.items || []).forEach((item) => {
     const key = String(item.productId || item.id || item.name);
-    const qty = Math.max(0, Number(item.quantity || item.qty || 0) - Number(item.returnedQty || 0));
-    const value = Number(item.finalPrice || item.price || 0) * qty;
+    const {qty, revenue:value} = netItemContribution(item);
     productMap[key] = productMap[key] || { name:item.name, qty:0, revenue:0 };
     productMap[key].qty += qty;
     productMap[key].revenue += value;
@@ -156,7 +154,7 @@ function Analytics() {
   const exportCsv = () => {
     const rows = [
       ["Ko‘rsatkich","Qiymat"], ["Sof savdo",revenue], ["Yalpi foyda",gross], ["Xarajat",canCalculateNet ? expenseTotal : "Filtr sabab hisoblanmadi"],
-      ["Sof foyda",canCalculateNet ? net : "Filtr sabab hisoblanmadi"], ["Tranzaksiyalar",filteredSales.length], ["O‘rtacha chek",avg], ["Qaytarish",returnTotal],
+      ["Sof foyda",canCalculateNet ? net : "Filtr sabab hisoblanmadi"], ["Tranzaksiyalar",transactionCount], ["O‘rtacha chek",avg], ["Qaytarish",returnTotal],
     ];
     const csvCell=(value)=>{const text=String(value??"");return /[",\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text};
     const csv = "\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
@@ -170,6 +168,8 @@ function Analytics() {
   const storeLabel = store === "all" ? "Barcha filiallar" : stores.find((item) => item.id === store)?.name;
 
   return <div className="pro-page analytics-pro">
+    {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
+    {(report.loading||summary.loading)&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
     <PageHeader title="Analitika" subtitle="Sof savdo, foyda, xarajat, qoldiq va qaytarishlarni bir xil hisoblash qoidasi bilan kuzating." actions={<button className="pro-btn secondary" onClick={exportCsv}><FiDownload/> CSV eksport</button>}/>
 
     <section className="analytics-filterbar pro-card">
@@ -181,7 +181,7 @@ function Analytics() {
     </section>
 
     <div className="pro-stat-grid analytics-kpis">
-      <StatCard icon={FiShoppingCart} label="Sof savdo" value={formatPrice(revenue)} hint={compareHint(revenue,previousRevenue,`${filteredSales.length} ta tranzaksiya`)} tone="blue"/>
+      <StatCard icon={FiShoppingCart} label="Sof savdo" value={formatPrice(revenue)} hint={compareHint(revenue,previousRevenue,`${transactionCount} ta tranzaksiya`)} tone="blue"/>
       <StatCard icon={FiTrendingUp} label="Yalpi foyda" value={formatPrice(gross)} hint={compareHint(gross,previousGross,`${revenue ? Math.round(gross / revenue * 100) : 0}% marja`)} tone="green"/>
       <StatCard icon={FiCreditCard} label="Sof foyda" value={canCalculateNet ? formatPrice(net) : "—"} hint={canCalculateNet ? compareHint(net,previousNet,`Xarajat: ${formatPrice(expenseTotal)}`) : "Kategoriya/sotuvchi filterida xarajat taqsimlanmaydi"} tone="purple"/>
       <StatCard icon={FiDollarSign} label="O‘rtacha chek" value={formatPrice(avg)} hint={compareHint(avg,previousAvg,storeLabel)} tone="orange"/>

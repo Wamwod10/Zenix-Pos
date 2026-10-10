@@ -10,7 +10,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const owner = { id:"owner-a", organizationId:"org-1", appRole:"OWNER", name:"Owner A" };
 const customer = (id, name = id) => ({ id, name, customerType:"REGULAR", balance:0, overdue:0, totalPurchases:0, saleCount:0 });
 
-async function withSession(page, get, run, user = owner) {
+async function withSession(page, get, run, user = owner, requests = []) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", { url:"http://localhost", pretendToBeVisual:true });
   const previous = { window:globalThis.window, document:globalThis.document, navigator:globalThis.navigator, act:globalThis.IS_REACT_ACT_ENVIRONMENT, frame:globalThis.requestAnimationFrame };
   globalThis.window=dom.window; globalThis.document=dom.window.document; globalThis.IS_REACT_ACT_ENVIRONMENT=true;
@@ -25,6 +25,8 @@ async function withSession(page, get, run, user = owner) {
       page?vite.ssrLoadModule(page):Promise.resolve(null),
     ]);
     api.get=async path=>{
+      requests.push(path);
+      if(path==="/api/customers/tags")return {configured:[],existing:[]};
       if(path==="/api/auth/me")return {user};
       if(path==="/api/users/me/sessions")return {sessions:[]};
       if(path==="/api/users")return {users:[]};
@@ -141,7 +143,7 @@ test("customer directory reaches records past 60, keeps server order and bounds 
     const items=empty?[]:offset===120?[customer("last-5","Zed"),customer("last-4","Alpha"),customer("last-3"),customer("last-2"),customer("last-1")]:Array.from({length:60},(_,i)=>customer(`row-${offset+i}`));
     return {items,total:125,limit:60,offset};
   },async({container})=>{
-    assert.deepEqual(calls[0],{q:"",filter:"all",sort:"name",direction:"asc",limit:"60",offset:"0"});
+    assert.deepEqual(calls[0],{q:"",filter:"all",sort:"name",direction:"asc",limit:"60",offset:"0",tags:""});
     assert.match(container.querySelector(".customer-pagination").textContent,/1–60.*125/);
     assert.equal(button(container,"Oldingi").disabled,true);
     await select(container,"Mijozlar filtri","Barcha mijozlar");
@@ -231,6 +233,39 @@ test("reversed organization usage responses keep B visible and closing invalidat
     assert.match(document.querySelector('[role="dialog"]').textContent,/4 MB/);
     assert.doesNotMatch(document.querySelector('[role="dialog"]').textContent,/8 MB/);
   },{id:"platform-1",appRole:"PLATFORM_ADMIN",name:"Admin"});
+});
+
+test("late reset token cannot appear in another user's reset workflow",async()=>{
+  const pending=deferred();
+  await withSession("/src/pages/platformAdmin/PlatformAdmin.jsx",path=>{
+    if(path.includes('/page'))return {items:[{id:'org-a',name:'A'}],total:1};
+    if(path.endsWith('/detail'))return {organization:{id:'org-a',name:'A',users:[{id:'user-a',name:'Alice'},{id:'user-b',name:'Bob'}]}};
+    if(path.endsWith('/usage'))return {usage:{receiptBytes:0}};
+    if(path.includes('/audit-logs'))return {logs:[]};
+    return {};
+  },async({container,dom,api})=>{
+    api.post=()=>pending.promise;
+    await act(async()=>button(container,'Mijozlar').click());await pause();
+    await act(async()=>container.querySelector('tbody .pro-icon-btn').click());await pause();
+    const users=()=>Array.from(document.querySelectorAll('.platform-detail-list button')).filter(node=>node.textContent==='Parolni tiklash');
+    await act(async()=>users()[0].click());
+    await inputValue(Array.from(document.querySelectorAll('input')).find(node=>node.previousElementSibling?.textContent.includes('Sabab')),'Identity checked by support',dom);
+    await act(async()=>button(document,'Bir martalik token yaratish').click());
+    await act(async()=>button(document,'Token yaratish').click());
+    const resetDialog=Array.from(document.querySelectorAll('[role="dialog"]')).find(node=>node.textContent.includes('Bir martalik token yaratish')||node.textContent.includes('Yaratilmoqda...'));
+    await act(async()=>resetDialog.querySelector('[aria-label="Yopish"]').click());
+    await act(async()=>users()[1].click());
+    await act(async()=>pending.resolve({reset:{token:'SECRET-FOR-ALICE',expiresAt:'2099-01-01'}}));
+    assert.equal(Boolean(document.querySelector('[aria-label="Tiklash tokeni"]')),false);
+  },{id:'platform-1',appRole:'PLATFORM_ADMIN',name:'Admin'});
+});
+
+test("owner enumerates staff but manager and cashier never call forbidden users API",async()=>{
+ for(const appRole of ['OWNER','MANAGER','CASHIER']){
+  const calls=[];
+  await withSession(null,()=>({}),async()=>{}, {...owner,appRole},calls);
+  assert.equal(calls.includes('/api/users'),appRole==='OWNER');
+ }
 });
 
 test("same-role user switching writes and resets only the current complete theme key",async()=>{

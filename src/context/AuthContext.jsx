@@ -1,7 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeSessionUser, legacyRoleForAppRole, runForOrganizationUser, ROLES } from "../config/roles";
 import { api, ApiError } from "../services/apiClient";
 import { formatUzPhone, isValidUzPhone } from "../utils/phone";
+import {DEFAULT_ROLE_PERMISSIONS} from '../config/uiDefaults';
+import {AUTH_SYNC_KEY,notifyAuthChanged} from '../utils/authSync';
 
 const AuthContext=createContext(null);
 
@@ -20,6 +22,7 @@ export const AuthProvider=({children})=>{
   const [authLoading,setAuthLoading]=useState(true);
   const [workspaceAccounts,setWorkspaceAccounts]=useState([]);
   const [sessions,setSessions]=useState([]);
+  const sessionRevision=useRef(0);
 
   const refreshSessions=useCallback(async()=>{
     try{
@@ -33,6 +36,8 @@ export const AuthProvider=({children})=>{
   },[]);
 
   const refreshWorkspaceAccounts=useCallback(async()=>{
+    const allowed=currentUser?.appRole===ROLES.OWNER||Boolean(currentUser?.permissionOverrides?.settingsWrite??currentUser?.rolePermissions?.[currentUser?.appRole]?.settingsWrite??DEFAULT_ROLE_PERMISSIONS[currentUser?.appRole]?.settingsWrite);
+    if(!currentUser?.organizationId||!allowed){setWorkspaceAccounts([]);return []}
     try{
       const data=await api.get("/api/users");
       const users=(data.users||[]).map(cleanUser).filter(Boolean);
@@ -43,31 +48,49 @@ export const AuthProvider=({children})=>{
       if(error?.status!==403)setWorkspaceAccounts([]);
       return [];
     }
-  },[]);
+  },[currentUser]);
 
   useEffect(()=>{
     let cancelled=false;
+    const revision=++sessionRevision.current;
     (async()=>{
       try{
         const data=await api.get("/api/auth/me");
-        if(cancelled)return;
+        if(cancelled||revision!==sessionRevision.current)return;
         setCurrentUser(cleanUser(data.user));
       }catch(error){
-        if(cancelled)return;
+        if(cancelled||revision!==sessionRevision.current)return;
         if(error?.status!==401&&error?.code!=="API_NOT_CONFIGURED")console.error("[auth] session restore failed",error);
         setCurrentUser(null);
       }finally{
-        if(!cancelled)setAuthLoading(false);
+        if(!cancelled&&revision===sessionRevision.current)setAuthLoading(false);
       }
     })();
     return()=>{cancelled=true};
   },[]);
 
   useEffect(()=>{
+    let controller;
+    const sync=async event=>{
+      if(event.key!==AUTH_SYNC_KEY)return;
+      controller?.abort();controller=new AbortController();
+      const revision=++sessionRevision.current;
+      setCurrentUser(null);setWorkspaceAccounts([]);setSessions([]);setAuthLoading(true);
+      try{
+        const data=await api.get('/api/auth/me',{signal:controller.signal});
+        if(revision===sessionRevision.current)setCurrentUser(cleanUser(data.user));
+      }catch{/* The shared session may have been logged out. */}
+      finally{if(revision===sessionRevision.current)setAuthLoading(false)}
+    };
+    window.addEventListener('storage',sync);
+    return()=>{sessionRevision.current+=1;controller?.abort();window.removeEventListener('storage',sync)};
+  },[]);
+
+  useEffect(()=>{
     if(!currentUser){setWorkspaceAccounts([]);setSessions([]);return}
     const started=runForOrganizationUser(currentUser,()=>{
       void refreshSessions();
-      if([ROLES.OWNER,ROLES.ADMIN,ROLES.MANAGER].includes(currentUser.appRole))void refreshWorkspaceAccounts();
+      void refreshWorkspaceAccounts();
     });
     if(!started){setWorkspaceAccounts([]);setSessions([])}
   },[currentUser?.id,currentUser?.organizationId,currentUser?.appRole,refreshSessions,refreshWorkspaceAccounts]);
@@ -76,6 +99,7 @@ export const AuthProvider=({children})=>{
     try{
       const data=await api.post("/api/auth/login",{username:String(username||"").trim(),password});
       const user=cleanUser(data.user);
+      sessionRevision.current+=1;setAuthLoading(false);notifyAuthChanged();
       setCurrentUser(user);
       return {success:true,user};
     }catch(error){return {success:false,message:apiMessage(error,"Tizimga kirib bo‘lmadi")}}
@@ -89,11 +113,13 @@ export const AuthProvider=({children})=>{
         phone:formatUzPhone(form?.phone||""),
         username:String(form?.login||form?.username||"").trim(),
         password:String(form?.password||""),startOption:form?.startOption||"TRIAL",
+        ...((form?.startOption||"TRIAL")==="TRIAL"?{registrationToken:String(form?.registrationToken||"")} : {}),
       });
       const user=cleanUser(data.user);
+      sessionRevision.current+=1;setAuthLoading(false);notifyAuthChanged();
       setCurrentUser(user);
       return {success:true,user};
-    }catch(error){return {success:false,message:apiMessage(error,"Ro‘yxatdan o‘tib bo‘lmadi")}}
+    }catch(error){return {success:false,code:error?.code,message:apiMessage(error,"Ro‘yxatdan o‘tib bo‘lmadi")}}
   };
 
   // Availability is always enforced by PostgreSQL. This synchronous helper only
@@ -213,6 +239,7 @@ export const AuthProvider=({children})=>{
   const logout=async()=>{
     try{
       await api.post("/api/auth/logout",{});
+      sessionRevision.current+=1;setAuthLoading(false);notifyAuthChanged();
       setCurrentUser(null);setWorkspaceAccounts([]);setSessions([]);
       return {success:true};
     }catch(error){

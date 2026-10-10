@@ -2,6 +2,7 @@
  * WinAnsi's limited repertoire requires transliteration of Uzbek Cyrillic.
  * Prices and barcodes retain ASCII digits; never place user text in PDF commands.
  */
+import {unicodeCatalogPdf} from './unicodeCatalogPdf.js';
 const cyrillic=Object.freeze({
   а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'y',
   к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',
@@ -16,7 +17,8 @@ const ascii=(value)=>String(value??'').replace(/[А-ЯЁа-яёЎўҚқҒғҲҳ�
   return upperNeighbor?latin.toUpperCase():latin[0].toUpperCase()+latin.slice(1);
 }).normalize('NFKD').replace(/\p{Mark}/gu,'').replace(/[‘’ʻʼ`]/g,"'").replace(/[^\x20-\x7e]/g,'?').slice(0,150);
 const esc=(v)=>ascii(v).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
-export function productCatalogPdf(products=[]){
+export function productCatalogPdf(products=[],options={}){
+  if(options.fontBytes)return unicodeCatalogPdf(products,options);
   const objects=[null];const obj=(value)=>{objects.push(value);return objects.length-1};
   const font=obj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
   const pages=obj('');const references=[];

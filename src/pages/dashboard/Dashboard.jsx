@@ -1,3 +1,4 @@
+import {financialSalesEvents} from "../../utils/reporting";
 import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
@@ -6,6 +7,7 @@ import {
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext";
+import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { getSaleNetTotal, getSaleProfit, getNetSoldQty, getItemFinalPrice } from "../../utils/returns";
 import { saleNetPaymentBreakdown, returnedAmountForSale } from "../../utils/reporting";
@@ -22,7 +24,7 @@ const pct=(current,previous)=>Number(previous)!==0?((current-previous)/Math.abs(
 const formatPct=(value)=>value==null?"Yangi":`${value>=0?"+":""}${Math.round(value)}%`;
 
 function Dashboard(){
-  const {inventoryState,dailySales,salesHistory,expenses,suppliers,returns,stores,currentStore,currentStoreId,effectiveWorkspaceSettings:workspaceSettings}=useStore();
+  const {inventoryState,suppliers,returns:bootstrapReturns,stores,currentStore,currentStoreId,effectiveWorkspaceSettings:workspaceSettings}=useStore();
   const organizationSettings=workspaceSettings.organization||{};
   const [period,setPeriod]=useState("7");
   const [store,setStore]=useState(currentStoreId);
@@ -38,11 +40,6 @@ function Dashboard(){
     return storeId===defaultStoreId;
   };
 
-  const allSales=useMemo(()=>[
-    ...dailySales,
-    ...salesHistory.flatMap(day=>(day.sales||[]).map(s=>({...s,dateISO:s.dateISO||day.dateISO,date:s.date||day.date,storeId:s.storeId||day.storeId,store:s.store||day.store}))),
-  ],[dailySales,salesHistory]);
-
   const range=useMemo(()=>{
     const endKey=workspaceDateISO(new Date(),organizationSettings.timezone);
     if(period==="all")return{startKey:"0000-01-01",endKey,previousStartKey:null,previousEndKey:null,days:14};
@@ -52,22 +49,27 @@ function Dashboard(){
     const previousStartKey=shiftDayKey(previousEndKey,-days+1);
     return{startKey,endKey,previousStartKey,previousEndKey,days};
   },[period,organizationSettings.timezone]);
+  const report=useScopedReport({storeId:store,from:period==='all'?'':range.previousStartKey,to:range.endKey},{allPages:true,revision:bootstrapReturns[0]?.id});
+  const summary=useScopedReport({storeId:store,from:period==='all'?'':range.startKey,to:range.endKey,limit:1},{revision:bootstrapReturns[0]?.id});
+  const {returns,expenses}=report;
+  const saleRecords=useMemo(()=>reportSales(report),[report.sales,returns]);
+  const allSales=useMemo(()=>financialSalesEvents(saleRecords,returns),[saleRecords,returns]);
 
   const sales=useMemo(()=>allSales.filter(s=>belongsToStore(s,store)&&(period==="all"||isBetween(s.dateISO||s.date,range.startKey,range.endKey,organizationSettings.timezone))),[allSales,store,period,range,stores,organizationSettings.timezone]);
   const previousSales=useMemo(()=>period==="all"?[]:allSales.filter(s=>belongsToStore(s,store)&&isBetween(s.dateISO||s.date,range.previousStartKey,range.previousEndKey,organizationSettings.timezone)),[allSales,store,period,range,stores,organizationSettings.timezone]);
   const filteredExpenses=useMemo(()=>expenses.filter(e=>belongsToStore(e,store)&&(period==="all"||isBetween(e.dateISO||e.date,range.startKey,range.endKey,organizationSettings.timezone))),[expenses,store,period,range,stores,organizationSettings.timezone]);
   const previousExpenses=useMemo(()=>period==="all"?[]:expenses.filter(e=>belongsToStore(e,store)&&isBetween(e.dateISO||e.date,range.previousStartKey,range.previousEndKey,organizationSettings.timezone)),[expenses,store,period,range,stores,organizationSettings.timezone]);
 
-  const revenue=sales.reduce((sum,s)=>sum+getSaleNetTotal(s),0);
+  const revenue=summary.aggregate?.netRevenue??sales.reduce((sum,s)=>sum+getSaleNetTotal(s),0);
   const previousRevenue=previousSales.reduce((sum,s)=>sum+getSaleNetTotal(s),0);
-  const grossProfit=sales.reduce((sum,s)=>sum+getSaleProfit(s),0);
+  const grossProfit=summary.aggregate?.grossProfit??sales.reduce((sum,s)=>sum+getSaleProfit(s),0);
   const previousGross=previousSales.reduce((sum,s)=>sum+getSaleProfit(s),0);
-  const expenseTotal=filteredExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
+  const expenseTotal=summary.aggregate?.expenseTotal??filteredExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const previousExpense=previousExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const netProfit=grossProfit-expenseTotal;
   const previousNet=previousGross-previousExpense;
-  const transactions=sales.length;
-  const previousTransactions=previousSales.length;
+  const transactions=summary.aggregate?.saleCount??sales.filter(sale=>sale._financialType!=="refund").length;
+  const previousTransactions=previousSales.filter(sale=>sale._financialType!=="refund").length;
   const average=transactions?revenue/transactions:0;
   const previousAverage=previousTransactions?previousRevenue/previousTransactions:0;
   const margin=revenue?grossProfit/revenue*100:0;
@@ -140,7 +142,7 @@ function Dashboard(){
   const branchPerformance=useMemo(()=>activeStores.map(branch=>{
     const branchSales=allSales.filter(sale=>belongsToStore(sale,branch.id)&&(period==="all"||isBetween(sale.dateISO||sale.date,range.startKey,range.endKey,organizationSettings.timezone)));
     return {
-      id:branch.id,name:branch.name,transactions:branchSales.length,
+      id:branch.id,name:branch.name,transactions:branchSales.filter(sale=>sale._financialType!=="refund").length,
       revenue:branchSales.reduce((sum,sale)=>sum+getSaleNetTotal(sale),0),
       profit:branchSales.reduce((sum,sale)=>sum+getSaleProfit(sale),0),
     };
@@ -148,7 +150,7 @@ function Dashboard(){
 
   const sellerPerformance=useMemo(()=>{
     const map=new Map();
-    sales.forEach(sale=>{const name=sale.sellerName||sale.seller||"Noma’lum";const current=map.get(name)||{name,revenue:0,transactions:0};current.revenue+=getSaleNetTotal(sale);current.transactions+=1;map.set(name,current)});
+    sales.forEach(sale=>{const name=sale.sellerName||sale.seller||"Noma’lum";const current=map.get(name)||{name,revenue:0,transactions:0};current.revenue+=getSaleNetTotal(sale);current.transactions+=sale._financialType==="refund"?0:1;map.set(name,current)});
     return [...map.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,4);
   },[sales]);
 
@@ -171,6 +173,8 @@ function Dashboard(){
   const pulse=useMemo(()=>{const items=[];if(out.length)items.push({tone:"danger",title:`${out.length} ta mahsulot tugagan`,text:"Savdo yo‘qotmaslik uchun qoldiqni to‘ldiring",path:"/inventory"});if(stockForecast.length)items.push({tone:"warning",title:`${stockForecast.length} ta mahsulot tez tugashi mumkin`,text:`${stockForecast[0].name} · taxminan ${Math.max(1,Math.ceil(stockForecast[0].daysLeft))} kunlik qoldiq`,path:"/inventory"});if(returnRate>=5)items.push({tone:"warning",title:"Qaytarish darajasi yuqori",text:`Tanlangan davrda ${returnRate.toFixed(1)}%`,path:"/analytics"});if(salesChange!=null&&salesChange<=-20)items.push({tone:"info",title:"Savdo pasayishi kuzatildi",text:`Oldingi davrga nisbatan ${Math.abs(Math.round(salesChange))}% past`,path:"/analytics"});if(supplierDebt>0)items.push({tone:"neutral",title:"Ta’minotchi majburiyatlari",text:`Ochiq qarz ${formatPrice(supplierDebt)}`,path:"/suppliers"});return items.slice(0,4)},[out,stockForecast,returnRate,salesChange,supplierDebt]);
 
   return <div className="pro-page dashboard-pro">
+    {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
+    {(report.loading||summary.loading)&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
     <PageHeader
       title="Boshqaruv paneli"
       subtitle={`${selectedStore?.name||"Barcha filiallar"} · biznes holati va asosiy ko‘rsatkichlar`}
