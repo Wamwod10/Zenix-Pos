@@ -27,7 +27,7 @@ test('late checkout cannot erase newly selected branch draft; 1/10/30/100 lines 
   assert.equal(container.querySelectorAll('.cart-item').length,100);
   assert.equal(container.querySelector('.checkout-primary').closest('.pos-checkout-scroll'),null);
   assert.equal(container.querySelector('.cart-list').getAttribute('aria-label'),'Savat mahsulotlari');
-  await act(async()=>release({sale:{id:'committed',saleNumber:'S-1'}}));
+  await act(async()=>release({sale:{id:'33333333-3333-4333-8333-333333333333',saleNumber:'S-1'}}));
   assert.equal(container.querySelectorAll('.cart-item').length,100);
   await act(async()=>new Promise(resolve=>setTimeout(resolve,250)));assert.equal(readPosDraft(dom.window.localStorage,keyB).cart.length,100);assert.equal(readPosDraft(dom.window.localStorage,keyA),null);
   api.post=async()=>{const error=new Error('Savatni tekshiring');error.status=400;throw error};

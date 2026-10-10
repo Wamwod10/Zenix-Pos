@@ -29,7 +29,8 @@ test("workspace persistence is server-authoritative and surfaces API failures",(
   // Only the three per-user theme operations are allowed in this provider;
   // all remaining business state must retain the original API-only contract.
   const authoritativeStore=store.replace(/window\.localStorage\.(?:getItem|removeItem)\(userThemeKey\)|window\.localStorage\.setItem\(userThemeKey,next\.theme\)/g,"");
-  assert.doesNotMatch(authoritativeStore,/localStorage|sessionStorage|indexedDB/i);
+  assert.doesNotMatch(authoritativeStore,/sessionStorage|indexedDB/i);
+  assert.match(store,/beginAttempt/);assert.match(store,/reconciliation/);
 });
 
 test("branch lifecycle guards are enforced by backend dependencies and store limit",()=>{

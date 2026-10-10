@@ -69,4 +69,4 @@ test('unknown backend errors never surface raw server messages to normal users',
 
 test('known authentication and inventory business errors remain actionable',()=>{const api=read('src/services/apiClient.js');assert.match(api,/INVALID_CREDENTIALS:"Kirish nomi yoki parol noto‘g‘ri\./);assert.match(api,/CREDIT_LIMIT_EXCEEDED:/);assert.match(api,/TRACKED_SERIAL_ADJUSTMENT_REQUIRED:/);assert.match(api,/TRACKED_BATCH_ADJUSTMENT_REQUIRED:/)});
 
-test('customer detail uses bounded collections and labels partial histories',()=>{const page=read('src/pages/customers/Customers.jsx');const route=read('../backend/src/routes/customers.js');assert.match(page,/detail\?\.openCredits/);assert.match(page,/salesHasMore/);assert.match(route,/openCreditsHasMore/);assert.match(route,/openCredits:/)});
+test('customer detail uses bounded collections and labels partial histories',()=>{const page=read('src/pages/customers/Customers.jsx');const route=read('../backend/src/routes/customers.js');assert.match(page,/detail\?\.openCredits/);assert.match(page,/historyControls\("sales"\)/);assert.match(route,/openCreditsHasMore/);assert.match(route,/openCredits:/)});

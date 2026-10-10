@@ -72,7 +72,7 @@ function PlatformAdmin(){
         api.get(`/api/platform/organizations/${encodeURIComponent(id)}/store-reconciliation`),
       ]);
       if(detailRequestRef.current!==requestId)return;
-      setRecoveryPreview(snapshot.snapshot||null);
+      setRecoveryPreview(snapshot.snapshot?{...snapshot.snapshot,backups:snapshot.backups}:null);
       setStoreQuota(quota.reconciliation||null);
     }catch(error){notify({tone:"danger",title:"Diagnostika yuklanmadi",message:error?.message||"Qayta urining"})}
     finally{setRecoveryBusy(false)};
@@ -234,7 +234,7 @@ function PlatformAdmin(){
       }else notify({tone:"danger",title:"Tashkilot tafsiloti yuklanmadi",message:detailResult.reason?.message||"Ma’lumotni olib bo‘lmadi."});
       if(auditResult.status==="fulfilled"){
         setDetailAudit(auditResult.value.logs||[]);
-        setDetailAuditHasMore((auditResult.value.logs||[]).length===50);
+        setDetailAuditHasMore(Boolean(auditResult.value.hasMore));
       }else notify({tone:"danger",title:"Audit yuklanmadi",message:auditResult.reason?.message||"Audit tarixini olib bo‘lmadi."});
     }finally{if(requestId===detailRequestRef.current)setDetailAuditLoading(false)}
   };
@@ -247,7 +247,7 @@ function PlatformAdmin(){
       if(requestId!==detailRequestRef.current)return;
       const next=response.logs||[];
       setDetailAudit(previous=>[...previous,...next.filter(log=>!previous.some(old=>old.id===log.id))]);
-      setDetailAuditHasMore(next.length===50);
+      setDetailAuditHasMore(Boolean(response.hasMore));
     }catch(error){if(requestId===detailRequestRef.current)notify({tone:"danger",title:"Audit yuklanmadi",message:error?.message||"Keyingi yozuvlar yuklanmadi."})}
     finally{if(requestId===detailRequestRef.current)setDetailAuditLoading(false)}
   };
@@ -327,6 +327,8 @@ function PlatformAdmin(){
         {(detail?.storeRows||[]).filter(store=>store.active).map(store=>{const held=(storeQuota.heldStoreIds||[]).includes(store.id);const paidLimitExpired=(storeQuota.tradingRestrictedStoreIds||[]).includes(store.id);return <div key={store.id}><span><strong>{store.name}</strong><small>{paidLimitExpired?"Filial obunasi tugagan — yangi savdo bloklangan":held?"Admin tomonidan cheklangan":"Yangi savdolar ochiq"}</small></span><button className={`pro-btn ${held?"secondary":"danger"}`} disabled={paidLimitExpired||storeHoldBusy||!detailLoaded||storeHoldReason.trim().length<10} onClick={()=>changeStoreHold(store,held?"RELEASE":"HOLD")}>{paidLimitExpired?"Billing orqali uzaytiring":held?"Qayta ochish":"Savdoni cheklash"}</button></div>})}
       </div>}
       {recoveryPreview&&<div className="platform-detail-list" style={{marginTop:12}}>
+        <p>{recoveryPreview.backups?.reason}</p>
+        {(recoveryPreview.backups?.snapshots||[]).map(backup=><div key={backup.id}><span><strong>{backup.id}</strong><small>{new Date(backup.createdAt).toLocaleString('uz-UZ')}</small></span><strong>{backup.status}</strong></div>)}
         {Object.entries(recoveryPreview.metrics||{}).map(([name,metric])=><div key={name}><span>{name}</span><strong>{metric.rows} yozuv</strong></div>)}
       </div>}
     </section><h3 className="detail-subtitle">To‘lov tarixi</h3><div className="platform-detail-list">{detailPayments.map(item=><div key={item.id}><span><strong>{item.purpose}</strong><small>{item.submittedAt?new Date(item.submittedAt).toLocaleString("uz-UZ"):"—"}</small></span><span><b>{formatPrice(item.amount,"UZS")}</b><StatusBadge tone={tone(item.status)}>{STATUS_LABELS[item.status]||item.status}</StatusBadge></span></div>)}{!detailPayments.length&&<div className="pro-empty"><FiCreditCard/><strong>To‘lov tarixi yo‘q</strong></div>}</div><h3 className="detail-subtitle">Audit</h3><div className="admin-timeline">{detailAuditLoading?<div><i/><span><strong>Audit yuklanmoqda...</strong></span></div>:detailAudit.length?detailAudit.map(log=><div key={log.id}><i/><span><strong>{log.title||log.action}</strong><small>{[log.userName,log.storeName,log.description].filter(Boolean).join(" · ")} · {log.createdAt?new Date(log.createdAt).toLocaleString("uz-UZ"):"—"}</small></span></div>):<div><i/><span><strong>Audit yozuvi topilmadi</strong><small>Bu tashkilot uchun server audit logi hali yo‘q.</small></span></div>}</div>{detailAuditHasMore&&<button className="pro-btn secondary" disabled={detailAuditLoading} onClick={loadMoreAudit}>Yana 50 ta audit yozuvi</button>}</Modal>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiBarChart2, FiBox, FiEye, FiEyeOff, FiLock, FiShield, FiShoppingCart, FiUser } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
@@ -7,7 +7,12 @@ import "./login.scss";
 
 function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login,currentUser } = useAuth();
+  useEffect(()=>{
+    if(!currentUser)return;
+    const destination=currentUser.forcePasswordChange?'/change-password':currentUser.appRole===ROLES.PLATFORM_ADMIN?'/platform':[ROLES.CASHIER,ROLES.SALES].includes(currentUser.appRole)?'/sales':currentUser.appRole===ROLES.WAREHOUSE?'/inventory':'/';
+    navigate(destination,{replace:true});
+  },[currentUser,navigate]);
   const [formData, setFormData] = useState({ username:"", password:"" });
   const [error, setError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);

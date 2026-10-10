@@ -26,6 +26,7 @@ async function withSession(page, get, run, user = owner, requests = []) {
     ]);
     api.get=async path=>{
       requests.push(path);
+      if(path==="/api/customers/tags")return {configured:[],existing:[]};
       if(path==="/api/auth/me")return {user};
       if(path==="/api/users/me/sessions")return {sessions:[]};
       if(path==="/api/users")return {users:[]};
@@ -142,7 +143,7 @@ test("customer directory reaches records past 60, keeps server order and bounds 
     const items=empty?[]:offset===120?[customer("last-5","Zed"),customer("last-4","Alpha"),customer("last-3"),customer("last-2"),customer("last-1")]:Array.from({length:60},(_,i)=>customer(`row-${offset+i}`));
     return {items,total:125,limit:60,offset};
   },async({container})=>{
-    assert.deepEqual(calls[0],{q:"",filter:"all",sort:"name",direction:"asc",limit:"60",offset:"0"});
+    assert.deepEqual(calls[0],{q:"",filter:"all",sort:"name",direction:"asc",limit:"60",offset:"0",tags:""});
     assert.match(container.querySelector(".customer-pagination").textContent,/1–60.*125/);
     assert.equal(button(container,"Oldingi").disabled,true);
     await select(container,"Mijozlar filtri","Barcha mijozlar");
