@@ -8,6 +8,12 @@ export class ApiError extends Error{
 }
 
 const FRIENDLY_ERRORS={
+  TRIAL_ALREADY_USED:"Bu telefon raqami bilan bepul sinov avval ishlatilgan. Pullik tarifni tanlang yoki mavjud akkauntingizga kiring.",
+  USERNAME_EXISTS:"Bu kirish nomi allaqachon band. Boshqa kirish nomi tanlang yoki mavjud akkauntingizga kiring.",
+  REGISTRATION_RATE_LIMITED:"Ro‘yxatdan o‘tish urinishlari limiti tugadi. Birozdan keyin qayta urinib ko‘ring.",
+  OTP_REQUIRED:"Bepul sinovni boshlash uchun telefon raqamingizni SMS kod orqali tasdiqlang.",
+  OTP_UNAVAILABLE:"Telefon tasdiqlash xizmati hozir mavjud emas. Birozdan keyin qayta urinib ko‘ring.",
+  SMS_UNAVAILABLE:"SMS xizmati hozir mavjud emas. Birozdan keyin qayta urinib ko‘ring.",
   HOLD_PRODUCT_UNAVAILABLE:"Savatda arxivlangan yoki topilmagan mahsulot bor. Joriy katalogni tekshiring.",
   IDEMPOTENCY_CONFLICT:"Bu savdo identifikatori boshqa ma’lumot bilan ishlatilgan. Oldingi amal natijasini tekshiring.",
   INVALID_CREDENTIALS:"Kirish nomi yoki parol noto‘g‘ri.",
