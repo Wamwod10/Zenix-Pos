@@ -10,6 +10,7 @@ export class ApiError extends Error{
 const FRIENDLY_ERRORS={
   TRIAL_ALREADY_USED:"Bu telefon raqami bilan bepul sinov avval ishlatilgan. Pullik tarifni tanlang yoki mavjud akkauntingizga kiring.",
   USERNAME_EXISTS:"Bu kirish nomi allaqachon band. Boshqa kirish nomi tanlang yoki mavjud akkauntingizga kiring.",
+  PHONE_EXISTS:"Bu telefon raqami allaqachon mavjud. Boshqa telefon kiriting yoki mavjud akkauntingizga kiring.",
   REGISTRATION_RATE_LIMITED:"Ro‘yxatdan o‘tish urinishlari limiti tugadi. Birozdan keyin qayta urinib ko‘ring.",
   OTP_REQUIRED:"Bepul sinovni boshlash uchun telefon raqamingizni SMS kod orqali tasdiqlang.",
   OTP_UNAVAILABLE:"Telefon tasdiqlash xizmati hozir mavjud emas. Birozdan keyin qayta urinib ko‘ring.",
@@ -48,13 +49,19 @@ const friendlyStatusMessage=(status)=>{
   return "Amalni bajarib bo‘lmadi. Qayta urinib ko‘ring.";
 };
 const friendlyError=(error,status)=>FRIENDLY_ERRORS[error?.code]||friendlyStatusMessage(status);
+// Compatibility with older servers: only these exact, known duplicate messages
+// become field errors. Arbitrary server messages never reach the UI.
+const normalizeError=error=>error?.code!=="DUPLICATE"?error:{...error,code:{
+  "Bu kirish nomi allaqachon mavjud":"USERNAME_EXISTS",
+  "Bu telefon raqami boshqa faol xodimga biriktirilgan":"PHONE_EXISTS",
+}[error.message]||error.code};
 
 const ensureApi=()=>true;
 const requestCoordinator=createRequestCoordinator();
 const getKey=(path,headers={})=>`${path}::${JSON.stringify(headers||{})}`;
 const parseError=async(response)=>{
   const payload=await response.clone().json().catch(()=>null);
-  const error=payload?.error||{};
+  const error=normalizeError(payload?.error||{});
   return new ApiError(friendlyError(error,response.status),{status:response.status,code:error.code||"API_ERROR",details:error.details});
 };
 
@@ -66,7 +73,7 @@ export async function apiRequest(path,{method="GET",body,headers={},signal}={}){
     body:body===undefined?undefined:JSON.stringify(body),
   });
   const payload=await response.json().catch(()=>null);
-  if(!response.ok||payload?.ok===false){const error=payload?.error||{};throw new ApiError(friendlyError(error,response.status),{status:response.status,code:error.code||"API_ERROR",details:error.details})}
+  if(!response.ok||payload?.ok===false){const error=normalizeError(payload?.error||{});throw new ApiError(friendlyError(error,response.status),{status:response.status,code:error.code||"API_ERROR",details:error.details})}
   return payload?.data??payload;
 }
 

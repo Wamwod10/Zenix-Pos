@@ -10,6 +10,8 @@ const { apiRequest } = await import(`data:text/javascript;base64,${Buffer.from(s
 test('registration errors explain the next step without trusting arbitrary server messages', async () => {
   const originalFetch = globalThis.fetch;
   try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ok:false,error:{code:'DUPLICATE',message:'Bu kirish nomi allaqachon mavjud'}}), {status:409});
+    await assert.rejects(apiRequest('/api/auth/register',{method:'POST',body:{}}), error => error.code==='USERNAME_EXISTS' && /Boshqa kirish nomi/.test(error.message));
     for (const [code, status, expected] of [
       ['TRIAL_ALREADY_USED', 409, /Pullik tarif/],
       ['USERNAME_EXISTS', 409, /Boshqa kirish nomi/],

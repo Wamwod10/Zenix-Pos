@@ -28,5 +28,16 @@ test('Register trial requires proof, renders OTP and clears it when phone change
   assert.equal(button('Davom etish').disabled,true);assert.doesNotMatch(document.body.textContent,/Telefon tasdiqlandi/);
   await act(async()=>document.querySelector('input[value="MONTHLY"]').click());
   assert.equal(button('Davom etish').disabled,false);assert.equal(document.querySelector('.registration-otp'),null);
+  await change(document.querySelector('input[placeholder*="Baraka"]'),'Test biznes');
+  await change(document.querySelector('input[placeholder="Ism familiya"]'),'Test egasi');
+  await change(document.querySelector('input[autocomplete="username"]'),'test-login');
+  await change(document.querySelector('input[autocomplete="new-password"]'),'TestPassword123!');
+  for(const [code,message,selector] of [['USERNAME_EXISTS','Kirish nomi band','input[autocomplete="username"]'],['TRIAL_ALREADY_USED','Telefon sinovdan foydalangan','input[type="tel"]']]){
+   const {ApiError}=await vite.ssrLoadModule('/src/services/apiClient.js');
+   api.post=async()=>{throw new ApiError(message,{code,status:409})};
+   await act(async()=>document.querySelector('form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
+   assert.equal(document.querySelector(selector).closest('.auth-field').querySelector('.auth-field-error').textContent,message);
+   assert.equal(document.querySelector('.auth-error'),null);
+  }
  }finally{await act(async()=>root.unmount());await vite.close();dom.window.close();Object.assign(globalThis,old)}
 });
