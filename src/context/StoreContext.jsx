@@ -437,9 +437,10 @@ export const StoreProvider = ({ children }) => {
         settlement:{status:meta.payment||"paid",paidAmount:Math.max(0,number(meta.paidAmount,0)),invoiceNo:String(meta.invoiceNo||"").trim(),dueDate:String(meta.dueDate||"").trim()||null,note:String(meta.note||"").trim()},
         reference:String(meta.invoiceNo||"").trim(),note:String(meta.note||"").trim(),
       };
+      body.clientReference=meta.clientReference||`RECEIVE-${crypto.randomUUID()}`;
       const data=await api.post("/api/inventory/receive",body);
       scheduleWorkspaceRefresh();
-      const products=(data.updated||[]).map((row)=>({id:row.productId||row.id,name:row.name,quantity:number(row.quantity,0),stock:number(row.quantity,0),costPrice:number(row.avgCost??row.costPrice,0),unit:sourceLines.find((line)=>String(line.productId||"")===String(row.productId||row.id))?.unit||"dona"}));
+      const products=(data.updated||[]).map((row)=>({id:row.productId||row.id,name:row.name,quantity:number(row.quantity,0),stock:number(row.quantity,0),costPrice:number(row.avgCost??row.costPrice,0),unit:row.unit||sourceLines.find((line)=>String(line.productId||"")===String(row.productId||row.id))?.unit||"dona"}));
       return {success:true,accepted:products.length,products,purchaseItems:data.purchaseLines||[],supplier:data.supplier||null,invoice:data.invoice||null,total:number(data.total,0),settlement:data.settlement||{},movements:data.updated||[]};
     }catch(error){return apiFailure(error,"Kirimni saqlab bo‘lmadi")}
   },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh,workspaceSettings.inventory?.defaultLowStock]);
