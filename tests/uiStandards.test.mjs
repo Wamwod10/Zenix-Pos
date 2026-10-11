@@ -56,7 +56,7 @@ test("POS quantity is button-only and insufficient cash is explicit", () => {
   assert.match(sales, /className="qty-value"/);
   assert.doesNotMatch(sales, /className="qty-control"[^\n]*<input/);
   assert.match(sales, /"Yetishmaydi"/);
-  assert.match(sales, /formatInputMoney\(cashTendered\)/);
+  assert.match(sales, /maximumFractionDigits:2\}\)\.format\(Number\(cashTendered\)\)/);
 });
 
 test("inventory movement history supports saved columns, search and action filtering", () => {

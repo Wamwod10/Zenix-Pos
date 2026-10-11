@@ -10,7 +10,7 @@ export const DEFAULT_UI_PREFERENCES = {
   navbarCompact: false,
   cardShadow: true,
   reducedMotion: false,
-  productView: "grid",
+  productView: "list",
   productColumns: ["sku","category","price","stock","status"],
   inventoryColumns: 3,
 };

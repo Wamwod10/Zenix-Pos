@@ -9,6 +9,7 @@ import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspac
 import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
 import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
+import {productMetadata} from '../utils/productOptions';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
 
 const StoreContext = createContext(null);
@@ -60,7 +61,7 @@ const normalizeProduct = (item, storeIds = [DEFAULT_STORE_ID]) => {
 };
 const normalizeInventoryState = (items = [], storeIds = [DEFAULT_STORE_ID]) => items.map((item)=>normalizeProduct(item,storeIds));
 const projectInventory = (items = [], storeId = DEFAULT_STORE_ID) => items.map((item)=>{
-  const qty = number(item.stockByStore?.[storeId], number(item.quantity ?? item.stock,0));
+  const qty = number(item.stockByStore?.[storeId], 0);
   return { ...item, quantity:qty, stock:qty };
 });
 const productFromApi=(row,storeIds=[])=>normalizeProduct({
@@ -79,7 +80,16 @@ const apiFailure=(error,fallback)=>({success:false,status:error?.status||0,messa
 export const StoreProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const [stores, setStores] = useState([]);
-  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [selectedStoreId, setSelectedStoreIdState] = useState("");
+  const selectedStoreRef=useRef({identity:null,id:""});
+  const selectionIdentity=workspaceIdentity(currentUser);
+  const selectionKey=`zenix:branch:v1:${selectionIdentity}`;
+  const setSelectedStoreId=useCallback((id)=>{
+    const next=String(id||"");
+    selectedStoreRef.current={identity:selectionIdentity,id:next};
+    setSelectedStoreIdState(next);
+    try{window.localStorage.setItem(selectionKey,next)}catch{}
+  },[selectionIdentity,selectionKey]);
   const [inventoryState, setInventoryState] = useState([]);
   const [dailySales, setDailySales] = useState([]);
   const [salesHistory, setSalesHistory] = useState([]);
@@ -210,8 +220,10 @@ export const StoreProvider = ({ children }) => {
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
       setStores(nextStores);
-      setSelectedStoreId((current)=>{
-        const preferred=settingsData?.selectedStoreId||current;
+      setSelectedStoreIdState(()=>{
+        let saved="";
+        try{saved=window.localStorage.getItem(`zenix:branch:v1:${hydrationIdentity}`)||""}catch{}
+        const preferred=(selectedStoreRef.current.identity===hydrationIdentity?selectedStoreRef.current.id:"")||saved||settingsData?.selectedStoreId;
         return nextStores.some((store)=>store.id===preferred&&store.active!==false)?preferred:(nextStores[0]?.id||"");
       });
       setInventoryState((base.inventory||[]).map((item)=>productFromApi(item,storeIds)));
@@ -227,7 +239,9 @@ export const StoreProvider = ({ children }) => {
       (base.telegramConnections||[]).forEach((row)=>{const storeId=row.store_id||row.storeId||"all";tgConnections[storeId]={connected:true,connectionId:row.id,groupName:row.chat_title||row.chatTitle||"Telegram guruhi",chatId:String(row.chat_id||row.chatId||""),botUsername:"@zenixposbot",settings:row.settings||{}}});
       setTelegramSettings({connected:Object.keys(tgConnections).length>0,connections:tgConnections});
       if(!settingsLoaded){
-        setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(getUserTheme()?{theme:getUserTheme()}: {})});
+        if(settingsBaselineRef.current.identity!==hydrationIdentity){
+          setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(getUserTheme()?{theme:getUserTheme()}: {})});
+        }
       }
       if(settingsLoaded){
         const rawWorkspace=settingsData.workspaceSettings||{};
@@ -241,6 +255,7 @@ export const StoreProvider = ({ children }) => {
         const nextBusinessFeatures={...DEFAULT_BUSINESS_FEATURES,...(settingsData.businessFeatures||{})};
         const nextRolePermissions=Object.fromEntries(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role,defaults])=>[role,{...defaults,...(settingsData.rolePermissions?.[role]||{})}]));
         settingsBaselineRef.current={
+          identity:hydrationIdentity,
           workspaceSettings:JSON.stringify(nextWorkspaceSettings),
           businessFeatures:JSON.stringify(nextBusinessFeatures),
           rolePermissions:JSON.stringify(nextRolePermissions),
@@ -297,6 +312,8 @@ export const StoreProvider = ({ children }) => {
 
   useEffect(()=>{
     if(!workspaceReady||!currentUser?.organizationId||!hasPermission("settingsWrite",currentUser?.appRole))return undefined;
+    // Defaults after a failed read are not an authorized configuration change.
+    if(settingsBaselineRef.current.identity!==currentWorkspaceIdentity)return undefined;
     const snapshots={
       workspaceSettings:JSON.stringify(workspaceSettings),
       businessFeatures:JSON.stringify(businessFeatures),
@@ -316,7 +333,7 @@ export const StoreProvider = ({ children }) => {
           await api.patch("/api/settings/workspace",payload);
           settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(Object.keys(payload).map((key)=>[key,snapshots[key]]))};
           setPersistenceError("");
-        }catch(error){setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi");throw error}
+        }catch(error){setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi")}
       });
     },350);
     return()=>clearTimeout(timer);
@@ -345,11 +362,11 @@ export const StoreProvider = ({ children }) => {
   },[]);
 
   const saveProduct=useCallback(async({id=null,payload})=>{
-    const metadata={variant:payload.variant||"",size:payload.size||"",color:payload.color||"",weight:payload.weight||"",warranty:payload.warranty||"",imageKey:payload.imageKey||"",imageName:payload.imageName||""};
+    const metadata=productMetadata(payload,inventoryState.find(item=>item.id===id)?.metadata||{});
     const body={name:payload.name,sku:payload.sku||"",barcode:payload.barcode||"",category:payload.category||"",brand:payload.brand||"",unit:payload.unit||"dona",costPrice:number(payload.costPrice,0),sellPrice:number(payload.sellPrice??payload.price,0),wholesalePrice:number(payload.wholesalePrice,0),minStock:number(payload.minStock,0),metadata};
     try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore,serializedUnits:Array.isArray(data.product.serializedUnits)?product.serializedUnits:item.serializedUnits,stockBatches:Array.isArray(data.product.stockBatches)?product.stockBatches:item.stockBatches}:item):[product,...items]);return {success:true,product}}
     catch(error){return {success:false,message:error?.message||"Mahsulotni saqlab bo‘lmadi"}}
-  },[stores]);
+  },[stores,inventoryState]);
 
   const setProductArchived=useCallback(async(productId,archived)=>{
     try{const data=await api.post(`/api/products/${encodeURIComponent(productId)}/${archived?"archive":"restore"}`,{});setInventoryState((items)=>items.map((item)=>item.id===productId?{...item,archived:Boolean(data.product.archived)}:item));return {success:true,product:data.product}}
@@ -376,7 +393,7 @@ export const StoreProvider = ({ children }) => {
     const cleanName=String(name||"").trim();if(cleanName.length<2)return {success:false,message:"Filial nomini kiriting"};
     try{const data=await api.post("/api/stores",{name:cleanName});const store=data.store;setStores((items)=>[...items,store]);setInventoryState((items)=>items.map((item)=>({...item,stockByStore:{...(item.stockByStore||{}),[store.id]:0}})));setSelectedStoreId(store.id);return {success:true,store}}
     catch(error){return apiFailure(error,"Filialni yaratib bo‘lmadi")}
-  },[hasPermission,currentUser?.appRole]);
+  },[hasPermission,currentUser?.appRole,setSelectedStoreId]);
 
   const updateStore=useCallback(async(id,patch)=>{
     try{const data=await api.patch(`/api/stores/${encodeURIComponent(id)}`,patch);setStores((items)=>items.map((item)=>item.id===id?{...item,...data.store}:item));return {success:true,store:data.store}}
@@ -390,7 +407,7 @@ export const StoreProvider = ({ children }) => {
   const getStoreProduct = useCallback((productId,storeId=currentStoreId)=>{
     const item=inventoryById.get(String(productId));
     if(!item)return null;
-    const quantity=Math.max(0,number(item?.stockByStore?.[storeId],number(item.quantity ?? item.stock,0)));
+    const quantity=Math.max(0,number(item?.stockByStore?.[storeId],0));
     return {...item,quantity,stock:quantity};
   },[inventoryById,currentStoreId]);
   const addActivityLog = useCallback(async (log) => {
@@ -409,11 +426,11 @@ export const StoreProvider = ({ children }) => {
     return item;
   }, [currentUser,currentStoreId,currentStore?.name,workspaceSettings.organization]);
 
-  const commitInventoryAdjustment = useCallback(async ({ productId, storeId = currentStoreId, delta = 0, reason = "", allowNegative = false } = {}) => {
+  const commitInventoryAdjustment = useCallback(async ({ productId, storeId = currentStoreId, warehouseId=null, delta = 0, reason = "", allowNegative = false } = {}) => {
     if(!productId||!storeId)return {success:false,message:"Mahsulot yoki filial topilmadi"};
     if(!String(reason||"").trim())return {success:false,message:"Tuzatish sababini kiriting"};
     try{
-      const data=await api.post("/api/inventory/adjust",{productId,storeId,delta:number(delta,0),reason:String(reason).trim(),allowNegative:Boolean(allowNegative)});
+      const data=await api.post("/api/inventory/adjust",{productId,storeId,warehouseId,delta:number(delta,0),reason:String(reason).trim(),allowNegative:Boolean(allowNegative)});
       scheduleWorkspaceRefresh();
       return {success:true,movement:data};
     }catch(error){return apiFailure(error,"Qoldiqni yangilab bo‘lmadi")}
@@ -427,13 +444,13 @@ export const StoreProvider = ({ children }) => {
     return withAttemptLock(journalKey,async()=>{
     try{
       const body={
-        storeId,
+        storeId,warehouseId:meta.warehouseId||null,
         lines:sourceLines.map((line)=>({
           productId:line.productId||null,name:String(line.name||"").trim(),sku:String(line.sku||"").trim(),barcode:String(line.barcode||"").trim(),category:String(line.category||"").trim(),brand:String(line.brand||"").trim(),unit:line.unit||"dona",
           quantity:Math.max(0,number(line.qty??line.quantity,0)),costPrice:Math.max(0,number(line.costPrice,0)),sellPrice:Math.max(0,number(line.sellPrice,0)),wholesalePrice:Math.max(0,number(line.wholesalePrice,0)),minStock:Math.max(0,number(line.minStock,workspaceSettings.inventory?.defaultLowStock||0)),
-          batchNo:String(line.batchNo||"").trim(),expiryDate:String(line.expiry||line.expiryDate||"").trim()||null,
+          batchNo:String(line.batchNo||"").trim(),expiryDate:String(line.expiryDate||line.expiry||"").trim()||null,manufacturedDate:String(line.manufacturedDate||'').trim()||null,
           serials:String(line.serial||"").split(/[\n,;]+/).map((value)=>value.trim()).filter(Boolean),
-          metadata:{variant:line.variant||"",size:line.size||"",color:line.color||"",weight:line.weight||"",warranty:line.warranty||""},note:String(line.note||"").trim(),
+          metadata:productMetadata(line),note:String(line.note||"").trim(),
         })),
         supplierId:meta.supplierId&&meta.supplierId!=="__new__"?meta.supplierId:null,
         newSupplier:meta.supplierId==="__new__"?{name:String(meta.newSupplierName||"").trim(),phone:String(meta.newSupplierPhone||"").trim()}:null,
@@ -546,7 +563,7 @@ export const StoreProvider = ({ children }) => {
     try{
       const data=await api.post("/api/sales",{
         storeId,shiftId:sale.shiftId||null,clientReference:String(sale.id||""),businessDate:sale.businessDateISO||sale.dateISO,
-        items:(sale.items||[]).map((item)=>({productId:item.productId||item.id,quantity:Math.max(0,number(item.quantity??item.qty,0)),unitPrice:Math.max(0,number(item.finalPrice??item.price??item.sellPrice,0)),discountPercent:0,metadata:{tracking:item.tracking||null,originalUnitPrice:number(item.sellPrice??item.price,0),itemDiscountPercent:number(item.discountPercent,0),cartDiscountPercent:number(item.cartDiscountPercent??sale.cartDiscountPercent,0)}})),
+        items:(sale.items||[]).map((item)=>({productId:item.productId||item.id,quantity:Math.max(0,number(item.quantity??item.qty,0)),unitPrice:Math.max(0,number(item.finalPrice??item.price??item.sellPrice,0)),discountPercent:0,metadata:{packUnit:item.packUnit||null,tracking:item.tracking||null,originalUnitPrice:number(item.sellPrice??item.price,0),itemDiscountPercent:number(item.discountPercent,0),cartDiscountPercent:number(item.cartDiscountPercent??sale.cartDiscountPercent,0)}})),
         payments,customer:typeof sale.customer==="object"&&sale.customer!==null?sale.customer:{name:String(sale.customer||"")},customerId:sale.customerId||null,creditAmount:number(sale.creditAmount,0),creditDueDate:sale.creditDueDate||null,metadata:{note:sale.note||"",frontendSubtotal:number(sale.subtotal,0),frontendDiscountTotal:number(sale.discountTotal,0),paymentMethod:sale.paymentMethod||"cash"},
       });
       const server=data?.sale||data;
@@ -738,7 +755,7 @@ export const StoreProvider = ({ children }) => {
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
     employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

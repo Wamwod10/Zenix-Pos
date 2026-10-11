@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 import { FiBarChart2, FiCreditCard, FiDollarSign, FiDownload, FiPackage, FiRefreshCw, FiShoppingCart, FiTrendingUp } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
+import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
@@ -16,9 +17,9 @@ import "./analytics.scss";
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
 
 function Analytics() {
-  const { returns:bootstrapReturns, inventoryState, stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { returns:bootstrapReturns, inventoryState, stores, currentStoreId, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [period, setPeriod] = useState("30 kun");
-  const [store, setStore] = useState("all");
+  const [store, setStore] = useBranchFilter(currentStoreId);
   const [category, setCategory] = useState("all");
   const [seller, setSeller] = useState("all");
   const [from, setFrom] = useState("");

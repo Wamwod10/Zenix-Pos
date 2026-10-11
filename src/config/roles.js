@@ -20,6 +20,11 @@ export const ROLE_LABELS = {
 
 const VALID_ROLES = new Set(Object.values(ROLES));
 
+export const isBranchEmployee = (employee, storeId) => Boolean(
+  storeId && employee?.storeId && String(employee.storeId) === String(storeId)
+  && employee.role !== ROLES.OWNER && employee.role !== ROLES.PLATFORM_ADMIN
+);
+
 export const isOrganizationUser = (user) => Boolean(
   user?.organizationId && user?.appRole !== ROLES.PLATFORM_ADMIN
 );

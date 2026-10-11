@@ -1,3 +1,5 @@
+export const productPackaging=product=>(Array.isArray(product?.packaging)?product.packaging:Array.isArray(product?.metadata?.packaging)?product.metadata.packaging:[]).filter(pack=>pack&&typeof pack.unit==='string'&&Number.isFinite(Number(pack.factor))&&Number(pack.factor)>0&&Number.isFinite(Number(pack.salePrice))&&Number(pack.salePrice)>=0);
+export const selectedPackaging=(product,unit)=>unit?productPackaging(product).find(pack=>pack.unit===unit):null;
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const id = value => String(value ?? '');
 const rows = value => Array.isArray(value) ? value : [];
@@ -42,7 +44,9 @@ export function reconcilePersistedCart({lines = [], products = [], inventory = p
       ? currentStock.stockByStore[id(storeId)]
       : currentStock?.quantity ?? currentStock?.stock));
     const requested = number(saved.cartQty);
-    const currentPrice = price(product);
+    const pack=selectedPackaging(product,saved.packUnit);
+    if(saved.packUnit&&!pack){report('product_updated');hasBlockingStockIssue=true;}
+    const currentPrice = pack?Number(pack.salePrice)/Number(pack.factor):price(product);
     if (['name','taxRate','tax','serialTracking','batchTracking','trackingConfig'].some(field => Object.hasOwn(saved, field) && JSON.stringify(saved[field]) !== JSON.stringify(product[field]))) report('product_updated');
     if (saved.sellPrice != null || saved.price != null) {
       const previousPrice = price(saved);
@@ -56,7 +60,7 @@ export function reconcilePersistedCart({lines = [], products = [], inventory = p
     const currentBatches = (batches === undefined ? rows(product.stockBatches) : rows(batches).filter(record => id(record.productId) === productId));
     const serialById = new Map(currentSerials.filter(belongs).map(record => [id(record.id), record]));
     const batchById = new Map(currentBatches.filter(belongs).map(record => [id(record.id), record]));
-    const next = {...product, sellPrice:currentPrice, price:currentPrice, quantity:available, stock:available, cartQty:requested, discountPercent,
+    const next = {...product, sellPrice:currentPrice, price:currentPrice, quantity:available, stock:available, cartQty:requested, discountPercent, packUnit:saved.packUnit||null,
       serializedUnits:currentSerials.filter(belongs), stockBatches:currentBatches.filter(belongs)};
     if (saved.tracking) {
       const seenSerials = new Set();

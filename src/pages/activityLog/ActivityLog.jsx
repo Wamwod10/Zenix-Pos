@@ -5,6 +5,7 @@ import {
   FiRefreshCw, FiSearch, FiSettings, FiShoppingCart, FiTruck,
 } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
+import useBranchFilter from "../../utils/useBranchFilter";
 import { ROLE_LABELS } from "../../config/roles";
 import { formatWorkspaceDate, workspaceDateISO } from "../../utils/workspaceDate";
 import { matchesStore, recordInPeriod } from "../../utils/reporting";
@@ -44,12 +45,16 @@ const activityDetailDefs=[
 ];
 
 function ActivityLog() {
-  const { stores, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { stores, currentStoreId, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [activityLogs,setActivityLogs]=useState([]),[offset,setOffset]=useState(0),[hasMore,setHasMore]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [period, setPeriod] = useState("7");
   const [from,setFrom]=useState(''),[to,setTo]=useState('');
-  const [store, setStore] = useState("all");
+  const [store, setStore] = useBranchFilter(currentStoreId);
+  const [loadedBranch,setLoadedBranch]=useState(store);
+  if(loadedBranch!==store){
+    setLoadedBranch(store);setActivityLogs([]);setHasMore(false);setOffset(0);setLoading(true);setError("");
+  }
   const [search, setSearch] = useState("");
   const {visible:activityDetails,toggle:toggleActivityDetail,show:showActivityDetail}=usePersistentColumns("zenix_activity_details",activityDetailDefs,{required:["time"]});
   const timezone = workspaceSettings.organization.timezone || "Asia/Tashkent";

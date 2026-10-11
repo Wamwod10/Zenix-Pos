@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import useScopedReport from "../../utils/useScopedReport";
+import useBranchFilter from "../../utils/useBranchFilter";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
 import { applyReturnToSale, getRefundAllocation, getRefundCashAdjustment, RETURN_REASONS } from "../../utils/returns";
@@ -23,7 +24,7 @@ function History(){
   const {currentUser}=useAuth();
   const location=useLocation();
   const {returns:bootstrapReturns,effectiveWorkspaceSettings:workspaceSettings,stores,getStoreProduct,currentStoreId,hasPermission,activeShift,commitReturnTransaction}=useStore();
-  const [search,setSearch]=useState(()=>new URLSearchParams(location.search).get("search")||"");const [from,setFrom]=useState("");const [to,setTo]=useState("");const [seller,setSeller]=useState("all");const [payment,setPayment]=useState("all");const [store,setStore]=useState("all");const [shift,setShift]=useState("all");
+  const [search,setSearch]=useState(()=>new URLSearchParams(location.search).get("search")||"");const [from,setFrom]=useState("");const [to,setTo]=useState("");const [seller,setSeller]=useState("all");const [payment,setPayment]=useState("all");const [store,setStore]=useBranchFilter(currentStoreId);const [shift,setShift]=useState("all");
   const [page,setPage]=useState(0);
   useEffect(()=>setPage(0),[search,from,to,seller,payment,store,shift]);
   const report=useScopedReport({from,to,sellerId:seller,paymentMethod:payment,storeId:store,shiftId:shift,search,limit:100,offset:page*100},{revision:bootstrapReturns[0]?.id});

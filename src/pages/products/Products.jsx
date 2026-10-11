@@ -12,6 +12,8 @@ import { formatPrice } from "../../utils/formatPrice";
 import { isBarcodeDuplicate } from "../../utils/barcode";
 import { ColumnPicker, EmptyState, FilePicker, PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumCheckbox } from "../../components/Ui";
 import Modal from "../../components/Modal";
+import ProductAdvancedSettings from "../../components/ProductAdvancedSettings";
+import { normalizePackaging, validateProductOptions } from "../../utils/productOptions";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { buildFieldChanges } from "../../utils/auditChanges";
@@ -31,7 +33,7 @@ const emptyForm = {
   name:"", sku:"", barcode:"", category:"", unit:"dona", minStock:"5",
   sellPrice:"", wholesalePrice:"", brand:"", variant:"", size:"",
   color:"", weight:"", warranty:"",
-  imageKey:"", imageName:"",
+  imageKey:"", imageName:"", packaging:[], manufacturedDate:"", expiryDate:"", volume:"", model:"", trackingMode:"none", lotTracking:false,
 };
 
 function ProductThumb({ product, className="" }){
@@ -54,7 +56,7 @@ function Products(){
   const { confirm, undo, notify } = useFeedback();
   const { currentUser } = useAuth();
   const {
-    inventory, generateBarcode, saveProduct, setProductArchived, deleteProduct, patchProducts, businessFeatures, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings,
+    inventory, generateBarcode, saveProduct, setProductArchived, deleteProduct, patchProducts, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings,
     hasPermission, addActivityLog, stores, currentStoreId, getStoreStock, stockMovements,
   } = useStore();
   const location=useLocation();
@@ -103,7 +105,7 @@ function Products(){
   const openEdit=(product)=>{
     if(!canEdit)return;
     const nextForm={
-      ...emptyForm,
+      ...emptyForm, ...product.metadata, ...product,
       name:product.name||"", sku:product.sku||"", barcode:String(product.barcode??""),
       category:product.category||"", unit:product.unit||"dona", minStock:String(product.minStock??5),
       sellPrice:String(product.sellPrice??product.price??0), wholesalePrice:String(product.wholesalePrice??0),
@@ -210,14 +212,14 @@ function Products(){
   };
 
   const validate=()=>{
-    const nextErrors={};
+    const nextErrors=validateProductOptions(form);
     const sku=form.sku.trim();
     const barcode=String(form.barcode??"").trim();
     if(form.name.trim().length<2)nextErrors.name="Mahsulot nomini kiriting";
     if(!sku)nextErrors.sku="SKU majburiy";
     if(inventory.some((product)=>product.id!==editing?.id&&String(product.sku||"").toLowerCase()===sku.toLowerCase()))nextErrors.sku="Bu SKU katalogda allaqachon mavjud";
     if(isBarcodeDuplicate(inventory,barcode,editing?.id))nextErrors.barcode="Bu shtrix-kod allaqachon mavjud";
-    if(Number(form.sellPrice)<0)nextErrors.sellPrice="Narx noto‘g‘ri";
+    if(!Number.isFinite(Number(form.sellPrice))||Number(form.sellPrice)<0)nextErrors.sellPrice="Narx noto‘g‘ri";
     setErrors(nextErrors);
     return !Object.keys(nextErrors).length;
   };
@@ -229,7 +231,9 @@ function Products(){
     setForm((state)=>({...state,barcode,sku:state.sku?.trim()?state.sku:`BC-${barcode}`}));
   };
 
-  const save=async()=>{
+  const save=async(addAnother=false)=>{
+    const duplicate=inventory.find(product=>product.id!==editing?.id&&String(product.barcode||"").trim()===String(form.barcode||"").trim()&&String(form.barcode||"").trim());
+    if(duplicate&&canReceive){setModal(false);navigate(`/inventory?receive=1&product=${encodeURIComponent(duplicate.id)}`);return;}
     if(saving||!validate())return;
     setSaving(true);
     let nextImageKey=form.imageKey||"";
@@ -248,6 +252,7 @@ function Products(){
       return;
     }
     const payload={
+      ...(editing?.metadata||{}), packaging:normalizePackaging(form.packaging||[]), manufacturedDate:form.manufacturedDate||"", expiryDate:form.expiryDate||"", volume:form.volume||"",model:form.model||"",trackingMode:form.trackingMode||"none",lotTracking:Boolean(form.lotTracking),
       name:form.name.trim(), sku:form.sku.trim(), barcode:String(form.barcode??"").trim(),
       category:String(form.category||"").trim(), unit:form.unit||"dona", minStock:Number(form.minStock||0),
       sellPrice:Number(form.sellPrice||0), wholesalePrice:Number(form.wholesalePrice||0), price:Number(form.sellPrice||0),
@@ -265,6 +270,7 @@ function Products(){
     if(form.imageKey&&(imageRemoved||imageFile))deleteLocalFile(form.imageKey).catch(()=>{});
     addActivityLog({type:"product",title:editing?"Katalog yozuvi tahrirlandi":"Katalogga mahsulot qo‘shildi",description:payload.name,changes,metadata:{productId:result.product?.id||editing?.id||null}});
     setSaving(false);setImageFile(null);setImageRemoved(false);setImagePreview("");setModal(false);
+    if(addAnother)openCreate();
   };
 
   const archive=async(product)=>{
@@ -307,7 +313,7 @@ function Products(){
   const lookupBarcode=()=>{
     const barcode=String(scanCode??"").trim();if(!barcode)return;
     const local=inventory.find((product)=>String(product.barcode||"")===barcode);
-    if(local){setScanResult({type:"local",product:local});return;}
+    if(local){if(canReceive){setScanOpen(false);setScanCode("");navigate(`/inventory?receive=1&product=${encodeURIComponent(local.id)}`);}else setScanResult({type:"local",product:local});return;}
     setScanResult({type:"new",product:{barcode,sku:`BC-${barcode}`}});
   };
   const createFromScan=()=>{
@@ -326,9 +332,9 @@ function Products(){
 
     <div className="pro-stat-grid"><StatCard icon={FiPackage} label="Aktiv mahsulotlar" value={inventory.filter((product)=>!product.archived).length} hint={`${categoryCount} ta kategoriya`} tone="blue"/><StatCard icon={FiBox} label="Qoldiqdagi pozitsiyalar" value={inventory.filter((product)=>!product.archived&&Number(product.quantity||0)>0).length} hint="Joriy filial" tone="green"/><StatCard icon={FiArchive} label="Kam qolgan" value={low} hint="Minimal qoldiqdan past" tone="orange"/><StatCard icon={FiPackage} label="Tugagan" value={out} hint="Qoldiq 0" tone="red"/></div>
 
-    <section className="pro-card"><div className="pro-toolbar product-toolbar"><div className="pro-search"><FiSearch/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Nomi, SKU, shtrix-kod, brend yoki kategoriya..."/></div><div className="product-toolbar-actions"><div className="pro-tabs"><button className={status==="active"?"active":""} onClick={()=>{setStatus("active");setSelectedIds([])}}>Faol</button><button className={status==="archived"?"active":""} onClick={()=>{setStatus("archived");setSelectedIds([])}}>Arxiv</button></div>{uiPreferences.productView==="list"&&<ColumnPicker columns={productColumnDefs} visible={productColumns} order={productColumnsControl.order} widths={productColumnsControl.widths} views={productColumnsControl.views} onToggle={toggleProductColumn} onMove={productColumnsControl.move} onWidth={productColumnsControl.setWidth} onReset={productColumnsControl.reset} onSaveView={productColumnsControl.saveView} onApplyView={productColumnsControl.applyView} onDeleteView={productColumnsControl.deleteView}/>}<div className="product-view-switch" aria-label="Mahsulot ko‘rinishi"><button className={(uiPreferences.productView||"grid")==="grid"?"active":""} onClick={()=>{setUiPreferences({productView:"grid"});setSelectedIds([])}} title="Kartalar"><FiGrid/></button><button className={uiPreferences.productView==="list"?"active":""} onClick={()=>setUiPreferences({productView:"list"})} title="Jadval"><FiList/></button></div></div></div>
-      {uiPreferences.productView==="list"&&selectedIds.length>0&&<div className="product-bulk-bar"><span><strong>{selectedIds.length}</strong> ta mahsulot tanlandi</span>{status!=="archived"&&<PremiumSelect className="bulk-category-select" value="" onChange={(event)=>event.target.value&&bulkSetCategory(event.target.value)}><option value="" disabled>Kategoriya o‘zgartirish</option><option value="__none__">Kategoriyasiz</option>{categories.map((category)=><option key={category} value={category}>{category}</option>)}</PremiumSelect>}<button className={`pro-btn ${status==="archived"?"secondary":"danger"}`} onClick={bulkArchive}>{status==="archived"?<><FiRotateCcw/> Tiklash</>:<><FiArchive/> Arxivlash</>}</button><button className="pro-btn ghost" onClick={()=>setSelectedIds([])}>Tanlovni bekor qilish</button></div>}
-      {!filtered.length?<EmptyState icon={FiPackage} title={status==="archived"?"Arxiv bo‘sh":"Mahsulot topilmadi"} message="Qidiruvni o‘zgartiring yoki yangi tovarni Ombor → Kirim orqali qo‘shing." action={canReceive&&status!=="archived"?<button className="pro-btn primary" onClick={()=>navigate("/inventory?receive=1")}>Omborga kirim</button>:null}/>:uiPreferences.productView==="list"?<div className="pro-table-wrap product-table-wrap mobile-card-wrap"><table className="pro-table product-table mobile-card-table"><thead><tr><th className="product-select-col"><PremiumCheckbox checked={allVisibleSelected} onChange={toggleSelectAll}/></th><th>Mahsulot</th>{orderedProductColumns.map((column)=><th key={column.id} style={productColumnStyle(column.id)}>{column.label}</th>)}{canEdit&&<th/>}</tr></thead><tbody>{visiblePageProducts.map((product)=>{const stockTone=product.quantity<=0?"danger":product.quantity<=product.minStock?"warning":"success";return <tr key={product.id} className={selectedIds.includes(product.id)?"selected":""}><td className="product-select-col" data-label="Tanlash"><PremiumCheckbox checked={selectedIds.includes(product.id)} onChange={()=>toggleSelected(product.id)}/></td><td data-label="Mahsulot"><button className="product-table-name product-name-button" onClick={()=>setDetailProduct(product)}><ProductThumb product={product} className="product-soft-icon"/><span><strong>{product.name}</strong><small>{product.brand||"Katalog mahsuloti"}</small></span></button></td>{orderedProductColumns.map((column)=>{
+    <section className="pro-card"><div className="pro-toolbar product-toolbar"><div className="pro-search"><FiSearch/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Nomi, SKU, shtrix-kod, brend yoki kategoriya..."/></div><div className="product-toolbar-actions"><div className="pro-tabs"><button className={status==="active"?"active":""} onClick={()=>{setStatus("active");setSelectedIds([])}}>Faol</button><button className={status==="archived"?"active":""} onClick={()=>{setStatus("archived");setSelectedIds([])}}>Arxiv</button></div>{(uiPreferences.productView||"list")==="list"&&<ColumnPicker columns={productColumnDefs} visible={productColumns} order={productColumnsControl.order} widths={productColumnsControl.widths} views={productColumnsControl.views} onToggle={toggleProductColumn} onMove={productColumnsControl.move} onWidth={productColumnsControl.setWidth} onReset={productColumnsControl.reset} onSaveView={productColumnsControl.saveView} onApplyView={productColumnsControl.applyView} onDeleteView={productColumnsControl.deleteView}/>}<div className="product-view-switch" aria-label="Mahsulot ko‘rinishi"><button className={(uiPreferences.productView||"list")==="grid"?"active":""} onClick={()=>{setUiPreferences({productView:"grid"});setSelectedIds([])}} title="Kartalar"><FiGrid/></button><button className={(uiPreferences.productView||"list")==="list"?"active":""} onClick={()=>setUiPreferences({productView:"list"})} title="Jadval"><FiList/></button></div></div></div>
+      {(uiPreferences.productView||"list")==="list"&&selectedIds.length>0&&<div className="product-bulk-bar"><span><strong>{selectedIds.length}</strong> ta mahsulot tanlandi</span>{status!=="archived"&&<PremiumSelect className="bulk-category-select" value="" onChange={(event)=>event.target.value&&bulkSetCategory(event.target.value)}><option value="" disabled>Kategoriya o‘zgartirish</option><option value="__none__">Kategoriyasiz</option>{categories.map((category)=><option key={category} value={category}>{category}</option>)}</PremiumSelect>}<button className={`pro-btn ${status==="archived"?"secondary":"danger"}`} onClick={bulkArchive}>{status==="archived"?<><FiRotateCcw/> Tiklash</>:<><FiArchive/> Arxivlash</>}</button><button className="pro-btn ghost" onClick={()=>setSelectedIds([])}>Tanlovni bekor qilish</button></div>}
+      {!filtered.length?<EmptyState icon={FiPackage} title={status==="archived"?"Arxiv bo‘sh":"Mahsulot topilmadi"} message="Qidiruvni o‘zgartiring yoki yangi tovarni Ombor → Kirim orqali qo‘shing." action={canReceive&&status!=="archived"?<button className="pro-btn primary" onClick={()=>navigate("/inventory?receive=1")}>Omborga kirim</button>:null}/>:(uiPreferences.productView||"list")==="list"?<div className="pro-table-wrap product-table-wrap mobile-card-wrap"><table className="pro-table product-table mobile-card-table"><thead><tr><th className="product-select-col"><PremiumCheckbox checked={allVisibleSelected} onChange={toggleSelectAll}/></th><th>Mahsulot</th>{orderedProductColumns.map((column)=><th key={column.id} style={productColumnStyle(column.id)}>{column.label}</th>)}{canEdit&&<th/>}</tr></thead><tbody>{visiblePageProducts.map((product)=>{const stockTone=product.quantity<=0?"danger":product.quantity<=product.minStock?"warning":"success";return <tr key={product.id} className={selectedIds.includes(product.id)?"selected":""}><td className="product-select-col" data-label="Tanlash"><PremiumCheckbox checked={selectedIds.includes(product.id)} onChange={()=>toggleSelected(product.id)}/></td><td data-label="Mahsulot"><button className="product-table-name product-name-button" onClick={()=>setDetailProduct(product)}><ProductThumb product={product} className="product-soft-icon"/><span><strong>{product.name}</strong><small>{product.brand||"Katalog mahsuloti"}</small></span></button></td>{orderedProductColumns.map((column)=>{
           if(column.id==="sku")return <td key={column.id} style={productColumnStyle(column.id)} data-label={column.label}><strong>{product.sku||"—"}</strong><small className="mono-cell">{product.barcode||"Shtrix-kod yo‘q"}</small></td>;
           if(column.id==="category")return <td key={column.id} style={productColumnStyle(column.id)} data-label={column.label}>{product.category||"—"}</td>;
           if(column.id==="price")return <td key={column.id} style={productColumnStyle(column.id)} data-label={column.label}><strong>{formatPrice(product.sellPrice)}</strong></td>;
@@ -346,9 +352,8 @@ function Products(){
       {scanResult&&<div className={`catalog-result ${scanResult.type}`}><FiPackage/><span><strong>{scanResult.type==="local"?scanResult.product.name:scanResult.type==="catalog"?scanResult.product.name:"Yangi shtrix-kod"}</strong><small>{scanResult.type==="local"?"Bu mahsulot joriy katalogda allaqachon bor.":scanResult.type==="catalog"?"Zenix POS katalogidan topildi. Narx va qoldiqni kiriting.":"Katalogda topilmadi. Shtrix-kod avtomatik to‘ldiriladi."}</small></span></div>}
     </Modal>
 
-    <Modal open={modal} onClose={closeForm} title={editing?"Katalog yozuvini tahrirlash":"Katalogga mahsulot qo‘shish"} subtitle="Faqat kerakli ma’lumotlarni kiriting. Qo‘shimcha maydonlar biznes turiga qarab yoqiladi." size="lg" footer={<><button className="pro-btn secondary" onClick={closeForm}>Bekor qilish</button><button className="pro-btn primary" disabled={saving} onClick={save}>{saving?"Saqlanmoqda...":"Saqlash"}</button></>}>
-      <div className="pro-form-grid"><div className="product-media-field full"><div className="product-media-preview">{imagePreview?<img src={imagePreview} alt="Mahsulot rasmi"/>:<FiImage/>}</div><div className="product-media-picker"><strong>Mahsulot rasmi</strong><span>Ixtiyoriy. JPG, PNG yoki WebP, 5 MB gacha.</span><FilePicker file={imageFile} existingName={imageRemoved?"":form.imageName} accept="image/jpeg,image/png,image/webp" label="Rasm tanlash" hint="JPG, PNG yoki WebP" onChange={(file)=>{if(file&&file.size>5*1024*1024){setErrors((current)=>({...current,image:"Rasm hajmi 5 MB dan oshmasin."}));return;}setErrors((current)=>({...current,image:""}));setImageFile(file);setImageRemoved(false)}} onClear={()=>{setImageFile(null);setImageRemoved(Boolean(form.imageKey));setImagePreview("")}}/>{errors.image&&<small className="field-error">{errors.image}</small>}</div></div><label className="pro-field full"><span>Mahsulot nomi *</span><input autoFocus value={form.name} onChange={(event)=>setForm({...form,name:event.target.value})}/>{errors.name&&<small className="field-error">{errors.name}</small>}</label><label className="pro-field"><span>SKU *</span><input value={form.sku} onChange={(event)=>setForm({...form,sku:event.target.value})}/>{errors.sku&&<small className="field-error">{errors.sku}</small>}</label><div className="pro-field"><span>Shtrix-kod</span><div className="field-action-row"><input value={form.barcode} onChange={(event)=>setForm({...form,barcode:event.target.value})}/><button type="button" className="pro-btn secondary" onClick={generateProductBarcode}>Yaratish</button></div>{errors.barcode&&<small className="field-error">{errors.barcode}</small>}</div><label className="pro-field"><span>Kategoriya</span><input value={form.category} onChange={(event)=>setForm({...form,category:event.target.value})}/></label><label className="pro-field"><span>Brend</span><input value={form.brand} onChange={(event)=>setForm({...form,brand:event.target.value})}/></label><label className="pro-field"><span>O‘lchov birligi</span><PremiumSelect value={form.unit} onChange={(event)=>setForm({...form,unit:event.target.value})}><option>dona</option><option>kg</option><option>metr</option><option>litr</option><option>quti</option></PremiumSelect></label><label className="pro-field"><span>Minimal qoldiq</span><input type="number" min="0" value={form.minStock} onChange={(event)=>setForm({...form,minStock:event.target.value})}/></label><label className="pro-field"><span>Sotuv narxi *</span><input type="number" min="0" value={form.sellPrice} onChange={(event)=>setForm({...form,sellPrice:event.target.value})}/>{errors.sellPrice&&<small className="field-error">{errors.sellPrice}</small>}</label><label className="pro-field"><span>Ulgurji narx</span><input type="number" min="0" value={form.wholesalePrice} onChange={(event)=>setForm({...form,wholesalePrice:event.target.value})}/></label>
-      {businessFeatures.variants&&<label className="pro-field"><span>Variant</span><input value={form.variant} onChange={(event)=>setForm({...form,variant:event.target.value})}/></label>}{businessFeatures.sizeColor&&<><label className="pro-field"><span>O‘lcham</span><input value={form.size} onChange={(event)=>setForm({...form,size:event.target.value})}/></label><label className="pro-field"><span>Rang</span><input value={form.color} onChange={(event)=>setForm({...form,color:event.target.value})}/></label></>}{businessFeatures.weightVolume&&<label className="pro-field"><span>Og‘irlik / Hajm</span><input value={form.weight} onChange={(event)=>setForm({...form,weight:event.target.value})}/></label>}{businessFeatures.warranty&&<label className="pro-field"><span>Kafolat</span><input value={form.warranty} onChange={(event)=>setForm({...form,warranty:event.target.value})}/></label>}</div>
+    <Modal open={modal} onClose={closeForm} title={editing?"Katalog yozuvini tahrirlash":"Katalogga mahsulot qo‘shish"} subtitle="Faqat kerakli ma’lumotlarni kiriting. Qo‘shimcha maydonlar biznes turiga qarab yoqiladi." size="lg" footer={<><button className="pro-btn secondary" onClick={closeForm}>Bekor qilish</button><button className="pro-btn secondary" disabled={saving} onClick={()=>save(true)}>Saqlash va yana qo?shish</button><button className="pro-btn primary" disabled={saving} onClick={()=>save()}>{saving?"Saqlanmoqda...":"Saqlash"}</button></>}>
+      <div className="pro-form-grid"><div className="product-media-field full"><div className="product-media-preview">{imagePreview?<img src={imagePreview} alt="Mahsulot rasmi"/>:<FiImage/>}</div><div className="product-media-picker"><strong>Mahsulot rasmi</strong><span>Ixtiyoriy. JPG, PNG yoki WebP, 5 MB gacha.</span><FilePicker file={imageFile} existingName={imageRemoved?"":form.imageName} accept="image/jpeg,image/png,image/webp" label="Rasm tanlash" hint="JPG, PNG yoki WebP" onChange={(file)=>{if(file&&file.size>5*1024*1024){setErrors((current)=>({...current,image:"Rasm hajmi 5 MB dan oshmasin."}));return;}setErrors((current)=>({...current,image:""}));setImageFile(file);setImageRemoved(false)}} onClear={()=>{setImageFile(null);setImageRemoved(Boolean(form.imageKey));setImagePreview("")}}/>{errors.image&&<small className="field-error">{errors.image}</small>}</div></div><label className="pro-field full"><span>Mahsulot nomi *</span><input autoFocus value={form.name} onChange={(event)=>setForm({...form,name:event.target.value})}/>{errors.name&&<small className="field-error">{errors.name}</small>}</label><label className="pro-field"><span>SKU *</span><input value={form.sku} onChange={(event)=>setForm({...form,sku:event.target.value})}/>{errors.sku&&<small className="field-error">{errors.sku}</small>}</label><div className="pro-field"><span>Shtrix-kod</span><div className="field-action-row"><input value={form.barcode} onChange={(event)=>setForm({...form,barcode:event.target.value})}/><button type="button" className="pro-btn secondary" onClick={generateProductBarcode}>Yaratish</button></div>{errors.barcode&&<small className="field-error">{errors.barcode}</small>}</div><label className="pro-field"><span>Kategoriya</span><input value={form.category} onChange={(event)=>setForm({...form,category:event.target.value})}/></label><label className="pro-field"><span>Sotuv narxi *</span><input type="number" min="0" value={form.sellPrice} onChange={(event)=>setForm({...form,sellPrice:event.target.value})}/>{errors.sellPrice&&<small className="field-error">{errors.sellPrice}</small>}</label><ProductAdvancedSettings value={form} onChange={setForm} errors={errors}>{canReceive&&<div className="full"><button type="button" className="pro-btn secondary" onClick={()=>guardFormClose(()=>{setModal(false);navigate("/inventory?receive=quick")})}>Excel orqali ommaviy kirim / ketma-ket shtrix-kod skanerlash</button></div>}</ProductAdvancedSettings>{errors.form&&<small className="field-error full">{errors.form}</small>}</div>
     </Modal>
   </div>;
 }

@@ -76,7 +76,16 @@ export default async function handler(req,res){
 
   try{
     const body=await readRequestBody(req);
-    const upstream=await fetch(target,{method:req.method||"GET",headers,body,redirect:"manual",signal:AbortSignal.timeout(20_000)});
+    const method=req.method||"GET";
+    const signal=AbortSignal.timeout(20_000);
+    const options={method,headers,body,redirect:"manual",signal};
+    let upstream;
+    try{upstream=await fetch(target,options)}catch(error){
+      // Only safe reads may be replayed, within the original timeout budget.
+      const transient=new Set(['ECONNRESET','ECONNREFUSED','EPIPE','EAI_AGAIN','UND_ERR_SOCKET','UND_ERR_CONNECT_TIMEOUT']);
+      if(!['GET','HEAD'].includes(method)||signal.aborted||!transient.has(error?.cause?.code||error?.code))throw error;
+      upstream=await fetch(target,options);
+    }
     res.statusCode=upstream.status;
 
     for(const [key,value] of upstream.headers.entries()){
