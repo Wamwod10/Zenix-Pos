@@ -3,9 +3,9 @@ import { useLocation } from "react-router-dom";
 import { FiCreditCard, FiEdit2, FiEye, FiFileText, FiPlus, FiSearch, FiTrash2, FiTrendingDown, FiUsers } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
-import { ROLES } from "../../config/roles";
+import { ROLES, isBranchEmployee } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
-import { workspaceDateISO, workspaceTime } from "../../utils/workspaceDate";
+import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "../../utils/workspaceDate";
 import { deleteLocalFile, readLocalFile, saveLocalFile } from "../../services/fileStore";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, FilePicker, PremiumDateInput, ColumnPicker } from "../../components/Ui";
 import Modal from "../../components/Modal";
@@ -27,6 +27,10 @@ function Expenses(){
   const guardFormClose=useUnsavedGuard(formDirty);
   const closeEditModal=()=>guardFormClose(()=>{setModal(null);setEditing(null);setReceiptFile(null);setError("")});
   const isCashier=currentUser?.appRole===ROLES.CASHIER;
+  const branchEmployees=employees.filter(employee=>employee.active&&isBranchEmployee(employee,currentStoreId));
+  const branchScope=`${currentUser?.organizationId||""}:${currentStoreId||""}`;
+  const branchScopeRef=useRef(branchScope);branchScopeRef.current=branchScope;
+  useEffect(()=>{setModal(null);setEditing(null);setReceiptFile(null);setReceiptView(null);setError("");setSearch("");setCategory("all")},[branchScope]);
   const openCreate=()=>{if(!canWrite)return;const next={...empty,dateISO:workspaceDateISO(new Date(),workspaceSettings.organization.timezone),employee:currentUser?.name||"",shiftId:activeShift?.id||"",store:currentStore?.name||"",storeId:currentStoreId};setEditing(null);setReceiptFile(null);setForm(next);formBaselineRef.current=formSnapshot(next);setError("");setModal("edit")};
   useEffect(()=>{if(new URLSearchParams(location.search).get("new")==="1")openCreate()},[location.search]);
   const storeExpenses=useMemo(()=>expenses.filter((expense)=>expense.storeId?String(expense.storeId)===String(currentStoreId):expense.store===currentStore?.name),[expenses,currentStoreId,currentStore?.name]);
@@ -35,6 +39,8 @@ function Expenses(){
 
   const save=async()=>{
     if(!canWrite)return;
+    if(String(form.storeId)!==String(currentStoreId))return;
+    const operationScope=branchScope;
     if(!form.title.trim()){setError("Xarajat nomini kiriting");return}
     if(Number(form.amount)<=0){setError("Summa 0 dan katta bo‘lishi kerak");return}
     if(form.paymentMethod==="cash"&&!activeShift){setError("Naqd xarajat uchun avval joriy filialda smenani oching.");return}
@@ -47,14 +53,17 @@ function Expenses(){
         receiptKey=uploadedReceiptKey;receiptName=receiptFile.name;receiptType=receiptFile.type;
       }else if(editing?.receiptKey&&!receiptKey){receiptName="";receiptType=""}
     }catch{setError("Chek faylini saqlab bo‘lmadi. Qayta urinib ko‘ring.");return}
+    if(branchScopeRef.current!==operationScope){if(uploadedReceiptKey)await deleteLocalFile(uploadedReceiptKey).catch(()=>{});return}
     const payload={...form,id:editing?.id||crypto.randomUUID(),amount:Number(form.amount),date:formatWorkspaceDate(new Date(`${form.dateISO}T12:00:00Z`),workspaceSettings.organization),shiftId:form.shiftId||activeShift?.id||"",store:form.store||currentStore?.name||"",storeId:form.storeId||currentStoreId,receiptKey,receiptName,receiptType};
     const result=await commitExpenseTransaction({expense:payload,activity:{type:"expense",title:editing?"Xarajat tahrirlandi":"Xarajat qo‘shildi",description:`${payload.title}: ${formatPrice(payload.amount)}`}});
     if(!result?.success){
       if(uploadedReceiptKey)await deleteLocalFile(uploadedReceiptKey).catch(()=>{});
+      if(branchScopeRef.current!==operationScope)return;
       setError(result?.message||"Xarajatni saqlab bo‘lmadi. Qayta urinib ko‘ring.");
       return;
     }
     if(editing?.receiptKey&&editing.receiptKey!==receiptKey)await deleteLocalFile(editing.receiptKey).catch(()=>{});
+    if(branchScopeRef.current!==operationScope)return;
     formBaselineRef.current=formSnapshot(payload);setReceiptFile(null);setModal(null);setEditing(null);
     notify({tone:"success",title:editing?"Xarajat yangilandi":"Xarajat qo‘shildi",message:`${payload.title} · ${formatPrice(payload.amount)}`});
   };
@@ -71,7 +80,7 @@ function Expenses(){
         if(column.id==="amount")return <td key={column.id} style={expenseColumnStyle(column.id)} data-label={column.label}><strong>{formatPrice(e.amount)}</strong></td>;
         return null;
       })}<td data-label="Amallar"><div className="pro-row-actions">{e.receiptName&&<button className="pro-icon-btn" onClick={()=>openReceipt(e)} aria-label="Chekni ko‘rish" title="Chekni ko‘rish"><FiEye/></button>}{canWrite&&<><button className="pro-icon-btn" onClick={()=>edit(e)} aria-label="Tahrirlash"><FiEdit2/></button><button className="pro-icon-btn expense-delete" onClick={()=>remove(e)} aria-label="O‘chirish"><FiTrash2/></button></>}</div></td></tr>):<tr><td colSpan={orderedExpenseColumns.length+3}><div className="pro-empty"><FiCreditCard/><strong>Xarajat topilmadi</strong><span>Yangi xarajat qo‘shishingiz mumkin.</span></div></td></tr>}</tbody></table></div></section>
-    <Modal open={modal==="edit"} onClose={closeEditModal} title={editing?"Xarajatni tahrirlash":"Yangi xarajat"} subtitle="Xarajatlar Boshqaruv paneli va Analitikadagi sof foyda hisobiga avtomatik kiradi." footer={<><button className="pro-btn secondary" onClick={closeEditModal}>Bekor qilish</button><button className="pro-btn primary" onClick={save}>Saqlash</button></>}><div className="pro-form-grid"><label className="pro-field full"><span>Xarajat nomi *</span><input data-modal-autofocus value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label><label className="pro-field"><span>Kategoriya</span><PremiumSelect value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</PremiumSelect></label><label className="pro-field"><span>Summa *</span><input type="number" min="0" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label><label className="pro-field"><span>Sana</span><PremiumDateInput value={form.dateISO} onChange={e=>setForm({...form,dateISO:e.target.value})}/></label><label className="pro-field"><span>Xodim</span>{isCashier?<input value={currentUser?.name||""} disabled/>:<PremiumSelect value={form.employee} onChange={e=>setForm({...form,employee:e.target.value})}><option value="">Tanlang</option>{employees.filter(x=>x.active).map(x=><option key={x.id}>{x.name}</option>)}</PremiumSelect>}</label><label className="pro-field"><span>To‘lov turi</span><PremiumSelect value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option></PremiumSelect></label><label className="pro-field"><span>Smena</span><input value={form.shiftId?(String(form.shiftId)===String(activeShift?.id||"")?"Joriy ochiq smena":"Avvalgi smenaga bog‘langan"):activeShift?.id?"Joriy ochiq smena":"Smena ochilmagan"} disabled/></label><label className="pro-field full"><span>Izoh</span><textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label><label className="pro-field full"><span>Chek / hujjat (ixtiyoriy)</span><FilePicker file={receiptFile} existingName={form.receiptName} accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/*" label="Chek yoki hujjat tanlash" hint="JPG, PNG yoki PDF" onChange={(file)=>setReceiptFile(file)} onClear={()=>{setReceiptFile(null);setForm({...form,receiptName:"",receiptKey:""})}}/></label>{error&&<div className="pro-alert danger full">{error}</div>}</div></Modal>
+    <Modal open={modal==="edit"} onClose={closeEditModal} title={editing?"Xarajatni tahrirlash":"Yangi xarajat"} subtitle="Xarajatlar Boshqaruv paneli va Analitikadagi sof foyda hisobiga avtomatik kiradi." footer={<><button className="pro-btn secondary" onClick={closeEditModal}>Bekor qilish</button><button className="pro-btn primary" onClick={save}>Saqlash</button></>}><div className="pro-form-grid"><label className="pro-field full"><span>Xarajat nomi *</span><input data-modal-autofocus value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label><label className="pro-field"><span>Kategoriya</span><PremiumSelect value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{categories.map(c=><option key={c}>{c}</option>)}</PremiumSelect></label><label className="pro-field"><span>Summa *</span><input type="number" min="0" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label><label className="pro-field"><span>Sana</span><PremiumDateInput value={form.dateISO} onChange={e=>setForm({...form,dateISO:e.target.value})}/></label><label className="pro-field"><span>Xodim</span>{isCashier?<input value={currentUser?.name||""} disabled/>:<PremiumSelect value={form.employee} onChange={e=>setForm({...form,employee:e.target.value})}><option value="">Tanlang</option>{branchEmployees.map(x=><option key={x.id}>{x.name}</option>)}</PremiumSelect>}</label><label className="pro-field"><span>To‘lov turi</span><PremiumSelect value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value})}><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option></PremiumSelect></label><label className="pro-field"><span>Smena</span><input value={form.shiftId?(String(form.shiftId)===String(activeShift?.id||"")?"Joriy ochiq smena":"Avvalgi smenaga bog‘langan"):activeShift?.id?"Joriy ochiq smena":"Smena ochilmagan"} disabled/></label><label className="pro-field full"><span>Izoh</span><textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label><label className="pro-field full"><span>Chek / hujjat (ixtiyoriy)</span><FilePicker file={receiptFile} existingName={form.receiptName} accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/*" label="Chek yoki hujjat tanlash" hint="JPG, PNG yoki PDF" onChange={(file)=>setReceiptFile(file)} onClear={()=>{setReceiptFile(null);setForm({...form,receiptName:"",receiptKey:""})}}/></label>{error&&<div className="pro-alert danger full">{error}</div>}</div></Modal>
     <Modal open={!!receiptView} onClose={closeReceipt} title="Xarajat cheki" subtitle={receiptView?.title||receiptView?.name} size="sm"><div className="expense-receipt-preview">{receiptLoading?<FiFileText/>:receiptUrl&&receiptView?.receiptType?.startsWith("image/")?<img src={receiptUrl} alt="Xarajat cheki"/>:receiptUrl&&receiptView?.receiptType==="application/pdf"?<iframe title="Xarajat cheki PDF" src={receiptUrl}/>:<FiFileText/>}<strong>{receiptView?.receiptName||"Chek topilmadi"}</strong><span>{formatPrice(receiptView?.amount||0)}</span></div></Modal>
   </div>;
 }
