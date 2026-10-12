@@ -1,7 +1,7 @@
 const CACHE_PREFIX = "zenix-shell-";
 const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const BUILD_ASSETS = [];
-const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", ...BUILD_ASSETS];
+const APP_SHELL = ["/", "/index.html", "/favicon.svg", "/zenix-logo.png", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", ...BUILD_ASSETS];
 
 const offlineResponse = (request) => new Response(
   request.mode === "navigate"
