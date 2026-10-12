@@ -1,4 +1,5 @@
 {
+  "src/components/WarehouseSelector.scss": "15da0160e558883da37c027f5a7aee01b9b157cc8e2653f938ff8d0d993d65eb",
   "src/index.css": "0cecb31b8b95770d44c6e5e80872f57bcea937bf3220723ee90d2c723b37cd0d",
   "src/layout/mainlayout.scss": "154b7704524cf7c51e227a239a9868fa9112cc66dfc1c70890c63d3c52921410",
   "src/pages/activityLog/activityLog.scss": "d7689c53863c1ff2974d6d18e68724eb95b4837fb67aa5fe7b75ef2d77e74549",
