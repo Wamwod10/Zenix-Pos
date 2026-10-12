@@ -360,7 +360,7 @@ function MainLayout(){
   return <div className={`layout ${sidebarOpen?"sidebar-open":""}`}>
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="pos-logo-mark" style={{overflow:"hidden"}}><img src="/zenix-logo.png" alt="Zenix POS" width="40" height="40" style={{width:"100%",height:"100%",objectFit:"contain",transform:"scale(1.36)"}}/></div>
+        <div className="pos-logo-mark" style={{background:"transparent",boxShadow:"none",borderRadius:0}}><img src="/zenix-logo.png" alt="Zenix POS" width="40" height="40" style={{width:"100%",height:"100%",objectFit:"contain",transform:"scale(1.25)"}}/></div>
         <div className="brand-copy"><strong>ZENIX POS</strong><small>SAVDO TIZIMI</small></div>
         <button className="sidebar-close" onClick={()=>setSidebarOpen(false)} aria-label="Menyuni yopish"><FiX/></button>
       </div>
