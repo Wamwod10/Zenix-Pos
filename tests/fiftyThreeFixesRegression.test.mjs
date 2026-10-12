@@ -63,7 +63,7 @@ test('billing history never presents database id as the order number',()=>{
 
 test('unknown backend errors never surface raw server messages to normal users', () => {
   const api = read('src/services/apiClient.js');
-  assert.match(api, /const friendlyError=\(error,status\)=>FRIENDLY_ERRORS\[error\?\.code\]\|\|friendlyStatusMessage\(status\)/);
+  assert.match(api, /return FRIENDLY_ERRORS\[error\?\.code\]\|\|friendlyStatusMessage\(status\)/);
   assert.doesNotMatch(api, /FRIENDLY_ERRORS\[error\?\.code\]\|\|error\?\.message/);
 });
 

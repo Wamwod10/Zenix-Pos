@@ -17,7 +17,7 @@ test('expense employee choices and open forms follow the selected branch',async(
     let store,saved;
     api.get=async path=>{
       if(path==='/api/auth/me')return {user:{id:'owner',name:'Owner',organizationId:'org',appRole:'OWNER'}};
-      if(path==='/api/bootstrap')return {stores:[{id:'a',name:'A'},{id:'b',name:'B'}],organization:{id:'org'},employees:[{id:'alice',name:'Alice',store_id:'a',app_role:'CASHIER'},{id:'bob',name:'Bob',store_id:'b',app_role:'CASHIER'},{id:'owner',name:'Owner',store_id:'a',app_role:'OWNER'}]};
+      if(path==='/api/bootstrap')return {stores:[{id:'a',name:'A'},{id:'b',name:'B'}],organization:{id:'org',licenseStatus:'ACTIVE',accessMode:'READ_WRITE'},employees:[{id:'alice',name:'Alice',store_id:'a',app_role:'CASHIER'},{id:'bob',name:'Bob',store_id:'b',app_role:'CASHIER'},{id:'owner',name:'Owner',store_id:'a',app_role:'OWNER'}]};
       if(path==='/api/settings')return {selectedStoreId:'a'};
       return {items:[],users:[],sessions:[],revision:1};
     };

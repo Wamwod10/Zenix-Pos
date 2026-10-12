@@ -1,3 +1,4 @@
+import SubscriptionPlans from '../../components/SubscriptionPlans';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiBarChart2, FiBriefcase, FiCheckCircle, FiEye, FiEyeOff, FiLock, FiPhone, FiShield, FiShoppingCart, FiUser } from "react-icons/fi";
@@ -14,7 +15,7 @@ const otpMessage=error=>({OTP_INVALID:"Kod noto'g'ri, ishlatilgan yoki muddati t
 function Register(){
   const { register, isLoginTaken } = useAuth();
   const navigate = useNavigate();
-  const [form,setForm]=useState({businessName:"",ownerName:"",phone:"+998 ",login:"",password:"",startOption:"TRIAL"});
+  const [form,setForm]=useState({businessName:"",ownerName:"",phone:"+998 ",login:"",password:"",startOption:"TRIAL",planCode:"BUSINESS"});
   const [errors,setErrors]=useState({});
   const [submitting,setSubmitting]=useState(false);
   const [showPassword,setShowPassword]=useState(false);
@@ -30,7 +31,7 @@ function Register(){
   const loadPolicy=async()=>{
     setPolicyError(false);
     try{const value=await api.get('/api/auth/registration-config');
-      if(typeof value?.phoneVerificationRequired!=='boolean')throw new Error('Invalid registration policy');
+      if(typeof value?.phoneVerificationRequired!=='boolean'||!Array.isArray(value.plans)||value.plans.length!==3)throw new Error('Invalid registration policy');
       setServerOffset(Number.isFinite(Date.parse(value.serverTime))?Date.parse(value.serverTime)-Date.now():0);setPolicy(value);
     }catch{setPolicy(null);setPolicyError(true)}
   };
@@ -78,7 +79,7 @@ function Register(){
     </section>
     <section className="auth-form-side"><div className="auth-card auth-register-card">
       <div className="auth-mobile-brand"><span className="auth-brand-mark">Z</span><strong>ZENIX POS</strong></div>
-      <div className="auth-title"><span>1 daqiqada boshlang</span><h2>Yangi biznes yaratish</h2><p>Asosiy ma’lumotlarni kiriting. Keyingi bosqichda tarifni tanlaysiz.</p></div>
+      <div className="auth-title"><span>1 daqiqada boshlang</span><h2>Yangi biznes yaratish</h2><p>Asosiy ma’lumotlarni kiriting. Tanlangan tarifingizda 14 kun bepul ishlang.</p></div>
       {errors.form&&<div className="auth-error" role="alert">{errors.form}</div>}
       <form onSubmit={submit} noValidate>
         <div className="auth-register-grid">
@@ -88,7 +89,8 @@ function Register(){
           <label className="auth-field"><span>Kirish nomi</span><div className={`auth-input ${errors.login?"invalid":""}`}><FiUser/><input value={form.login} onBlur={()=>{if(form.login&&isLoginTaken(form.login))setErrors(p=>({...p,login:"Bu kirish nomi band"}))}} onChange={e=>set("login",e.target.value)} placeholder="Kirish nomi" autoComplete="username"/></div>{errors.login&&<small className="auth-field-error">{errors.login}</small>}</label>
           <label className="auth-field"><span>Parol</span><div className={`auth-input ${errors.password?"invalid":""}`}><FiLock/><input type={showPassword?"text":"password"} value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Kamida 8 ta belgi" autoComplete="new-password"/><button className="auth-eye" type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<FiEyeOff/>:<FiEye/>}</button></div>{errors.password&&<small className="auth-field-error">{errors.password}</small>}<div className="password-strength" aria-label="Parol kuchi"><i className={strength>=1?"on":""}/><i className={strength>=2?"on":""}/><i className={strength>=3?"on":""}/><i className={strength>=4?"on":""}/><span>{strength<=1?"Oddiy":strength===2?"Yaxshi":strength===3?"Kuchli":"Juda kuchli"}</span></div></label>
         </div>
-        <fieldset className="registration-options"><legend>Qanday boshlamoqchisiz?</legend><div className="registration-option-grid">{[["TRIAL","14 kun bepul sinab ko‘rish","To‘lovsiz boshlang"],["MONTHLY","1 oylik pullik tarif","Har oy yangilash"],["ANNUAL","1 yillik pullik tarif","Bir yil foydalanish"]].map(([value,label,description])=><label key={value} className={`registration-option ${form.startOption===value?"selected":""}`}><input type="radio" name="startOption" value={value} checked={form.startOption===value} onChange={()=>set("startOption",value)}/><span><strong>{label}</strong><small>{description}</small></span></label>)}</div><small>Sinov tugaganda ma’lumotlaringiz saqlanadi. Davom etish uchun obunani faollashtiring.</small></fieldset>
+        <fieldset className="registration-options"><legend>{form.startOption==='PAID'?'Tarifni tanlang — to‘lov tasdiqlangach faollashadi':'Tarifni tanlang — 14 kun bepul sinab ko‘ring'}</legend><SubscriptionPlans plans={policy?.plans} value={form.planCode} onChange={value=>set('planCode',value)} registration={form.startOption==='TRIAL'}/><small>Oylik yoki yillik davrni to‘lov paytida tanlaysiz. {form.startOption==='TRIAL'?'Trial tugagach ma’lumotlaringiz saqlanadi va faqat ko‘rish rejimi yoqiladi.':'To‘lov tasdiqlanmaguncha faqat ko‘rish rejimi ishlaydi.'}</small></fieldset>
+        {(errors.phone||form.startOption==='PAID')&&<label className="auth-field"><span><input type="checkbox" checked={form.startOption==='PAID'} onChange={e=>set('startOption',e.target.checked?'PAID':'TRIAL')}/> Sinovsiz boshlash va to‘lovga o‘tish</span><small>Tarif to‘lov tasdiqlangach ochiladi. To‘lov davri keyingi bosqichda tanlanadi.</small></label>}
         {form.startOption==="TRIAL"&&policyError&&<div className="auth-error" role="alert">Ro'yxatdan o'tish sozlamalari yuklanmadi. <button type="button" onClick={loadPolicy}>Qayta urinish</button></div>}
         {form.startOption==="TRIAL"&&requiresOtp&&policy&&<section className="registration-otp" aria-label="Telefonni tasdiqlash">
           {verified?<p className="auth-privacy" role="status"><FiCheckCircle/> Telefon tasdiqlandi</p>:<>

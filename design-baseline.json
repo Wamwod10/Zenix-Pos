@@ -19,6 +19,7 @@
   "src/pages/suppliers/supplier.scss": "560a3f1a4de53f5b5007c025f4514ccf0e92311e18fbce362e12c0789fbde8bd",
   "src/styles/media/_breakpoints.scss": "c4ad9c1d03eec352ae10b4f10551031437f7d410c49e6b62c283c97b803127ab",
   "src/styles/media/responsive.scss": "a5e956277b1ed6dee0217a6e520a0d7b5e6efe54467ddac100e3af3f08838211",
-  "src/styles/saas.scss": "29037b88590e7af39b5bb2f0a1389916f0cd54033d3f7ce9b93e42b07cd57c50",
-  "src/pages/register/registerOtp.scss": "3ea44a5f2110f8e4030cd0a8058bbf45470da22d93f5ff01728b7310a9f94e9d"
+  "src/styles/saas.scss": "fe0aaf995c6da1ee0e6a74fe766cb9e0308fb9bf97d50295e197032574a136f3",
+  "src/pages/register/registerOtp.scss": "3ea44a5f2110f8e4030cd0a8058bbf45470da22d93f5ff01728b7310a9f94e9d",
+  "src/pages/ai/zenixAi.scss": "b213bd02887088a5a67a4823c68005487333597ea7a100da3ca9948ca0abacc7"
 }

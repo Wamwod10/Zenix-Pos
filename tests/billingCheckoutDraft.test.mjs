@@ -32,9 +32,9 @@ test("Billing payment uses the server checkout draft instead of recalculating re
   const billing=read("src/pages/billing/Billing.jsx");
   assert.match(billing,/checkoutDraft/);
   assert.match(billing,/createBillingDraft/);
-  assert.match(billing,/selectedEndDate:renewTargetDate/);
-  assert.match(billing,/extraStoreCount:renewExtraStores/);
-  assert.match(billing,/const checkoutOrder=checkoutDraft\?\.order\|\|order/);
+  assert.match(billing,/planCode,billingInterval:plan,intent/);
+  assert.doesNotMatch(billing,/paymentService\.buildOrder/);
+  assert.match(billing,/const checkoutOrder=checkoutDraft\?\.order\|\|\{\}/);
   assert.match(billing,/checkoutOrder\.amount/);
   assert.match(billing,/commitBillingSubmission\(\{draftId:draft\.id,file\}\)/);
   assert.match(billing,/if\(!draft\?\.id\)/);
@@ -44,7 +44,7 @@ test("Billing payment uses the server checkout draft instead of recalculating re
 test("Billing back navigation keeps an open server draft and restores renewal inputs", () => {
   const billing=read("src/pages/billing/Billing.jsx");
   assert.match(billing,/loadBillingDraft\(\)/);
-  assert.match(billing,/setRenewTargetDate\(draft\.selectedEndDate\|\|defaultRenewTargetDate\)/);
-  assert.match(billing,/setRenewExtraStores\(Math\.max\(0,Number\(draft\.extraStoreCount\|\|0\)\)\)/);
-  assert.match(billing,/if\(paymentType==="LICENSE"&&flow==="payment"\)setFlow\(licenseIntent==="RENEW"\?"renew":"plans"\)/);
+  assert.match(billing,/setPlanCode\(draft.planCode\)/);
+  assert.match(billing,/setPlan\(draft.plan\|\|currentPlan\)/);
+  assert.match(billing,/if\(paymentType==="LICENSE"&&flow==="payment"\)setFlow\("plans"\)/);
 });

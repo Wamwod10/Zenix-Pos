@@ -8,6 +8,29 @@ export class ApiError extends Error{
 }
 
 const FRIENDLY_ERRORS={
+  AI_UNAVAILABLE:'ZENIX AI provayderi hali faollashtirilmagan. POS modullari ishlashda davom etadi.',
+  AI_FAILURE:'AI tahlili vaqtincha mavjud emas. Birozdan keyin qayta urining.',
+  AI_PROVIDER_FAILURE:'AI provayderi javob bermadi. POS modullari ishlashda davom etadi.',
+  AI_TIMEOUT:'AI javobi belgilangan vaqtda kelmadi. Qayta urinib ko‘ring.',
+  AI_QUOTA_EXCEEDED:'Oylik AI so‘rovlari tugagan. Limit yangilanishini kuting yoki tarifni oshiring.',
+  AI_COST_LIMIT:'AI xarajat chegarasi tugagan. Keyinroq qayta urining; POS modullari ishlashda davom etadi.',
+  AI_RATE_LIMIT:'AI so‘rovlari juda tez yuborildi. Biroz kuting.',
+  AI_UNSAFE_QUESTION:'Ushbu savol xavfsiz biznes tahliliga tegishli emas. Tavsiya etilgan savolni tanlang.',
+  AI_QUESTION_UNSUPPORTED:'Tavsiya etilgan biznes savollaridan birini tanlang.',
+  AI_FORBIDDEN:'Bu biznes tahlili ma’lumotlariga ruxsat yo‘q.',
+  AI_ACCESS_CHANGED:'Sessiya yoki ruxsatlar o‘zgargan. Sahifani yangilang.',
+  AI_REQUEST_PENDING:'Oldingi so‘rov hali bajarilmoqda. Birozdan keyin ayni savolni qayta yuboring.',
+  AI_REQUEST_FAILED:'Oldingi so‘rov muvaffaqiyatsiz tugagan. Yangi so‘rov yuboring.',
+  AI_INVALID_RESPONSE:'AI javobi ma’lumotlarga mos kelmadi. So‘rov kvotadan yechilmadi.',
+  AI_PLAN_REQUIRED:'ZENIX AI uchun Business yoki Premium tarifini tanlang.',
+  SUBSCRIPTION_QUOTE_STALE:'Obuna hisobi eskirgan. To‘lov qilishdan oldin yangi server hisobini oling.',
+  LEGACY_SUBSCRIPTION_REVIEW_REQUIRED:'Eski obunaning foydalanilmagan qiymatini administrator tekshirishi kerak. Administratorga murojaat qiling.',
+  SCHEDULED_PLAN_CONFLICT:'Downgrade rejalangan. Keyingi davr uchun rejalangan tarifni tanlang yoki rejani bekor qiling.',
+  FUNDED_DOWNGRADE_CONFLICT:'Kelajak tarifi uchun to‘lov tasdiqlangan. O‘zgartirish uchun administratorga murojaat qiling.',
+  DOWNGRADE_REQUIRED:'Pastroq tarif uchun avval downgrade rejalashtiring.',
+  TRIAL_NOT_ACTIVE:'Trial muddati tugagan. Tarifni to‘lov orqali faollashtiring.',
+  REGISTER_INACTIVE:'Tanlangan POS kassa faol emas. Faol kassani tanlang yoki uni faollashtiring.',
+  REGISTER_HAS_OPEN_SHIFT:'POS kassada ochiq smena bor. Kassani faolsizlantirishdan oldin smenani yoping.',
   TRIAL_ALREADY_USED:"Bu telefon raqami bilan bepul sinov avval ishlatilgan. Pullik tarifni tanlang yoki mavjud akkauntingizga kiring.",
   USERNAME_EXISTS:"Bu kirish nomi allaqachon band. Boshqa kirish nomi tanlang yoki mavjud akkauntingizga kiring.",
   PHONE_EXISTS:"Bu telefon raqami allaqachon mavjud. Boshqa telefon kiriting yoki mavjud akkauntingizga kiring.",
@@ -48,7 +71,13 @@ const friendlyStatusMessage=(status)=>{
   if(status>=500)return "Serverda vaqtinchalik xatolik yuz berdi. Qayta urinib ko‘ring.";
   return "Amalni bajarib bo‘lmadi. Qayta urinib ko‘ring.";
 };
-const friendlyError=(error,status)=>FRIENDLY_ERRORS[error?.code]||friendlyStatusMessage(status);
+const friendlyError=(error,status)=>{
+  const names={EMPLOYEE_LIMIT:'Faol xodimlar',STORE_LIMIT:'Filiallar',WAREHOUSE_LIMIT:'Omborlar',REGISTER_LIMIT:'Faol kassalar',PRODUCT_LIMIT:'Mahsulotlar',CUSTOMER_LIMIT:'Mijozlar'};
+  const detail=error?.details;
+  if(names[error?.code]&&Number.isFinite(detail?.used)&&Number.isFinite(detail?.limit))return `${names[error.code]} limiti tugagan: ${detail.used}/${detail.limit}. ${detail.upgradeAvailable?'Tarifni oshirish uchun Billing bo‘limiga o‘ting.':'Yangi resurs yaratishdan oldin foydalanishni kamaytiring.'}`;
+  if(status===402)return 'Faqat ko‘rish rejimi. Trial yoki obuna tugagan, yoxud billing cheklovi bor. Obunani faollashtirish uchun Billing bo‘limiga o‘ting.';
+  return FRIENDLY_ERRORS[error?.code]||friendlyStatusMessage(status);
+};
 // Compatibility with older servers: only these exact, known duplicate messages
 // become field errors. Arbitrary server messages never reach the UI.
 const normalizeError=error=>error?.code!=="DUPLICATE"?error:{...error,code:{
