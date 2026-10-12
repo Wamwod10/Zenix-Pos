@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {PremiumSelect} from "./Ui";
 import Modal from "./Modal";
 import {api} from "../services/apiClient";
+import "./WarehouseSelector.scss";
 
 export default function WarehouseSelector({state,canEdit=false,onChange}){
   const {warehouses,selectedId,setSelectedId,storeId,scope,reload,loading,error}=state;
