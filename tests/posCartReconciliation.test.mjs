@@ -238,3 +238,11 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
   Object.defineProperty(globalThis,'navigator',{configurable:true,value:previous.navigator});
  }
 });
+
+test('packaging restore keeps physical quantity and refreshes authoritative package price',()=>{
+ const product={id:'pack-product',name:'Packed',sellPrice:100,quantity:20,packaging:[{unit:'quti',factor:3,salePrice:250}]};
+ const saved={id:product.id,cartQty:6,packUnit:'quti',sellPrice:100};
+ const result=reconcile({lines:[saved],products:[product]});
+ assert.equal(result.lines[0].cartQty,6);assert.equal(result.lines[0].packUnit,'quti');assert.equal(result.lines[0].sellPrice,250/3);assert.equal(result.hasBlockingStockIssue,false);
+ const removed=reconcile({lines:[saved],products:[{...product,packaging:[]}]});assert.equal(removed.hasBlockingStockIssue,true);assert.equal(removed.lines[0].cartQty,6);
+});

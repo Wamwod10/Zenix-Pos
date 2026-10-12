@@ -1,6 +1,6 @@
 export const workspaceIdentity = (user) => {
   if (!user) return "anonymous";
-  return `${user.id || "unknown"}:${user.organizationId || "platform"}:${user.appRole || "unknown"}`;
+  return `${user.id || "unknown"}:${user.organizationId || "platform"}:${user.appRole || "unknown"}:${user.storeId || "all"}`;
 };
 
 export const isWorkspaceReadyFor = (currentIdentity, loadedIdentity) => (

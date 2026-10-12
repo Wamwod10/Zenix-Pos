@@ -1,5 +1,5 @@
 import {financialSalesEvents} from "../../utils/reporting";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
   FiShoppingBag, FiTrendingDown, FiTrendingUp, FiTruck, FiRotateCcw, FiActivity,
@@ -7,6 +7,7 @@ import {
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext";
+import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { getSaleNetTotal, getSaleProfit, getNetSoldQty, getItemFinalPrice } from "../../utils/returns";
@@ -27,8 +28,7 @@ function Dashboard(){
   const {inventoryState,suppliers,returns:bootstrapReturns,stores,currentStore,currentStoreId,effectiveWorkspaceSettings:workspaceSettings}=useStore();
   const organizationSettings=workspaceSettings.organization||{};
   const [period,setPeriod]=useState("7");
-  const [store,setStore]=useState(currentStoreId);
-  useEffect(()=>setStore(currentStoreId),[currentStoreId]);
+  const [store,setStore]=useBranchFilter(currentStoreId);
 
   const activeStores=stores.filter(s=>s.active!==false);
   const defaultStoreId=activeStores[0]?.id||currentStoreId;

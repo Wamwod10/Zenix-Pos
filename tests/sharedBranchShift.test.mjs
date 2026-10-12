@@ -21,3 +21,8 @@ test("Shifts keeps another cashier's open shift visible but control actions perm
   assert.match(source,/!canControlShift&&<StatusBadge tone="neutral">Faqat ko‘rish<\/StatusBadge>/);
   assert.match(source,/activeShift\?<StatusBadge tone="success">Smena ochiq<\/StatusBadge>/);
 });
+
+test("branch changes discard shift dialogs and drafts",()=>{
+  const source=read("src/pages/shifts/Shifts.jsx");
+  assert.match(source,/useEffect\(\(\)=>\{setOpenModal\(false\);setCloseModal\(false\);setMoveModal\(null\);setReportShift\(null\);[\s\S]*?\},\[currentStoreId\]\)/);
+});

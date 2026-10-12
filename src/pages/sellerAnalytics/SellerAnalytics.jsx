@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { FiAward, FiCreditCard, FiSearch, FiShoppingCart, FiTrendingUp, FiUserCheck } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
+import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
@@ -16,10 +17,10 @@ import "./sellerAnalytics.scss";
 
 function SellerAnalytics() {
   const { currentUser } = useAuth();
-  const { returns:bootstrapReturns, shiftHistory, stores, employees, effectiveWorkspaceSettings:workspaceSettings } = useStore();
+  const { returns:bootstrapReturns, shiftHistory, stores, employees, currentStoreId, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("30");
-  const [store, setStore] = useState("all");
+  const [store, setStore] = useBranchFilter(currentStoreId);
   const [selected, setSelected] = useState(null);
   const sellerColumnDefs = [{id:"sales",label:"Sof savdo"},{id:"profit",label:"Foyda"},{id:"count",label:"Tranzaksiya"},{id:"avg",label:"O‘rtacha chek"},{id:"discount",label:"Chegirma"},{id:"returns",label:"Qaytarish"},{id:"shifts",label:"Smena"}];
   const { visible:sellerColumns, toggle:toggleSellerColumn, show:showSellerColumn } = usePersistentColumns("zenix_seller_analytics_columns", sellerColumnDefs);

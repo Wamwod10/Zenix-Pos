@@ -23,6 +23,7 @@ function Shifts(){
   const [openingCash,setOpeningCash]=useState("");const [actualCash,setActualCash]=useState("");const [moveAmount,setMoveAmount]=useState("");const [moveReason,setMoveReason]=useState("");const [differenceReason,setDifferenceReason]=useState("");
   const [useDenominations,setUseDenominations]=useState(false);const [denominationCounts,setDenominationCounts]=useState({});
   const [search,setSearch]=useState("");const [statusFilter,setStatusFilter]=useState("all");const [tick,setTick]=useState(Date.now());
+  useEffect(()=>{setOpenModal(false);setCloseModal(false);setMoveModal(null);setReportShift(null);setOpeningCash("");setActualCash("");setMoveAmount("");setMoveReason("");setDifferenceReason("");setUseDenominations(false);setDenominationCounts({})},[currentStoreId]);
   const shiftColumnDefs=[{id:"opening",label:"Boshlang‘ich"},{id:"sales",label:"Savdo"},{id:"expected",label:"Kutilgan"},{id:"actual",label:"Haqiqiy"},{id:"difference",label:"Farq"},{id:"duration",label:"Davomiylik"}];
   const {visible:shiftColumns,toggle:toggleShiftColumn,show:showShiftColumn}=usePersistentColumns("zenix_shift_history_columns",shiftColumnDefs);
   const openDraftDirty=openModal&&openingCash!=="";

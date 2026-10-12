@@ -27,6 +27,21 @@ const withEnvironment = async (url, work) => {
   }
 };
 
+test('proxy retries a transient read connection failure but never replays writes', async()=>{
+  await withEnvironment('https://pos.example.test',async()=>{
+    const previous=globalThis.fetch;
+    try{
+      for(const method of ['GET','POST','PATCH','DELETE']){
+        let calls=0;
+        globalThis.fetch=async()=>{if(++calls===1)throw Object.assign(new TypeError('fetch failed'),{cause:{code:'ECONNRESET'}});return new Response('{"ok":true}');};
+        const res=mockResponse();await handler(request({method}),res);
+        assert.equal(calls,method==='GET'?2:1);
+        assert.equal(res.statusCode,method==='GET'?200:502);
+      }
+    }finally{globalThis.fetch=previous;}
+  });
+});
+
 test('proxy ignores untrusted forwarding headers and keeps cookies', async () => {
   await withEnvironment('https://pos.example.test', async () => {
     const previous = globalThis.fetch;

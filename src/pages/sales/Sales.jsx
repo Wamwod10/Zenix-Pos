@@ -23,7 +23,7 @@ import { useFeedback } from "../../context/FeedbackContext";
 import { api } from "../../services/apiClient";
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft,persistedCartIntent} from "../../utils/posDraft";
 import {attemptKey,readAttempt,settleAttempt,withAttemptLock,isConfirmedSale} from '../../utils/checkoutAttempt';
-import {reconcilePersistedCart,cartReconciliationMessage} from "../../utils/posCartReconciliation";
+import {reconcilePersistedCart,cartReconciliationMessage,productPackaging,selectedPackaging} from "../../utils/posCartReconciliation";
 import "./sales.scss";
 
 const payLabels = { cash:"Naqd", card:"Karta", transfer:"O‘tkazma", split:"Aralash", credit:"Nasiya" };
@@ -39,7 +39,7 @@ function Sales(){
   const [category,setCategory]=useState("all");
   const [cart,setCart]=useState([]);
   const [payment,setPayment]=useState(workspaceSettings.pos.defaultPayment||"cash");
-  const [cashTendered,setCashTendered]=useState("");
+  const [cashTenderedInput,setCashTendered]=useState("");
   const [splitCard,setSplitCard]=useState("");
   const [splitTransfer,setSplitTransfer]=useState("");
   const [splitCashTendered,setSplitCashTendered]=useState("");
@@ -183,11 +183,11 @@ function Sales(){
   useEffect(()=>{
     if(!draftKey||!draftReady||holdRestoring||recoveryPacket)return;
     // Debounce keystrokes, but always flush a draft at pagehide before tab close.
-    const persist=()=>{if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});else clearPosDraft(window.localStorage,draftKey)};
+    const persist=()=>{if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});else clearPosDraft(window.localStorage,draftKey)};
     const timeout=setTimeout(persist,180);
     window.addEventListener("pagehide",persist);
     return()=>{clearTimeout(timeout);window.removeEventListener("pagehide",persist)};
-  },[draftKey,draftReady,holdRestoring,recoveryPacket,cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered]);
+  },[draftKey,draftReady,holdRestoring,recoveryPacket,cart,customer,customerId,note,payment,cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered]);
   useEffect(()=>{
     const changed=event=>{if(event.key!==checkoutKey)return;const packet=readAttempt(window.localStorage,checkoutKey);setRecoveryPacket(packet);if(packet)checkoutReferenceRef.current=packet.clientReference;if(!packet&&window.localStorage.getItem(`${checkoutKey}:confirmed`)===checkoutReferenceRef.current){clearPosDraft(window.localStorage,draftKey);setCart([]);checkoutReferenceRef.current=null;reloadStore({silent:true})}};
     const online=()=>{if(readAttempt(window.localStorage,checkoutKey))recoverCheckout()};
@@ -216,7 +216,8 @@ function Sales(){
   useEffect(()=>{
     if(!customerPickerOpen){setCustomerOptions([]);return undefined}
     let active=true;const query=customer.trim();
-    const timer=setTimeout(()=>{api.get(`/api/customers?q=${encodeURIComponent(query)}&limit=12`).then(data=>{if(active)setCustomerOptions(data.customers||[])}).catch(()=>{if(active)setCustomerOptions([])})},query?160:0);
+    setCustomerOptions([]);
+    const timer=setTimeout(()=>{api.get(`/api/customers?q=${encodeURIComponent(query)}&limit=12`).then(data=>{if(active)setCustomerOptions(data.items||[])}).catch(()=>{if(active)setCustomerOptions([])})},query?160:0);
     return()=>{active=false;clearTimeout(timer)};
   },[customer,customerPickerOpen]);
   const selectCustomer=(item)=>{setCustomerId(item.id);setCustomer(item.name);setCustomerOptions([]);setCustomerPickerOpen(false)};
@@ -255,17 +256,21 @@ function Sales(){
   const effectiveDiscount=(itemPct,cartPct)=>100-(100-Number(itemPct||0))*(100-Number(cartPct||0))/100;
   const maxCartDiscountAllowed=cart.length?Math.max(0,Math.min(discountLimit,...cart.map(item=>{const itemPct=Math.max(0,Number(item.discountPercent||0));if(itemPct>=100)return 0;return Math.max(0,((discountLimit-itemPct)/(100-itemPct))*100)}))):discountLimit;
   const maxItemDiscountAllowed=cartDiscountPct>=100?0:Math.max(0,((discountLimit-cartDiscountPct)/(100-cartDiscountPct))*100);
-  const getBaseUnitPrice=(item)=>Math.max(0,Number(item.sellPrice||item.price||0));
+  const packFactor=item=>Number(selectedPackaging(item,item.packUnit)?.factor||1);
+  const getBaseUnitPrice=(item)=>{const pack=selectedPackaging(item,item.packUnit);return pack?Number(pack.salePrice)/Number(pack.factor):Math.max(0,Number(item.sellPrice||item.price||0))};
   const getItemUnitPrice=(item)=>getBaseUnitPrice(item)*(1-Number(item.discountPercent||0)/100);
   const getFinalUnitPrice=(item)=>getItemUnitPrice(item)*(1-cartDiscountPct/100);
-  const subtotal=sumMoney(cart.map(item=>lineAmount(item.cartQty,getBaseUnitPrice(item))));
-  const afterItemDiscount=sumMoney(cart.map(item=>lineAmount(item.cartQty,getItemUnitPrice(item))));
+  const cartLineAmount=(item,discount=0)=>{const pack=selectedPackaging(item,item.packUnit);return pack?lineAmount(item.cartQty/Number(pack.factor),Number(pack.salePrice),discount):lineAmount(item.cartQty,getBaseUnitPrice(item),discount)};
+  const subtotal=sumMoney(cart.map(item=>cartLineAmount(item)));
+  const afterItemDiscount=sumMoney(cart.map(item=>cartLineAmount(item,Number(item.discountPercent||0))));
   const itemDiscountTotal=subtotal-afterItemDiscount;
-  const cartDiscountAmount=sumMoney([afterItemDiscount,-sumMoney(cart.map(item=>lineAmount(item.cartQty,getFinalUnitPrice(item))))]);
-  const total=Math.max(0,sumMoney(cart.map(item=>lineAmount(item.cartQty,getFinalUnitPrice(item)))));
+  const cartDiscountAmount=sumMoney([afterItemDiscount,-sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct))))]);
+  const total=Math.max(0,sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct)))));
   const cartStockIssue=useMemo(()=>reconcilePersistedCart({lines:cart,products:inventory,storeId:currentStoreId}).hasBlockingStockIssue,[cart,inventory,currentStoreId]);
   const discountTotal=itemDiscountTotal+cartDiscountAmount;
-  const change=Math.max(0,Number(cashTendered||0)-total);
+  // Empty draft tender follows the live total; an entered tender stays fixed.
+  const cashTendered=cashTenderedInput===""?String(total):cashTenderedInput;
+  const change=Math.max(0,sumMoney([Number(cashTendered||0),-total]));
   const splitCardN=Math.max(0,Number(splitCard||0));
   const splitTransferN=Math.max(0,Number(splitTransfer||0));
   const splitCash=Math.max(0,total-splitCardN-splitTransferN);
@@ -282,8 +287,8 @@ function Sales(){
     setCart(items=>{
       const existing=items.find(item=>item.id===product.id);
       if(existing){
-        if(blockNegative&&existing.cartQty>=product.quantity){setError(`Omborda faqat ${product.quantity} ${product.unit||"dona"} bor`);return items}
-        return items.map(item=>item.id===product.id?{...item,cartQty:item.cartQty+1}:item);
+        if(blockNegative&&existing.cartQty+packFactor(existing)>product.quantity){setError(`Omborda faqat ${product.quantity} ${product.unit||"dona"} bor`);return items}
+        return items.map(item=>item.id===product.id?{...item,cartQty:item.cartQty+packFactor(item)}:item);
       }
       return [...items,{...product,cartQty:1,discountPercent:0}];
     });
@@ -293,6 +298,14 @@ function Sales(){
     const product=productById.get(String(id));
     const value=Math.max(0,blockNegative?Math.min(Number(next||0),Number(product?.quantity||0)):Number(next||0));
     setCart(items=>items.map(item=>item.id===id?{...item,cartQty:value}:item).filter(item=>item.cartQty>0));
+  };
+  const choosePackaging=(id,unit)=>{
+    if(!draftReady||holdRestorePendingRef.current||processing)return;
+    const item=cart.find(line=>line.id===id);if(!item)return;
+    const pack=selectedPackaging(item,unit);if(unit&&!pack)return;
+    const next=Math.round(item.cartQty/packFactor(item)*Number(pack?.factor||1)*1000)/1000;
+    if(blockNegative&&next>Number(item.quantity||0)){setError('Qadoq uchun qoldiq yetarli emas');return;}
+    setCart(lines=>lines.map(line=>line.id===id?{...line,packUnit:unit||null,cartQty:next,sellPrice:pack?Number(pack.salePrice)/Number(pack.factor):Number(productById.get(String(id))?.sellPrice||0)}:line));
   };
   useEffect(()=>{
     const onScannerKey=(event)=>{
@@ -386,7 +399,7 @@ function Sales(){
       // Server did not delete the hold, so restore the active draft rather than
       // leaving the device pointing to a different, un-restored cart.
       if(draftKey){
-        if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});
+        if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});
         else clearPosDraft(window.localStorage,draftKey);
       }
       setError(result?.message||"Savatni davom ettirib bo‘lmadi");return;
@@ -433,7 +446,7 @@ function Sales(){
     if(payment==="split"&&!splitValid){setError(splitMethodCount<2?"Aralash to‘lovda kamida 2 ta to‘lov usulidan foydalaning":splitCardN+splitTransferN>total?"Karta va o‘tkazma summasi jami summadan oshmasligi kerak":"Mijoz bergan naqd summa naqd qismidan kam");return}
     const saleId=checkoutReferenceRef.current||`POS-${crypto.randomUUID()}`;
     checkoutReferenceRef.current=saleId;
-    if(!savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:saleId})){setError("Savat qurilmaga saqlanmadi; qayta urinib koring.");return;}
+    if(!savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:saleId})){setError("Savat qurilmaga saqlanmadi; qayta urinib koring.");return;}
     const soldAt=new Date().toISOString();
     const trackedUpdates=[];
     const trackingByProduct=new Map();
@@ -542,10 +555,10 @@ function Sales(){
       <aside className={`pos-checkout pro-card ${mobilePane==="cart"?"mobile-pane-active":"mobile-pane-hidden"}`}>
         <div className="cart-head"><div><FiShoppingCart/><span><strong>Savat</strong><small>{cart.reduce((sum,item)=>sum+item.cartQty,0)} dona · {cart.length} tur</small></span></div><div className="cart-head-actions">{workspaceSettings.pos.holdCartEnabled&&<button type="button" className={holdToolsOpen?"active":""} onClick={()=>setHoldToolsOpen((value)=>!value)} aria-label="Savatni ushlab turish" title="Savatni ushlab turish"><FiPause/>{held.length>0&&<b>{held.length}</b>}</button>}<button type="button" onClick={()=>setTodaySalesOpen(true)} aria-label="Bugungi savdolar" title="Bugungi savdolar"><FiClock/>{storeDailySales.length>0&&<b>{storeDailySales.length}</b>}</button><button disabled={!cart.length} onClick={clearCart} aria-label="Savatni tozalash" title="Savatni tozalash"><FiTrash2/></button></div></div>
         <div className="pos-checkout-scroll">
-        <div className="cart-list" role="region" aria-label="Savat mahsulotlari" tabIndex={0}>{cart.length?cart.map(item=><div className="cart-item" key={item.id}><div className="cart-item-main"><strong>{item.name}</strong><small>{formatPrice(getFinalUnitPrice(item))}{item.discountPercent?` · ${item.discountPercent}% chegirma`:""}</small></div><div className="qty-control"><button onClick={()=>qty(item.id,item.cartQty-1)} aria-label="Miqdorni kamaytirish"><FiMinus/></button><span className="qty-value" aria-label={`${item.name} miqdori`}>{item.cartQty}</span><button onClick={()=>qty(item.id,item.cartQty+1)} disabled={blockNegative&&item.cartQty>=item.quantity} aria-label="Miqdorni oshirish"><FiPlus/></button></div><strong className="cart-line-total">{formatPrice(getFinalUnitPrice(item)*item.cartQty)}</strong>{canDiscount&&<button className="discount-icon" onClick={()=>{setDiscountItem(item);setDiscount(String(item.discountPercent||""))}} aria-label="Mahsulot chegirmasi"><FiPercent/></button>}</div>):<div className="cart-empty"><FiShoppingBag/><strong>Savat bo‘sh</strong><span>Mahsulotni tanlang yoki barcode skaner qiling.</span></div>}</div>
-        <div className="customer-row customer-selector-row"><div className="pos-customer-selector"><label><FiUser/><input value={customer} onChange={event=>{setCustomer(event.target.value);setCustomerId("");setCustomerPickerOpen(true)}} onFocus={()=>setCustomerPickerOpen(true)} onBlur={()=>setTimeout(()=>setCustomerPickerOpen(false),120)} onKeyDown={event=>{if(event.key==="Escape"){setCustomerPickerOpen(false);event.currentTarget.blur()}}} placeholder="Mijoz (ixtiyoriy)"/></label>{customerPickerOpen&&!customerId&&(customerOptions.length>0||customer.trim())&&<div className="pos-customer-results">{customerOptions.slice(0,6).map(c=><button type="button" key={c.id} onClick={()=>selectCustomer(c)}><span><strong>{c.name}</strong><small>{c.phone||"Telefon yo‘q"}</small></span></button>)}<button type="button" className="quick-customer-create" onClick={()=>{setQuickCustomer({name:customer.trim(),phone:""});setQuickCustomerError("");setQuickCustomerOpen(true)}}><FiPlus/> Yangi mijoz</button></div>}</div><input value={note} onChange={event=>setNote(event.target.value)} placeholder="Izoh (ixtiyoriy)"/></div>
+        <div className="cart-list" role="region" aria-label="Savat mahsulotlari" tabIndex={0}>{cart.length?cart.map(item=><div className="cart-item" key={item.id}><div className="cart-item-main"><strong>{item.name}</strong><small>{formatPrice(getFinalUnitPrice(item)*packFactor(item))}{item.discountPercent?` · ${item.discountPercent}% chegirma`:""}</small>{productPackaging(item).length>0&&<PremiumSelect aria-label={`${item.name} qadoq`} value={item.packUnit||""} onChange={event=>choosePackaging(item.id,event.target.value)}><option value="">{item.unit||"dona"}</option>{productPackaging(item).map(pack=><option key={pack.unit} value={pack.unit}>{pack.unit} / {pack.factor} {item.unit||"dona"} / {formatPrice(pack.salePrice)}</option>)}</PremiumSelect>}</div><div className="qty-control"><button onClick={()=>qty(item.id,item.cartQty-packFactor(item))} aria-label="Miqdorni kamaytirish"><FiMinus/></button><span className="qty-value" aria-label={`${item.name} miqdori`}>{Number((item.cartQty/packFactor(item)).toFixed(3))}</span><button onClick={()=>qty(item.id,item.cartQty+packFactor(item))} disabled={blockNegative&&item.cartQty+packFactor(item)>item.quantity} aria-label="Miqdorni oshirish"><FiPlus/></button></div><strong className="cart-line-total">{formatPrice(cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct)))}</strong>{canDiscount&&<button className="discount-icon" onClick={()=>{setDiscountItem(item);setDiscount(String(item.discountPercent||""))}} aria-label="Mahsulot chegirmasi"><FiPercent/></button>}</div>):<div className="cart-empty"><FiShoppingBag/><strong>Savat bo‘sh</strong><span>Mahsulotni tanlang yoki barcode skaner qiling.</span></div>}</div>
+        <div className="customer-row customer-selector-row"><div className="pos-customer-selector"><label><FiUser/><input value={customer} onChange={event=>{setCustomer(event.target.value);setCustomerId("");setCustomerPickerOpen(true)}} onFocus={()=>setCustomerPickerOpen(true)} onBlur={()=>setTimeout(()=>setCustomerPickerOpen(false),120)} onKeyDown={event=>{if(event.key==="Escape"){setCustomerPickerOpen(false);event.currentTarget.blur()}}} placeholder="Mijoz (ixtiyoriy)"/></label>{customerPickerOpen&&!customerId&&(customerOptions.length>0||customer.trim())&&<div className="pos-customer-results" onMouseDown={event=>event.preventDefault()}>{customerOptions.slice(0,6).map(c=><button type="button" key={c.id} onClick={()=>selectCustomer(c)}><span><strong>{c.name}</strong><small>{c.phone||"Telefon yo‘q"}</small></span></button>)}<button type="button" className="quick-customer-create" onClick={()=>{setQuickCustomer({name:customer.trim(),phone:""});setQuickCustomerError("");setQuickCustomerOpen(true)}}><FiPlus/> Yangi mijoz</button></div>}</div><input value={note} onChange={event=>setNote(event.target.value)} placeholder="Izoh (ixtiyoriy)"/></div>
         <div className="cart-summary"><div><span>Oraliq summa</span><b>{formatPrice(subtotal)}</b></div>{itemDiscountTotal>0&&<div className="discount"><span>Mahsulot chegirmasi</span><b>-{formatPrice(itemDiscountTotal)}</b></div>}{cartDiscountAmount>0&&<div className="discount"><span>Savat chegirmasi ({cartDiscountPct}%)</span><b>-{formatPrice(cartDiscountAmount)}</b></div>}{canDiscount&&<button className="cart-discount-action" type="button" onClick={()=>{setCartDiscountInput(String(cartDiscountPct));setCartDiscountModal(true)}} disabled={!cart.length}><FiPercent/> Savat chegirmasi</button>}<div className="grand"><span>Jami</span><strong>{formatPrice(total)}</strong></div></div>
-        <div className="payment-section"><span className="section-label">To‘lov turi</span><div className="payment-grid">{enabledPaymentTypes.map(type=><button key={type} ref={type==="cash"?checkoutRef:null} className={payment===type?"active":""} onClick={()=>setPayment(type)}>{type==="cash"?<FiDollarSign/>:type==="card"?<FiCreditCard/>:type==="transfer"?<FiRefreshCw/>:type==="credit"?<FiUser/>:<FiLayers/>}<span>{payLabels[type]}</span></button>)}</div>{payment==="credit"&&<div className="credit-sale-box"><label><span>Mijoz</span><input value={customer} onChange={event=>{setCustomer(event.target.value);setCustomerId("");setCustomerPickerOpen(true)}} onFocus={()=>setCustomerPickerOpen(true)} onBlur={()=>setTimeout(()=>setCustomerPickerOpen(false),120)} onKeyDown={event=>{if(event.key==="Escape"){setCustomerPickerOpen(false);event.currentTarget.blur()}}} placeholder="Ism yoki telefon"/></label>{customerPickerOpen&&customerOptions.length>0&&<div className="credit-customer-results">{customerOptions.slice(0,6).map(c=><button type="button" key={c.id} className={customerId===c.id?"active":""} onClick={()=>selectCustomer(c)}><span><strong>{c.name}</strong><small>{c.phone||"Telefon yo‘q"}</small></span><b>{formatPrice(c.balance||0)}</b></button>)}</div>}<label><span>Hozir to‘laydi</span><input inputMode="numeric" value={formatInputMoney(creditPaid)} onChange={e=>setCreditPaid(moneyDigits(e.target.value))} placeholder="0"/></label><label><span>To‘lov muddati</span><PremiumDateInput value={creditDueDate} onChange={e=>setCreditDueDate(e.target.value)}/></label><div className="credit-remainder"><span>Nasiyaga</span><strong>{formatPrice(Math.max(0,total-Number(creditPaid||0)))}</strong></div></div>}{payment==="cash"&&<div className="cash-box"><label><span>Mijoz bergan summa</span><input inputMode="numeric" value={formatInputMoney(cashTendered)} onChange={event=>setCashTendered(moneyDigits(event.target.value))} placeholder={formatInputMoney(Math.round(total))}/></label><div className={Number(cashTendered||0)<total?"shortage":"change-ok"}><span>{Number(cashTendered||0)<total?"Yetishmaydi":"Qaytim"}</span><strong>{formatPrice(Number(cashTendered||0)<total?Math.max(0,total-Number(cashTendered||0)):change)}</strong></div></div>}{payment==="split"&&<div className="split-box"><label><span>Karta</span><input inputMode="numeric" value={formatInputMoney(splitCard)} onChange={event=>setSplitCard(moneyDigits(event.target.value))}/></label><label><span>O‘tkazma</span><input inputMode="numeric" value={formatInputMoney(splitTransfer)} onChange={event=>setSplitTransfer(moneyDigits(event.target.value))}/></label><div><span>Naqd qismi</span><strong>{formatPrice(splitCash)}</strong></div>{splitCash>0&&<label><span>Mijoz bergan naqd</span><input inputMode="numeric" value={formatInputMoney(splitCashTendered)} onChange={event=>setSplitCashTendered(moneyDigits(event.target.value))} placeholder={formatInputMoney(Math.ceil(splitCash))}/></label>}{splitCash>0&&<div><span>Qaytim</span><strong>{formatPrice(splitChange)}</strong></div>}<div className="split-balance"><span>Jami taqsimlangan</span><strong>{formatPrice(splitCash+splitCardN+splitTransferN)}</strong></div>{!splitValid&&<small className="split-error">{splitMethodCount<2?"Kamida 2 ta to‘lov usulini kiriting":splitCardN+splitTransferN>total?"Karta + o‘tkazma jami summadan oshdi":"Naqd qism uchun mijoz bergan summani kiriting"}</small>}</div>}</div>
+        <div className="payment-section"><span className="section-label">To‘lov turi</span><div className="payment-grid">{enabledPaymentTypes.map(type=><button key={type} ref={type==="cash"?checkoutRef:null} className={payment===type?"active":""} onClick={()=>setPayment(type)}>{type==="cash"?<FiDollarSign/>:type==="card"?<FiCreditCard/>:type==="transfer"?<FiRefreshCw/>:type==="credit"?<FiUser/>:<FiLayers/>}<span>{payLabels[type]}</span></button>)}</div>{payment==="credit"&&<div className="credit-sale-box"><label><span>Mijoz</span><input value={customer} onChange={event=>{setCustomer(event.target.value);setCustomerId("");setCustomerPickerOpen(true)}} onFocus={()=>setCustomerPickerOpen(true)} onBlur={()=>setTimeout(()=>setCustomerPickerOpen(false),120)} onKeyDown={event=>{if(event.key==="Escape"){setCustomerPickerOpen(false);event.currentTarget.blur()}}} placeholder="Ism yoki telefon"/></label>{customerPickerOpen&&customerOptions.length>0&&<div className="credit-customer-results" onMouseDown={event=>event.preventDefault()}>{customerOptions.slice(0,6).map(c=><button type="button" key={c.id} className={customerId===c.id?"active":""} onClick={()=>selectCustomer(c)}><span><strong>{c.name}</strong><small>{c.phone||"Telefon yo‘q"}</small></span><b>{formatPrice(c.balance||0)}</b></button>)}</div>}<label><span>Hozir to‘laydi</span><input inputMode="numeric" value={formatInputMoney(creditPaid)} onChange={e=>setCreditPaid(moneyDigits(e.target.value))} placeholder="0"/></label><label><span>To‘lov muddati</span><PremiumDateInput value={creditDueDate} onChange={e=>setCreditDueDate(e.target.value)}/></label><div className="credit-remainder"><span>Nasiyaga</span><strong>{formatPrice(Math.max(0,total-Number(creditPaid||0)))}</strong></div></div>}{payment==="cash"&&<div className="cash-box"><label><span>Mijoz bergan summa</span><input inputMode="numeric" value={new Intl.NumberFormat("uz-UZ",{maximumFractionDigits:2}).format(Number(cashTendered))} onChange={event=>setCashTendered(moneyDigits(event.target.value))} placeholder={formatInputMoney(Math.round(total))}/></label><div className={Number(cashTendered||0)<total?"shortage":"change-ok"}><span>{Number(cashTendered||0)<total?"Yetishmaydi":"Qaytim"}</span><strong>{formatPrice(Number(cashTendered||0)<total?Math.max(0,total-Number(cashTendered||0)):change)}</strong></div></div>}{payment==="split"&&<div className="split-box"><label><span>Karta</span><input inputMode="numeric" value={formatInputMoney(splitCard)} onChange={event=>setSplitCard(moneyDigits(event.target.value))}/></label><label><span>O‘tkazma</span><input inputMode="numeric" value={formatInputMoney(splitTransfer)} onChange={event=>setSplitTransfer(moneyDigits(event.target.value))}/></label><div><span>Naqd qismi</span><strong>{formatPrice(splitCash)}</strong></div>{splitCash>0&&<label><span>Mijoz bergan naqd</span><input inputMode="numeric" value={formatInputMoney(splitCashTendered)} onChange={event=>setSplitCashTendered(moneyDigits(event.target.value))} placeholder={formatInputMoney(Math.ceil(splitCash))}/></label>}{splitCash>0&&<div><span>Qaytim</span><strong>{formatPrice(splitChange)}</strong></div>}<div className="split-balance"><span>Jami taqsimlangan</span><strong>{formatPrice(splitCash+splitCardN+splitTransferN)}</strong></div>{!splitValid&&<small className="split-error">{splitMethodCount<2?"Kamida 2 ta to‘lov usulini kiriting":splitCardN+splitTransferN>total?"Karta + o‘tkazma jami summadan oshdi":"Naqd qism uchun mijoz bergan summani kiriting"}</small>}</div>}</div>
         {workspaceSettings.pos.holdCartEnabled&&holdToolsOpen&&<div className="hold-row compact-hold-row"><div className="hold-input"><FiPause/><input value={holdName} onChange={event=>setHoldName(event.target.value)} placeholder="Savat nomi (ixtiyoriy)"/></div><button onClick={holdCart} disabled={!cart.length}><FiPause/> Savatni ushlab turish</button><button onClick={()=>setHeldModal(true)}>Saqlangan savatlar <b>{held.length}</b></button></div>}
 
         </div>

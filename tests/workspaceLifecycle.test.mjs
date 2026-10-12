@@ -13,6 +13,13 @@ import {
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 
+test('reassigning the same employee to another branch invalidates old workspace data',()=>{
+  const user={id:'cashier',organizationId:'org',appRole:'CASHIER',storeId:'a'};
+  const before=workspaceIdentity(user),after=workspaceIdentity({...user,storeId:'b'});
+  assert.equal(isWorkspaceReadyFor(after,before),false);
+  assert.equal(shouldHydrateWorkspace(after,before),true);
+});
+
 test("anonymous workspace data is not ready for a restored organization user", () => {
   const anonymousIdentity=workspaceIdentity(null);
   const restoredIdentity=workspaceIdentity({id:"user-1",organizationId:"org-1",appRole:"OWNER"});

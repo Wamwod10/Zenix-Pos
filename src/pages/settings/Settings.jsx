@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import { DEFAULT_BUSINESS_FEATURES } from "../../config/uiDefaults";
 import { BILLING_CONFIG } from "../../config/billing";
-import { ROLE_LABELS, ROLES, legacyRoleForAppRole } from "../../config/roles";
+import { ROLE_LABELS, ROLES, isBranchEmployee, legacyRoleForAppRole } from "../../config/roles";
 import { createTelegramConnection, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
 import { PageHeader, StatusBadge, PremiumSelect, PremiumTimeInput, ColumnPicker, PremiumCheckbox } from "../../components/Ui";
 import { formatUzPhone, isValidUzPhone, sameUzPhone } from "../../utils/phone";
@@ -46,6 +46,7 @@ function Settings(){
   const [employeeSearch,setEmployeeSearch]=useState("");
   const [employeeStatus,setEmployeeStatus]=useState("all");
   const [selectedEmployeeIds,setSelectedEmployeeIds]=useState([]);
+  useEffect(()=>{setSelectedEmployeeIds([])},[currentStoreId]);
   const employeeColumnDefs=[
     {id:"phone",label:"Telefon"},{id:"login",label:"Kirish nomi"},{id:"role",label:"Rol"},{id:"store",label:"Filial"},{id:"status",label:"Holat"},{id:"account",label:"Hisob"},{id:"permissions",label:"Shaxsiy ruxsat"},
   ];
@@ -81,16 +82,17 @@ function Settings(){
   const filteredEmployees=useMemo(()=>{
     const query=employeeSearch.trim().toLowerCase();
     return employees.filter((emp)=>{
+      if(!isBranchEmployee(emp,currentStoreId))return false;
       const matchesStatus=employeeStatus==="all"||(employeeStatus==="active"?emp.active!==false:emp.active===false);
       if(!matchesStatus)return false;
       if(!query)return true;
       const storeName=stores.find((store)=>store.id===emp.storeId)?.name||"";
       return `${emp.name||""} ${emp.phone||""} ${emp.login||""} ${ROLE_LABELS[emp.role]||emp.role||""} ${storeName}`.toLowerCase().includes(query);
     });
-  },[employees,employeeSearch,employeeStatus,stores]);
+  },[employees,employeeSearch,employeeStatus,stores,currentStoreId]);
   const protectedEmployee=(emp)=>emp.role===ROLES.OWNER||emp.accountId===currentUser?.id||String(emp.login||"").toLowerCase()===String(currentUser?.username||"").toLowerCase();
   const selectableEmployees=filteredEmployees.filter((emp)=>!protectedEmployee(emp));
-  const selectedEmployees=employees.filter((emp)=>selectedEmployeeIds.includes(emp.id)&&!protectedEmployee(emp));
+  const selectedEmployees=employees.filter((emp)=>isBranchEmployee(emp,currentStoreId)&&selectedEmployeeIds.includes(emp.id)&&!protectedEmployee(emp));
   const allFilteredEmployeesSelected=selectableEmployees.length>0&&selectableEmployees.every((emp)=>selectedEmployeeIds.includes(emp.id));
   const toggleEmployeeSelection=(id,checked)=>setSelectedEmployeeIds((ids)=>checked?[...new Set([...ids,id])]:ids.filter((item)=>item!==id));
   const toggleAllEmployees=()=>setSelectedEmployeeIds((ids)=>allFilteredEmployeesSelected?ids.filter((id)=>!selectableEmployees.some((emp)=>emp.id===id)):[...new Set([...ids,...selectableEmployees.map((emp)=>emp.id)])]);
@@ -132,7 +134,7 @@ function Settings(){
   };
   const toggleStore=async(id)=>{if(!canWrite)return;const target=stores.find(x=>x.id===id);if(!target)return;const activeCount=stores.filter(x=>x.active!==false).length;if(target.active!==false&&activeCount<=1)return;if(target.active===false&&activeCount>=storeLimit)return;const nextActive=target.active===false;if(!nextActive){const blocker=storeArchiveBlocker(id);if(blocker){notify({tone:"warning",title:"Filialni hozir arxivlab bo‘lmaydi",message:blocker});return}}const result=await updateStore(id,{active:nextActive});if(!result.success){notify({tone:"danger",title:"Filial yangilanmadi",message:result.message});return}addActivityLog({type:"settings",title:nextActive?"Filial tiklandi":"Filial arxivlandi",description:target.name,storeId:id,storeName:target.name,before:target.active!==false?"Faol":"Arxivda",after:nextActive?"Faol":"Arxivda",changes:[{field:"active",label:"Holat",before:target.active!==false?"Faol":"Arxivda",after:nextActive?"Faol":"Arxivda"}]})};
   const finishStoreRename=async(store)=>{const before=storeNameBaselines.current.get(store.id);storeNameBaselines.current.delete(store.id);const after=String(store.name||"").trim();if(before===undefined||String(before).trim()===after)return;const result=await updateStore(store.id,{name:after});if(!result.success){setStores(items=>items.map(x=>x.id===store.id?{...x,name:before}:x));notify({tone:"danger",title:"Filial nomi saqlanmadi",message:result.message});return}addActivityLog({type:"settings",title:"Filial nomi o‘zgartirildi",description:after||before,storeId:store.id,storeName:after||before,before:String(before||"—"),after:after||"—",changes:[{field:"name",label:"Filial nomi",before,after}]})};
-  const addEmployee=()=>{if(!canWrite)return;const draft={name:"",phone:"+998",login:"",password:"",role:ROLES.CASHIER,storeId:activeStores[0]?.id||""};employeeFormInitial.current=draft;setEmployeeError("");setEmployeeForm(draft);setEmployeeModal(true)};
+  const addEmployee=()=>{if(!canWrite)return;const draft={name:"",phone:"+998",login:"",password:"",role:ROLES.CASHIER,storeId:currentStoreId||activeStores[0]?.id||""};employeeFormInitial.current=draft;setEmployeeError("");setEmployeeForm(draft);setEmployeeModal(true)};
   const createEmployee=async()=>{
     if(!canWrite||employeeBusy)return;
     const name=employeeForm.name.trim(),login=employeeForm.login.trim(),phone=formatUzPhone(employeeForm.phone);
