@@ -1,6 +1,7 @@
 export const phoneDigits = (value) => {
   const raw=String(value||"").replace(/\D/g,"");
-  const local=raw.startsWith("998")?raw.slice(3):raw;
+  const hasCountryCode=raw.startsWith("998")&&(String(value||"").trim().startsWith("+")||raw.length>9||raw==="998");
+  const local=hasCountryCode?raw.slice(3):raw;
   return local.slice(0,9);
 };
 

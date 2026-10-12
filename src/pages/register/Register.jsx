@@ -4,6 +4,7 @@ import { FiBarChart2, FiBriefcase, FiCheckCircle, FiEye, FiEyeOff, FiLock, FiPho
 import { useAuth } from "../../context/AuthContext";
 import { formatUzPhone } from "../../utils/phone";
 import { api } from "../../services/apiClient";
+import { registrationFieldErrors } from "../../utils/registrationErrors";
 import { canRegisterTrial, otpPhone, otpRemaining, trialRequiresOtp } from "../../utils/registrationOtp";
 import "../login/login.scss";
 import "./registerOtp.scss";
@@ -68,7 +69,7 @@ function Register(){
     if(form.password.length<8)next.password="Parol kamida 8 ta belgidan iborat bo‘lsin";
     setErrors(next);return Object.keys(next).length===0;
   };
-  const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;if(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!canRegisterTrial(proof,form.phone)))){setOtpError("Trial uchun telefonni SMS kod bilan tasdiqlang");return}setSubmitting(true);const result=await register({...form,registrationToken:form.startOption==="TRIAL"&&requiresOtp?proof?.registrationToken:undefined});if(!result.success){if(result.code==='OTP_REQUIRED')loadPolicy();setErrors({form:result.message});setSubmitting(false);return}navigate(form.startOption==="TRIAL"?"/":"/activation")};
+  const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;if(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!canRegisterTrial(proof,form.phone)))){setOtpError("Trial uchun telefonni SMS kod bilan tasdiqlang");return}setSubmitting(true);const result=await register({...form,registrationToken:form.startOption==="TRIAL"&&requiresOtp?proof?.registrationToken:undefined});if(!result.success){if(result.code==='OTP_REQUIRED')loadPolicy();setErrors(registrationFieldErrors(result));setSubmitting(false);return}navigate(form.startOption==="TRIAL"?"/":"/activation")};
   return <main className="auth-page register-auth">
     <section className="auth-showcase">
       <div className="auth-brand"><span className="auth-brand-mark">Z</span><span>ZENIX POS</span></div>
