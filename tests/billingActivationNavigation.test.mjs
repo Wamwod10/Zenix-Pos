@@ -18,9 +18,9 @@ test("pending payment does not keep an already active organization locked", () =
     payments: [{ status: "REVIEW", type: "LICENSE" }],
   }).allowed, true);
 });
-test("review and payment-required organizations remain blocked", () => {
-  assert.equal(workspaceAccessState({ organization: { licenseStatus: "REVIEW" } }).allowed, false);
-  assert.equal(workspaceAccessState({ organization: { licenseStatus: "PAYMENT_REQUIRED" } }).allowed, false);
+test("review and payment-required organizations are readable in read-only mode", () => {
+  assert.equal(workspaceAccessState({ organization: { licenseStatus: "REVIEW" } }).readOnly, true);
+  assert.equal(workspaceAccessState({ organization: { licenseStatus: "PAYMENT_REQUIRED" } }).readOnly, true);
 });
 test("expired active organization remains blocked", () => {
   const past = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -50,6 +50,9 @@ test('free promo redemption leaves activation for the hydrated workspace',async(
       if(endpoint==='/api/auth/me')return {user:{id:'activation-owner',organizationId:'activation-org',appRole:'OWNER',name:'Test owner'}};
       if(endpoint==='/api/bootstrap'){hydrations++;return {organization:{id:'activation-org',plan:'ANNUAL',storeLimit:2,licenseStatus:redeemed?'ACTIVE':'PAYMENT_REQUIRED',expiryDate:redeemed?'2099-01-01':null},stores:[{id:'activation-store',name:'Main',active:true}]};}
       if(endpoint==='/api/settings')return {selectedStoreId:'activation-store',workspaceSettings:{},uiPreferences:{},businessFeatures:{},rolePermissions:{}};
+      if(endpoint==='/api/billing/plans')return {plans:[{code:'BUSINESS',label:'Business',rank:2,prices:{MONTHLY:350000,ANNUAL:3300000},limits:{stores:2,employees:7,warehouses:3,registers:3,products:10000,customers:null,aiRequests:100}}]};
+      if(endpoint==='/api/billing/subscription')return {subscription:{planCode:'BUSINESS',accessMode:redeemed?'READ_WRITE':'READ_ONLY'}};
+      if(endpoint==='/api/billing/limits')return {resources:{}};
       if(endpoint.startsWith('/api/billing/draft'))return {draft:null};
       if(endpoint==='/api/sync/version')return {revision:'1'};
       return {users:[],sessions:[]};
@@ -65,7 +68,7 @@ test('free promo redemption leaves activation for the hydrated workspace',async(
         React.createElement(Route,{path:'/activation',element:React.createElement(Billing,{activation:true})}),
         React.createElement(Route,{path:'/',element:React.createElement(Workspace)}))))))));
     await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50));});
-    const input=container.querySelector('input[placeholder="ZENIX-FREE30"]');assert.ok(input,'activation promo input must render');
+    const input=container.querySelector('input[placeholder="Promokod"]');assert.ok(input,'activation promo input must render');
     await act(async()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(input,'TEST-FREE');input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));});
     const button=text=>Array.from(container.querySelectorAll('button')).find(node=>node.textContent.trim()===text);
     await act(async()=>button('Promokodni tekshirish').click());

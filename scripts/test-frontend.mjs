@@ -8,7 +8,8 @@ const crossRepoTests=new Set([
   "customerSmartPlatform.test.mjs", "deepAudit.test.mjs",
   "fiftyThreeFixesRegression.test.mjs", "finalFixRegression.test.mjs",
   "integrityHardening.test.mjs", "performanceHardening.test.mjs",
-  "deploymentBoundary.test.mjs",
+  "deploymentBoundary.test.mjs", "subscriptionBackend.test.mjs",
+  "aiBackend.test.mjs",
 ]);
 const all=process.argv.includes("--with-backend");
 const candidates=fs.readdirSync("tests").filter(name=>name.endsWith(".test.mjs"));

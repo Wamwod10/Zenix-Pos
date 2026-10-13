@@ -10,6 +10,7 @@ import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift 
 import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
 import {productMetadata} from '../utils/productOptions';
+import {workspaceAccessState} from '../utils/license';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
 
 const StoreContext = createContext(null);
@@ -160,12 +161,14 @@ export const StoreProvider = ({ children }) => {
   const inventory = useMemo(()=>projectInventory(inventoryState,currentStoreId),[inventoryState,currentStoreId]);
   const inventoryById = useMemo(()=>new Map(inventoryState.map((item)=>[String(item.id),item])),[inventoryState]);
   const activeShift = activeShifts[currentStoreId] || null;
+  const readOnly=workspaceAccessState({organization:organizations.find(item=>item.id===currentUser?.organizationId)}).readOnly;
   const hasPermission = useCallback((permission, role=currentUser?.appRole)=>{
+    if(readOnly&&['productWrite','inventoryAdjust','transferCreate','transferApprove','transferReceive','transferCancel','supplierWrite','returns','expensesWrite','shiftRecon','inventoryCountApprove','closeBusinessDay','settingsWrite'].includes(permission))return false;
     if(role===ROLES.OWNER)return true;
     const overrides=currentUser?.permissionOverrides;
     if(role===currentUser?.appRole&&overrides&&Object.prototype.hasOwnProperty.call(overrides,permission)) return Boolean(overrides[permission]);
     return Boolean(rolePermissions?.[role]?.[permission]);
-  },[rolePermissions,currentUser?.appRole,currentUser?.permissionOverrides]);
+  },[rolePermissions,currentUser?.appRole,currentUser?.permissionOverrides,readOnly]);
   const effectiveWorkspaceSettings = useMemo(()=>{
     const override=workspaceSettings.storeOverrides?.[currentStoreId]||{};
     return {
@@ -231,7 +234,7 @@ export const StoreProvider = ({ children }) => {
       setActiveShifts(base.activeShifts||{});setShiftHistory(base.shiftHistory||[]);setActivityLogs(base.activityLogs||[]);setInventoryTransfers(base.inventoryTransfers||[]);
       setStockMovements(base.stockMovements||[]);setInventoryCounts(base.inventoryCounts||[]);setPaymentsState(base.payments||[]);
       const orgRow=base.organization||{};
-      const included=Math.max(1,number(BILLING_PLANS[orgRow.plan]?.includedStores,2));
+      const included=orgRow.planCode&&!orgRow.legacy?Math.max(1,number(orgRow.limits?.stores,1)):Math.max(1,number(BILLING_PLANS[orgRow.plan]?.includedStores,2));
       // Do not charge again for an independently-paid branch pass when the
       // base license is renewed. Entitlements and base allowances are separate.
       setOrganizationsState(orgRow.id?[{...orgRow,serverClockOffset:orgRow.serverNow?Date.parse(orgRow.serverNow)-Date.now():0,owner:currentUser.name,stores:nextStores.filter((item)=>item.active!==false).length,includedStores:included,purchasedExtraStores:Math.max(0,number(orgRow.baseStoreLimit??orgRow.storeLimit,included)-included)}]:[]);
@@ -679,7 +682,7 @@ export const StoreProvider = ({ children }) => {
   },[activeShifts,currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const loadBillingDraft = useCallback(async () => {
-    try{const data=await api.get("/api/billing/draft");const draft=data.draft||null;setBillingDraft(draft);return {success:true,draft}}
+    try{const data=await api.get("/api/billing/draft");const draft=data.draft||null;setBillingDraft(draft);return {success:true,draft,stale:Boolean(data.stale)}}
     catch(error){return apiFailure(error,"To‘lov draftini yuklab bo‘lmadi")}
   },[]);
 
@@ -706,13 +709,15 @@ export const StoreProvider = ({ children }) => {
 
   const commitBillingSubmission = useCallback(async ({ draftId = billingDraft?.id, file } = {}) => {
     if(!draftId)return {success:false,message:"To‘lov drafti topilmadi"};
-    if(!file)return {success:false,message:"To‘lov chekini yuklang"};
+      if(!file&&Number(billingDraft?.totalAmount)!==0)return {success:false,message:"To‘lov chekini yuklang"};
     let receiptId="";
     try{
-      const upload=await api.upload("/api/billing/receipts",file);
-      receiptId=upload.receipt?.id||"";
-      if(!receiptId)return {success:false,message:"Chek serverga yuklanmadi"};
-      const data=await api.post("/api/billing/payments",{draftId,receiptId});
+        if(file){
+          const upload=await api.upload("/api/billing/receipts",file);
+          receiptId=upload.receipt?.id||"";
+          if(!receiptId)return {success:false,message:"Chek serverga yuklanmadi"};
+        }
+        const data=await api.post("/api/billing/payments",{draftId,...(receiptId?{receiptId}:{})});
       setBillingDraft(null);
       scheduleWorkspaceRefresh();
       return {success:true,payment:data.payment||data};
@@ -720,7 +725,7 @@ export const StoreProvider = ({ children }) => {
       if(receiptId)await api.delete(`/api/billing/receipts/${encodeURIComponent(receiptId)}`).catch(()=>undefined);
       return apiFailure(error,"To‘lovni yuborib bo‘lmadi");
     }
-  },[billingDraft?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
+  },[billingDraft?.id,billingDraft?.totalAmount,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitBillingReview = useCallback(async ({ paymentId, status, reason = "" } = {}) => {
     if(!paymentId)return {success:false,message:"To‘lov topilmadi"};

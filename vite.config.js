@@ -18,4 +18,6 @@ const pwaAssetPrecache=()=>({
   }
 })
 
-export default defineConfig({plugins:[react(),pwaAssetPrecache()]})
+export const previewBuildDefines=(source=process.env)=>source.VERCEL_ENV==='preview'?{'import.meta.env.VITE_API_URL':'""'}:{}
+
+export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines()})

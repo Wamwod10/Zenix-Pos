@@ -11,7 +11,7 @@ test('registration renders three accessible plan cards with trial selected',asyn
   const [{AuthProvider},{default:Register}]=await Promise.all([vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/pages/register/Register.jsx')]);
   const html=renderToStaticMarkup(React.createElement(AuthProvider,null,React.createElement(MemoryRouter,null,React.createElement(Register))));
   assert.equal((html.match(/type="radio"/g)||[]).length,3);
-  assert.match(html,/14 kun bepul sinab/);assert.match(html,/1 oylik pullik/);assert.match(html,/1 yillik pullik/);
-  assert.match(html,/checked="" value="TRIAL"/);
+  assert.match(html,/14 kun bepul sinab/);assert.match(html,/Start/);assert.match(html,/Business/);assert.match(html,/Premium/);assert.match(html,/Tavsiya etiladi/);
+  assert.match(html,/checked="" value="BUSINESS"/);
  }finally{await vite.close()}
 });

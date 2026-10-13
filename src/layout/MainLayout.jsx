@@ -1,5 +1,7 @@
+import {FiLock} from 'react-icons/fi';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {workspaceAccessState} from '../utils/license';
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { ROLE_LABELS, ROLES } from "../config/roles";
@@ -118,9 +120,11 @@ function MainLayout(){
   const activeStores=stores.filter(store=>store.active!==false);
   const hasStoreSelector=!isPlatform&&management.includes(currentUser?.appRole)&&activeStores.length>0;
   const currentOrg=organizations.find(item=>item.id===currentUser?.organizationId);
+  const subscriptionAccess=workspaceAccessState({organization:currentOrg,now:Date.now()+(currentOrg?.serverClockOffset||0)});
   const includedStores=Number(currentOrg?.includedStores||BILLING_CONFIG.annual.includedStores);
-  const storeLimit=Math.max(includedStores,Number(currentOrg?.storeLimit||includedStores));
-  const branchNeedsBilling=activeStores.length>=storeLimit;
+  const storeLimit=currentOrg?.planCode&&!currentOrg.legacy?Number(currentOrg?.limits?.stores??currentOrg.storeLimit):Math.max(includedStores,Number(currentOrg?.storeLimit||includedStores));
+  const countedStores=currentOrg?.planCode&&!currentOrg.legacy?stores.length:activeStores.length;
+  const branchNeedsBilling=countedStores>=storeLimit;
 
   const menuItems=isPlatform?[{title:"Platforma administratori",path:"/platform",icon:FiShield}]:[
     {title:"Boshqaruv paneli",path:"/",icon:FiGrid,permission:"moduleDashboard",group:"Asosiy"},{title:"Kassa / Smena",path:"/shifts",icon:FiBriefcase,permission:"moduleShifts",group:"Savdo"},
@@ -134,6 +138,7 @@ function MainLayout(){
     if(item.path==="/suppliers"&&businessFeatures?.supplierTracking===false)return false;
     return !item.permission||hasPermission(item.permission,currentUser?.appRole);
   });
+  if(!isPlatform&&['moduleDashboard','moduleHistory','moduleAnalytics','moduleSellerAnalytics','moduleExpenses','moduleSuppliers'].some(p=>hasPermission(p,currentUser?.appRole))||!isPlatform&&hasPermission('moduleInventory',currentUser?.appRole)&&hasPermission('moduleProducts',currentUser?.appRole))visibleMenu.push({title:'ZENIX AI',path:'/ai',icon:FiBarChart2,group:'Tahlil'});
   const groupedMenu=visibleMenu.reduce((groups,item)=>{const key=item.group||"Platform";(groups[key]||(groups[key]=[])).push(item);return groups},{});
   const currentMenuItem=visibleMenu.find((item)=>item.path==="/"?location.pathname==="/":location.pathname===item.path||location.pathname.startsWith(`${item.path}/`));
   const mobilePriority=["/","/sales","/inventory","/analytics","/products","/shifts","/history","/platform"];
@@ -343,7 +348,7 @@ function MainLayout(){
   const beginAddBranch=()=>{
     setStoreOpen(false);
     if(!canAddStore){notify({tone:"warning",title:"Ruxsat yetarli emas",message:"Filial yaratish uchun Sozlamalarni boshqarish ruxsati kerak."});return}
-    if(branchNeedsBilling){go("/billing?extraStore=1");return}
+    if(branchNeedsBilling){go("/billing?upgrade=1");return}
     setBranchName("");setBranchError("");setBranchModal(true);
   };
   const submitBranch=async()=>{
@@ -379,7 +384,7 @@ function MainLayout(){
           {!isOnline&&<div className="offline-status" role="status"><FiWifiOff/><span>Internet yo‘q</span></div>}
           {hasStoreSelector&&<div className="head-pop store-pop">
             <button className="header-store" onClick={()=>{setStoreOpen(v=>!v);setQuickOpen(false);setToolsOpen(false);setNotificationsOpen(false);setProfileOpen(false)}}><FiMapPin/><span><small>Filial</small><strong>{currentStore?.name}</strong></span><FiChevronDown/></button>
-            {storeOpen&&<div className="head-menu store-menu"><div className="head-menu-title">Faol filiallar</div>{activeStores.map(s=><button key={s.id} onClick={()=>{setSelectedStoreId(s.id);setStoreOpen(false)}} className={s.id===currentStoreId?"active":""}><span><strong>{s.name}</strong><small>{s.id===currentStoreId?"Hozirgi filial":"Filialga o‘tish"}</small></span>{s.id===currentStoreId&&<FiCheck/>}</button>)}{canAddStore&&<><div className="store-menu-divider"/><button className="store-add-action" onClick={beginAddBranch}><FiPlus/><span><strong>Yangi filial qo‘shish</strong><small>{branchNeedsBilling?`Qo‘shimcha filial · ${new Intl.NumberFormat("uz-UZ").format(BILLING_CONFIG.extraStore.monthlyAmount)} so‘m/oy`: `${activeStores.length} / ${storeLimit} limit ishlatilgan`}</small></span></button></>}</div>}
+            {storeOpen&&<div className="head-menu store-menu"><div className="head-menu-title">Faol filiallar</div>{activeStores.map(s=><button key={s.id} onClick={()=>{setSelectedStoreId(s.id);setStoreOpen(false)}} className={s.id===currentStoreId?"active":""}><span><strong>{s.name}</strong><small>{s.id===currentStoreId?"Hozirgi filial":"Filialga o‘tish"}</small></span>{s.id===currentStoreId&&<FiCheck/>}</button>)}{canAddStore&&<><div className="store-menu-divider"/><button className="store-add-action" onClick={beginAddBranch}><FiPlus/><span><strong>Yangi filial qo‘shish</strong><small>{branchNeedsBilling?'Tarifni oshirish': `${countedStores} / ${storeLimit} limit ishlatilgan`}</small></span></button></>}</div>}
           </div>}
 
           <div className="head-pop quick-pop"><button className="quick-action" onClick={()=>{setQuickOpen(v=>!v);setStoreOpen(false);setToolsOpen(false);setNotificationsOpen(false);setProfileOpen(false)}} aria-label="Tezkor amallar"><FiPlus/><span>Tezkor</span></button>{quickOpen&&<div className="head-menu quick-menu"><div className="head-menu-title">Tezkor amallar</div>{quickActions.map(a=>{const Icon=a.icon;return <button key={a.label} onClick={()=>go(a.path)}><Icon/><span>{a.label}</span></button>})}</div>}</div>
@@ -397,7 +402,10 @@ function MainLayout(){
         </div>
       </header>
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
-      <main className="content"><AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary></main>
+      <main className="content">
+        {!isPlatform&&subscriptionAccess.readOnly&&<div className="pro-alert warning" role="status"><FiLock/><div><strong>Faqat ko‘rish rejimi</strong><span>{subscriptionAccess.reason==='BILLING_HOLD'?'Billing cheklovi bor.':'Trial yoki obuna muddati tugagan.'} Ma’lumotlaringiz saqlangan. Ko‘rish va to‘lovga ruxsat bor; biznes amallari bloklangan.</span>{hasPermission('moduleBilling')&&<NavLink className="pro-btn secondary" to="/billing">Obunani faollashtirish</NavLink>}</div></div>}
+        <AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary>
+      </main>
     </div>
 
     <nav className="mobile-bottom-nav" aria-label="Mobil navigatsiya">

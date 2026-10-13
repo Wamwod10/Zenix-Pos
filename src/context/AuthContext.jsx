@@ -113,6 +113,7 @@ export const AuthProvider=({children})=>{
         phone:formatUzPhone(form?.phone||""),
         username:String(form?.login||form?.username||"").trim(),
         password:String(form?.password||""),startOption:form?.startOption||"TRIAL",
+        ...(form?.planCode?{planCode:form.planCode}:{}),
         ...((form?.startOption||"TRIAL")==="TRIAL"?{registrationToken:String(form?.registrationToken||"")} : {}),
       });
       const user=cleanUser(data.user);

@@ -40,8 +40,9 @@ test("branch lifecycle guards are enforced by backend dependencies and store lim
   const entitlements=read("../backend/src/services/extraStoreEntitlements.js");
   assert.match(stores,/await lockStoreTradingAuthorization\(client,\{organizationId:req\.user\.organizationId\}\)/);
   assert.match(stores,/await lockStoreTradingAuthorization\(client,\{organizationId:orgId\}\)/);
-  assert.match(stores,/count >= org\.effectiveStoreLimit/);
-  assert.match(stores,/activeCount >= org\.effectiveStoreLimit/);
+  assert.match(stores,/count>=org\.effectiveStoreLimit/);
+  assert.match(stores,/assertResourceCapacity\(client,req\.user\.organizationId,'stores'\)/);
+  assert.match(stores,/assertResourceCapacity\(client,req\.user\.organizationId,'warehouses'\)/);
   assert.match(authorization,/organizations WHERE id=\$1 FOR UPDATE/);
   assert.match(authorization,/await effectiveStoreLimit\(client,org,businessDate\)/);
   assert.match(entitlements,/store_limit/);

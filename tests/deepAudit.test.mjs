@@ -27,10 +27,10 @@ test('license gate opens only verified active access',()=>{
   const now=new Date(2026,8,24,12).getTime();
   assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE'},now}).allowed,true);
   assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:'2026-09-24'},now}).allowed,true);
-  assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:'2026-09-23'},now}).allowed,false);
-  assert.equal(workspaceAccessState({organization:{licenseStatus:'PAYMENT_REQUIRED'},now}).allowed,false);
-  assert.equal(workspaceAccessState({organization:{licenseStatus:'REJECTED'},now}).allowed,false);
-  assert.equal(workspaceAccessState({organization:{licenseStatus:'REVIEW'},payments:[{status:'REVIEW',type:'LICENSE'}],now}).allowed,false);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'ACTIVE',expiryDate:'2026-09-23'},now}).readOnly,true);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'PAYMENT_REQUIRED'},now}).readOnly,true);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'REJECTED'},now}).readOnly,true);
+  assert.equal(workspaceAccessState({organization:{licenseStatus:'REVIEW'},payments:[{status:'REVIEW',type:'LICENSE'}],now}).readOnly,true);
 });
 
 test('billing matches approved September pricing',()=>{
@@ -58,11 +58,10 @@ test('billing renewal uses an exact target date and prices the selected period',
   assert.equal(order.targetExpiry,'2027-09-10');
 });
 
-test('Billing protects active stores and prices extra slots for the full remaining period',()=>{
+test('modern Billing uses server quotes and historical extra slots keep their pricing contract',()=>{
   const billingPage=read('src/pages/billing/Billing.jsx');
-  assert.match(billingPage,/const remainingDays=expiry\?Math\.max\(1,daysUntil\(expiry\)\):currentPlanDays/);
-  assert.match(billingPage,/minimumRenewExtraStores=Math\.max\(0,used-included-fullTermCoveredExtras\)/);
-  assert.match(billingPage,/Math\.max\(minimumRenewExtraStores,value-1\)/);
+  assert.match(billingPage,/subscriptionSummary\(checkoutDraft\)/);
+  assert.doesNotMatch(billingPage,/paymentService\.buildOrder/);
   const twoYearExtra=paymentService.buildOrder({
     type:'EXTRA',plan:'ANNUAL',remainingDays:730,extraStores:1,currentExpiry:'2026-09-24',targetExpiry:'2028-09-23',
   });
@@ -71,16 +70,13 @@ test('Billing protects active stores and prices extra slots for the full remaini
   assert.equal(twoYearExtra.servicePeriodTo,'2028-09-23');
 });
 
-test('Billing exposes target-date renewal instead of reusing plan cards',()=>{
+test('Billing selects tiers and checkout intervals with server draft totals',()=>{
   const billingPage=read('src/pages/billing/Billing.jsx');
   const store=read('src/context/StoreContext.jsx');
   const backend=read('../backend/src/routes/billing.js');
-  assert.match(billingPage,/Qachongacha uzaytirish/);
-  assert.match(billingPage,/\+1 oy/);
-  assert.match(billingPage,/\+3 oy/);
-  assert.match(billingPage,/\+6 oy/);
-  assert.match(billingPage,/\+12 oy/);
-  assert.match(billingPage,/renewExtraStores/);
+  assert.match(billingPage,/SubscriptionPlans plans=\{catalog\}/);
+  assert.match(billingPage,/billingInterval:plan/);
+  assert.match(billingPage,/subscriptionDraftUsable/);
   assert.match(billingPage,/createBillingDraft/);
   assert.match(store,/const createBillingDraft = useCallback/);
   assert.match(store,/const loadBillingDraft = useCallback/);
@@ -284,12 +280,11 @@ test('refund cash adjustment reconciles overridden refund methods',async()=>{
   assert.deepEqual(getRefundCashAdjustment(cardSale,50000,'cash','SH-2'),{type:'out',amount:50000});
 });
 
-test('billing review never grants temporary workspace access',()=>{
-  const license=read('src/utils/license.js');
+test('billing review grants read-only access until paid approval',()=>{
   const billing=read('src/config/billing.js');
   assert.doesNotMatch(billing,/reviewAccessHours/);
-  assert.match(license,/status === "REVIEW"/);
-  assert.match(license,/allowed: false/);
+  const access=workspaceAccessState({organization:{licenseStatus:'REVIEW'}});
+  assert.equal(access.allowed,true);assert.equal(access.readOnly,true);
 });
 
 test('Telegram UI uses one-time startgroup linking without manual BotFather setup',()=>{

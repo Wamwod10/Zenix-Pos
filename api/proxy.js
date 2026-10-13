@@ -42,8 +42,15 @@ function upstreamPath(rawPath){
   return `/api/${path}`;
 }
 
+export function previewBackendOrigin(source=process.env){
+  const production=backendOrigin(source.ZENIX_BACKEND_URL);
+  if(source.VERCEL_ENV!=='preview')return production;
+  const staging=backendOrigin(source.ZENIX_STAGING_BACKEND_URL);
+  return staging&&staging!==production?staging:null;
+}
+
 export default async function handler(req,res){
-  const backend=backendOrigin(process.env.ZENIX_BACKEND_URL);
+  const backend=previewBackendOrigin();
   if(!backend){
     res.statusCode=503;
     res.setHeader("content-type","application/json; charset=utf-8");
