@@ -14,15 +14,15 @@ test('shared AI panel preserves conversation across navigation and requires expl
   const [{AuthProvider,useAuth},{StoreProvider,useStore},{FeedbackProvider},{default:MainLayout},{api},{createRoot}]=await Promise.all([
    vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/context/StoreContext.jsx'),vite.ssrLoadModule('/src/context/FeedbackContext.jsx'),vite.ssrLoadModule('/src/layout/MainLayout.jsx'),vite.ssrLoadModule('/src/services/apiClient.js'),import('react-dom/client')]);
   const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
-  const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:[]};
+  const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:Array.from({length:10},(_,i)=>({topic:`sample-${i}`,question:`Namuna savol ${i+1}`}))};
   const preview={productName:'Olma',warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
-  let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
+  let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,failChat=false,failStatus=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
   const posts=[];
   api.get=async path=>{
    if(path==='/api/auth/me')return {user:{id:'owner',organizationId:'org',appRole:'OWNER'}};
    if(path==='/api/bootstrap')return {stores:[{id:a,name:'Main'},{id:b,name:'Other'}],inventory:[],organization:{id:'org',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
    if(path==='/api/settings')return {selectedStoreId:a,rolePermissions:settingsRolePermissions};
-   if(path==='/api/ai/status')return status;
+   if(path==='/api/ai/status'){if(failStatus)throw Error('Status unavailable');return status;}
    if(path==='/api/users/me/sessions')return {sessions:[{id:sessionId,current:true}]};
    if(path.startsWith('/api/ai/actions/')){assert.equal(path,'/api/ai/actions/action-1/status');if(actionGetFail)throw Error('offline');return {id:'action-1',status:actionStatus};}
    return {users:[],sessions:[],revision:'1'};
@@ -31,6 +31,7 @@ test('shared AI panel preserves conversation across navigation and requires expl
   api.post=async(path,body)=>{
    posts.push({path,body});
    if(path==='/api/ai/chat'){
+    if(failChat)throw Error('Connection lost');
     const response={conversationId:'33333333-3333-4333-8333-333333333333',answer:'Kirimni tekshiring',report,insights:[],actions:[{id:'action-1',type:'stock_receipt',status:'PENDING',expiresAt:new Date(Date.now()+expiryOffset).toISOString(),confirmationToken:'secret-token',preview}]};
     if(delayChat)return new Promise(resolve=>chatRelease=()=>resolve(response));return response;
    }
@@ -50,6 +51,17 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(container.querySelectorAll('.menu a[href="/ai"]').length,0,'AI is absent from sidebar');
   await act(async()=>button('ZENIX AI').click());
   assert.equal(container.querySelectorAll('[aria-label="ZENIX AI yordamchi"]').length,1);
+  assert.ok(container.querySelector('.header-date').nextElementSibling.classList.contains('zenix-ai-trigger'),'topbar AI sits beside date/time');
+  assert.ok(container.querySelector('.zenix-ai-trigger svg'),'topbar launcher has a compact icon');
+  assert.equal(container.querySelectorAll('.zenix-ai-suggestions button').length,10,'server examples remain suggestions');
+  await type('Yuborilmagan savol');
+  await act(async()=>container.querySelector('[aria-label="AI panelini minimallashtirish"]').click());
+  assert.equal(container.querySelector('#zenix-ai-panel').hidden,true);
+  await act(async()=>container.querySelector('[aria-label="ZENIX AI ochish"]').click());
+  assert.equal(container.querySelector('#zenix-ai-question').value,'Yuborilmagan savol','minimize preserves draft');
+  await act(async()=>container.querySelector('#zenix-ai-panel').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+  assert.equal(container.querySelector('#zenix-ai-panel').hidden,true);
+  await act(async()=>button('ZENIX AI').click());
   await submit('Omborga 5 kg olma kirim qil');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Olma.*Main.*Asosiy ombor.*5.*kg.*10000/s);
   assert.equal(posts.filter(p=>p.path.endsWith('/confirm')).length,0);
@@ -131,6 +143,20 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.ok(button('ZENIX AI'),'inventory access remains after report permissions change');
   assert.equal(container.querySelectorAll('.zenix-ai-answer').length,0,'hydrated role permission change erases old confidential reports');
   await submit('Yangilangan ruxsatlar');assert.equal(posts.at(-1).body.conversationId,null);
+  failChat=true;await submit('Qayta yuboriladigan erkin savol');
+  const failedRequest=posts.at(-1).body;
+  assert.ok(button('Qayta urinish'));
+  failChat=false;await act(async()=>container.querySelector('.zenix-ai-compose').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
+  assert.deepEqual(posts.at(-1).body,failedRequest,'uncertain retry retains original idempotency and conversation scope');
+  status.enabled=false;status.limit=0;status.remaining=0;status.planCode='START';
+  await act(async()=>store.setSelectedStoreId(store.currentStoreId===a?b:a));
+  assert.equal(container.querySelector('.zenix-ai-notice p').textContent,'ZENIX AI hozircha faollashtirilmagan.');
+  assert.equal(container.querySelector('.zenix-ai-notice a'),null,'provider OFF must not become a tariff upsell');
+  assert.equal(container.querySelector('#zenix-ai-question').disabled,true);
+  failStatus=true;await act(async()=>store.setSelectedStoreId(store.currentStoreId===a?b:a));
+  assert.ok(button('Holatni qayta yuklash'),'initial status failure can recover without losing panel');
+  failStatus=false;await act(async()=>button('Holatni qayta yuklash').click());
+  assert.equal(container.querySelector('.zenix-ai-notice p').textContent,'ZENIX AI hozircha faollashtirilmagan.');
  }finally{
   if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;
  }
