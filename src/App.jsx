@@ -28,7 +28,6 @@ const ActivityLog=lazy(()=>import("./pages/activityLog/ActivityLog"));
 const Shifts=lazy(()=>import("./pages/shifts/Shifts"));
 const Settings=lazy(()=>import("./pages/settings/Settings"));
 const Billing=lazy(()=>import("./pages/billing/Billing"));
-const ZenixAI=lazy(()=>import('./pages/ai/ZenixAI'));
 const PlatformAdmin=lazy(()=>import("./pages/platformAdmin/PlatformAdmin"));
 const HelpCenter=lazy(()=>import("./pages/help/HelpCenter"));
 const Profile=lazy(()=>import("./pages/profile/Profile"));
@@ -113,7 +112,7 @@ function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fall
   <Route path="seller-analytics" element={<PermissionAccess permission="moduleSellerAnalytics"><W><SellerAnalytics/></W></PermissionAccess>}/>
   <Route path="settings" element={<PermissionAccess permission="moduleSettings"><W><Settings/></W></PermissionAccess>}/>
   <Route path="billing" element={<PermissionAccess permission="moduleBilling"><Billing/></PermissionAccess>}/>
-  <Route path="ai" element={<W><ZenixAI/></W>}/>
+  <Route path="ai" element={<Navigate to="/?ai=open" replace/>}/>
   <Route path="help" element={<W><HelpCenter/></W>}/>
   <Route path="profile" element={<Profile/>}/>
   <Route path="platform" element={<Access roles={[ROLES.PLATFORM_ADMIN]}><PlatformAdmin/></Access>}/>
