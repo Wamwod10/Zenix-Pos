@@ -95,7 +95,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
   event.preventDefault();const text=question.trim();if(!text||busy||sending.current||blocked||!status||conversationExpired)return;
   sending.current=true;setBusy(true);setError('');follow.current=true;setNewReply(false);
   const body=retry.current?.question===text?retry.current:{requestId:crypto.randomUUID(),question:text,storeId:scope||null,conversationId:conversation.current};retry.current=body;
-  const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),25000);
+  const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),35000);
   try{
    const response=await api.post('/api/ai/chat',body,{signal:c.signal});
    if(mounted.current&&!c.signal.aborted){
