@@ -1,5 +1,5 @@
 import {useEffect,useRef} from 'react';
-import {FiMessageSquare} from 'react-icons/fi';
+import ZenixAIIcon from './ZenixAIIcon';
 
 // Keep the launcher in the right-hand lane, lifting it above visible controls.
 export function launcherPlacement({width,height,right=24,edge=24,size=48,obstacles=[]}){
@@ -40,6 +40,6 @@ export default function ZenixAILauncher({open,hidden,onOpen}){
   return()=>{window.cancelAnimationFrame(frame);observer?.disconnect();mutations?.disconnect();window.removeEventListener('resize',schedule);window.removeEventListener('scroll',schedule,true);window.visualViewport?.removeEventListener('resize',schedule)};
  },[open,hidden]);
  return <button ref={ref} className="zenix-ai-floating" type="button" onClick={onOpen} hidden={open||hidden} aria-label="ZENIX AI ochish" aria-expanded={open} aria-controls="zenix-ai-panel" aria-describedby="zenix-ai-launcher-tip">
-  <FiMessageSquare aria-hidden="true"/><span>AI</span><span role="tooltip" id="zenix-ai-launcher-tip">ZENIX AI suhbatini ochish</span>
+  <ZenixAIIcon/><span role="tooltip" id="zenix-ai-launcher-tip">ZENIX AI suhbatini ochish</span>
  </button>;
 }

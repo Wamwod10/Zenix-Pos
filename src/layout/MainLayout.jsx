@@ -7,7 +7,7 @@ import { useStore } from "../context/StoreContext";
 import { ROLE_LABELS, ROLES } from "../config/roles";
 import { BILLING_CONFIG } from "../config/billing";
 import {
-  FiMessageSquare, FiActivity, FiArchive, FiBarChart2, FiBell, FiBriefcase, FiCheck, FiChevronDown, FiCommand,
+  FiActivity, FiArchive, FiBarChart2, FiBell, FiBriefcase, FiCheck, FiChevronDown, FiCommand,
   FiCreditCard, FiGrid, FiHelpCircle, FiLogOut, FiMapPin, FiMenu, FiMoon, FiPackage, FiPlus, FiRefreshCw,
   FiSearch, FiSettings, FiShield, FiShoppingCart, FiSun, FiTruck, FiUserCheck, FiX, FiClock,
   FiCalendar, FiTrendingUp, FiWifiOff, FiMaximize2, FiMinimize2, FiUser,
@@ -17,6 +17,7 @@ import Modal from "../components/Modal";
 import AppErrorBoundary from "../components/AppErrorBoundary";
 import ZenixAI from '../pages/ai/ZenixAI';
 import ZenixAILauncher from '../components/ZenixAILauncher';
+import ZenixAIIcon from '../components/ZenixAIIcon';
 import { useFeedback } from "../context/FeedbackContext";
 import { api } from "../services/apiClient";
 import "./mainlayout.scss";
@@ -82,7 +83,9 @@ function MainLayout(){
   const location=useLocation();
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [aiOpen,setAiOpen]=useState(false);
-  const openAi=()=>{setAiOpen(true);requestAnimationFrame(()=>document.getElementById('zenix-ai-panel')?.scrollIntoView?.({block:'nearest'}))};
+  const aiPage=useRef(location.pathname);
+  useEffect(()=>{if(aiPage.current!==location.pathname){aiPage.current=location.pathname;setAiOpen(false)}},[location.pathname]);
+  const openAi=()=>{setAiOpen(true);setSidebarOpen(false)};
   const [search,setSearch]=useState("");
   const [searchOpen,setSearchOpen]=useState(false);
   const [notificationsOpen,setNotificationsOpen]=useState(false);
@@ -401,7 +404,7 @@ function MainLayout(){
           <div className="head-pop shortcut-pop"><button className="header-icon shortcut-trigger" onClick={()=>{setShortcutOpen(v=>!v);setToolsOpen(false);setStoreOpen(false);setQuickOpen(false);setNotificationsOpen(false);setProfileOpen(false)}} aria-label="Tezkor klaviatura"><FiCommand/></button>{shortcutOpen&&<div className="head-menu shortcuts-menu"><div className="head-menu-title">Tezkor klaviatura</div><div className="shortcut-row"><span>Global qidiruv</span><kbd>⌘ K</kbd></div><div className="shortcut-row"><span>POS qidiruv</span><kbd>F2</kbd></div><div className="shortcut-row"><span>To‘lov</span><kbd>F4</kbd></div><div className="shortcut-row"><span>Yopish</span><kbd>Esc</kbd></div></div>}</div>
 
           <div className="header-date" title={formatWorkspaceDate(clock,workspaceSettings.organization,{withTime:true})}><FiCalendar/><span>{headerDate}</span><i>·</i><strong>{headerTime}</strong></div>
-          {canOpenAi&&<button className="zenix-ai-trigger" type="button" onClick={openAi} aria-expanded={aiOpen} aria-controls="zenix-ai-panel" title="ZENIX AI suhbatini ochish"><FiMessageSquare aria-hidden="true"/><span>ZENIX AI</span></button>}
+          {canOpenAi&&<button className="zenix-ai-trigger" type="button" onClick={openAi} aria-expanded={aiOpen} aria-controls="zenix-ai-panel" title="ZENIX AI suhbatini ochish"><ZenixAIIcon/><span>ZENIX AI</span></button>}
           <button className="header-icon zenix-ai-mobile-overflow" onClick={toggleFullscreen} aria-label={isFullscreen?"To‘liq ekrandan chiqish":"To‘liq ekran"}>{isFullscreen?<FiMinimize2/>:<FiMaximize2/>}</button>
           <button className="header-icon zenix-ai-mobile-overflow" onClick={()=>go(`/help?from=${encodeURIComponent(location.pathname)}`)} aria-label="Yordam"><FiHelpCircle/></button>
           <button className="header-icon" onClick={()=>setUiPreferences({theme:themeIsDark?"light":"dark"})} aria-label="Mavzu">{themeIsDark?<FiSun/>:<FiMoon/>}</button>
@@ -413,7 +416,7 @@ function MainLayout(){
       </header>
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
       {canOpenAi&&<><ZenixAILauncher open={aiOpen} hidden={Boolean(guideSteps.length)} onOpen={openAi}/><AppErrorBoundary><ZenixAI key={aiIdentity} open={aiOpen} onClose={()=>setAiOpen(false)}/></AppErrorBoundary></>}
-      <main className="content">
+      <main className="content" hidden={canOpenAi&&aiOpen}>
         {!isPlatform&&subscriptionAccess.readOnly&&<div className="pro-alert warning" role="status"><FiLock/><div><strong>Faqat ko‘rish rejimi</strong><span>{subscriptionAccess.reason==='BILLING_HOLD'?'Billing cheklovi bor.':'Trial yoki obuna muddati tugagan.'} Ma’lumotlaringiz saqlangan. Ko‘rish va to‘lovga ruxsat bor; biznes amallari bloklangan.</span>{hasPermission('moduleBilling')&&<NavLink className="pro-btn secondary" to="/billing">Obunani faollashtirish</NavLink>}</div></div>}
         <AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary>
       </main>

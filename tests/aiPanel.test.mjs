@@ -51,12 +51,15 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(container.querySelectorAll('.menu a[href="/ai"]').length,0,'AI is absent from sidebar');
   await act(async()=>button('ZENIX AI').click());
   assert.equal(container.querySelectorAll('[aria-label="ZENIX AI yordamchi"]').length,1);
+  assert.ok(container.querySelector('#zenix-ai-panel').classList.contains('zenix-ai-workspace'),'AI opens as a full workspace');
+  assert.equal(container.querySelector('main.content').hidden,true,'underlying page is hidden while AI occupies the workspace');
   assert.ok(container.querySelector('.header-date').nextElementSibling.classList.contains('zenix-ai-trigger'),'topbar AI sits beside date/time');
   assert.ok(container.querySelector('.zenix-ai-trigger svg'),'topbar launcher has a compact icon');
   assert.equal(container.querySelectorAll('.zenix-ai-suggestions button').length,10,'server examples remain suggestions');
   await type('Yuborilmagan savol');
   await act(async()=>container.querySelector('[aria-label="AI panelini minimallashtirish"]').click());
   assert.equal(container.querySelector('#zenix-ai-panel').hidden,true);
+  assert.equal(container.querySelector('main.content').hidden,false,'closing AI restores the existing page');
   await act(async()=>container.querySelector('[aria-label="ZENIX AI ochish"]').click());
   assert.equal(container.querySelector('#zenix-ai-question').value,'Yuborilmagan savol','minimize preserves draft');
   await act(async()=>container.querySelector('#zenix-ai-panel').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
@@ -71,6 +74,8 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(posts[1].body.conversationId,'33333333-3333-4333-8333-333333333333');
   assert.equal('messages' in posts[1].body,false);
   await act(async()=>container.querySelector('a[href="/inventory"]').click());
+  assert.equal(container.querySelector('#zenix-ai-panel').hidden,true,'navigation returns to the selected POS section');
+  await act(async()=>button('ZENIX AI').click());
   assert.match(container.querySelector('.zenix-ai-messages').textContent,/Omborga 5 kg/);
   await act(async()=>container.querySelector('[aria-label="AI panelini yopish"]').click());
   await act(async()=>container.querySelector('[aria-label="ZENIX AI ochish"]').click());
