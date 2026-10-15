@@ -36,7 +36,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const {confirm}=useFeedback();
  const [status,setStatus]=useState(null),[statusLoading,setStatusLoading]=useState(true),[question,setQuestion]=useState(''),[messages,setMessages]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now);
  const mounted=useRef(false),controller=useRef(null),retry=useRef(null),sending=useRef(false),bottom=useRef(null),conversation=useRef(null),actionLocks=useRef(new Set()),actionControllers=useRef(new Set());
- const input=useRef(null),scroller=useRef(null),follow=useRef(true),previousCount=useRef(0),[newReply,setNewReply]=useState(false),[resetBusy,setResetBusy]=useState(false);
+ const input=useRef(null),scroller=useRef(null),follow=useRef(true),previousCount=useRef(0),[newReply,setNewReply]=useState(false),[resetBusy,setResetBusy]=useState(false),[conversationExpired,setConversationExpired]=useState(false);
  const refresh=useCallback(async signal=>{if(mounted.current)setStatusLoading(true);try{const data=await api.get('/api/ai/status',{signal});if(mounted.current&&!signal?.aborted)setStatus(data)}finally{if(mounted.current&&!signal?.aborted)setStatusLoading(false)}},[]);
  async function retryStatus(){setError('');controller.current?.abort();const c=new AbortController();controller.current=c;try{await refresh(c.signal)}catch(e){if(mounted.current&&!c.signal.aborted)setError(e.message)}}
  useEffect(()=>{mounted.current=true;const c=new AbortController();refresh(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>{mounted.current=false;c.abort();controller.current?.abort();actionControllers.current.forEach(c=>c.abort())}},[refresh]);
@@ -52,8 +52,13 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
   if(busy||unsettled||pending||resetBusy)return;
   setResetBusy(true);
   try{if(hasContext&&!await confirm({title:'Yangi suhbat boshlaysizmi?',message:'Joriy suhbat va yozilmagan matn tozalanadi. Bu amalni ortga qaytarib bo‘lmaydi.',confirmLabel:'Yangi suhbat boshlash',tone:'warning'}))return;
-   if(!mounted.current)return;conversation.current=null;retry.current=null;setMessages([]);setQuestion('');setError('');follow.current=true;setNewReply(false);input.current?.focus();
+   if(!mounted.current)return;conversation.current=null;retry.current=null;setMessages([]);setQuestion('');setError('');setConversationExpired(false);follow.current=true;setNewReply(false);input.current?.focus();
   }finally{if(mounted.current)setResetBusy(false)}
+ }
+ function restartExpiredConversation(){
+  if(busy||sending.current)return;
+  // Preserve action cards/tokens and draft. Never replay a chat or warehouse action.
+  conversation.current=null;retry.current=null;setConversationExpired(false);setError('');input.current?.focus();
  }
  async function changeScope(value){
   if(busy||pending||unsettled||value===scope)return;
@@ -87,7 +92,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
   }finally{clearTimeout(timer);actionControllers.current.delete(c);actionLocks.current.delete(action.id)}
  }
  async function submit(event){
-  event.preventDefault();const text=question.trim();if(!text||busy||sending.current||blocked||!status)return;
+  event.preventDefault();const text=question.trim();if(!text||busy||sending.current||blocked||!status||conversationExpired)return;
   sending.current=true;setBusy(true);setError('');follow.current=true;setNewReply(false);
   const body=retry.current?.question===text?retry.current:{requestId:crypto.randomUUID(),question:text,storeId:scope||null,conversationId:conversation.current};retry.current=body;
   const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),25000);
@@ -102,7 +107,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     });
     setQuestion('');retry.current=null;
    }
-  }catch(e){if(mounted.current&&!c.signal.aborted){setError(aiErrorMessage(e));if(e.status&&e.code!=='AI_REQUEST_PENDING')retry.current=null}else if(mounted.current)setError('AI javobi kechikdi. Ayni savolni qayta yuboring.')}
+  }catch(e){if(mounted.current&&!c.signal.aborted){setError(aiErrorMessage(e));if(e.code==='AI_CONVERSATION_EXPIRED')setConversationExpired(true);if(e.status&&e.code!=='AI_REQUEST_PENDING')retry.current=null}else if(mounted.current)setError('AI javobi kechikdi. Ayni savolni qayta yuboring.')}
   finally{clearTimeout(timer);sending.current=false;if(mounted.current){setBusy(false);refresh().catch(()=>{})}}
  }
  return <>
@@ -143,7 +148,8 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
    </div>
    {newReply&&<button className="zenix-ai-new-reply" type="button" onClick={()=>{follow.current=true;scroller.current.scrollTop=scroller.current.scrollHeight;setNewReply(false)}}>Yangi javobga o‘tish ↓</button>}
    {error&&<p role="alert" className="zenix-ai-error">{error}</p>}
-   <form onSubmit={submit} className="zenix-ai-compose" aria-busy={busy}><label htmlFor="zenix-ai-question" className="zenix-ai-sr-only">Savolingiz</label><textarea ref={input} id="zenix-ai-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&!event.repeat){event.preventDefault();event.currentTarget.form.requestSubmit()}}} maxLength={1000} rows={2} disabled={busy||Boolean(blocked)||!status} placeholder="Biznesingiz haqida savol yoki buyruq yozing..." aria-describedby="zenix-ai-composer-help"/><div className="zenix-ai-compose-footer"><small id="zenix-ai-composer-help">Enter — yuborish <span>· Shift + Enter — yangi qator</span></small><button className="pro-btn primary" type="submit" aria-label={busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'} title={error?'Qayta urinish':'Yuborish'} disabled={busy||Boolean(blocked)||!status||!question.trim()}><FiArrowUp aria-hidden="true"/><span className="zenix-ai-sr-only">{busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'}</span></button></div></form>
+   {conversationExpired&&<button type="button" className="pro-btn" disabled={busy} onClick={restartExpiredConversation}>Yangi suhbatda davom etish</button>}
+   <form onSubmit={submit} className="zenix-ai-compose" aria-busy={busy}><label htmlFor="zenix-ai-question" className="zenix-ai-sr-only">Savolingiz</label><textarea ref={input} id="zenix-ai-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&!event.repeat){event.preventDefault();event.currentTarget.form.requestSubmit()}}} maxLength={1000} rows={2} disabled={busy||Boolean(blocked)||!status} placeholder="Biznesingiz haqida savol yoki buyruq yozing..." aria-describedby="zenix-ai-composer-help"/><div className="zenix-ai-compose-footer"><small id="zenix-ai-composer-help">Enter — yuborish <span>· Shift + Enter — yangi qator</span></small><button className="pro-btn primary" type="submit" aria-label={busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'} title={error?'Qayta urinish':'Yuborish'} disabled={busy||conversationExpired||Boolean(blocked)||!status||!question.trim()}><FiArrowUp aria-hidden="true"/><span className="zenix-ai-sr-only">{busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'}</span></button></div></form>
    <small className="zenix-ai-safety"><FiShield aria-hidden="true"/>ZENIX AI amallarni bajarishdan oldin tasdiqlashingizni so‘raydi.</small>
   </div>
  </>;
