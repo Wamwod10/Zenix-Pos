@@ -18,7 +18,7 @@ try{
  const topics=['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'];
  const questions=['Bugun qancha savdo bo‘ldi?','Eng ko‘p sotilgan mahsulotlar qaysilar?','Qaysi mahsulotlar kamaymoqda?','Qaysi tovarlar sotilmayapti?','Qaysi mahsulotlar foydali?','Xarajatlar holati qanday?','Mijozlar qarzdorligi qancha?','Ta’minotchilar qarzi qancha?','Filiallar savdosini solishtir.','Biznesim uchun tavsiyalar ber.'];
  let status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:topics.map((topic,i)=>({topic,question:questions[i]}))};
- let confirmations=0,chats=0,actionStatus='PENDING',responseDelay=0;
+ let confirmations=0,chats=0,actionStatus='PENDING',responseDelay=0,expireNext=false,lastChatBody;
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
@@ -31,8 +31,11 @@ try{
   if(p==='/api/ai/status')data=status;
   if(p==='/api/ai/chat'){
    chats++;
+   lastChatBody=route.request().postDataJSON();
+   if(expireNext){expireNext=false;return route.fulfill({status:410,contentType:'application/json',body:JSON.stringify({error:{code:'AI_CONVERSATION_EXPIRED',message:'expired'}})})}
    data={conversationId:'33333333-3333-4333-8333-333333333333',answer:'Test ma’lumotlari asosida Guruch kirimi tayyorlandi. Quyidagi ma’lumotlarni tekshiring. Tasdiqlashsiz qoldiq o‘zgarmaydi.',insights:[],actions:[{id:'test-action',type:'stock_receipt',status:actionStatus,expiresAt:new Date(Date.now()+60000).toISOString(),confirmationToken:'synthetic-test-token',preview:{productName:'Guruch (test)',warehouseName:'Asosiy ombor',storeName:'Asosiy filial',quantity:10,unit:'kg',costPrice:12000}}]};
    if(route.request().postDataJSON().question.includes('uzun'))data={...data,answer:'Test hisobotining izohi.\n'.repeat(80),actions:[]};
+   if(lastChatBody.question==='Yangi erkin suhbat')data={...data,actions:[]};
    if(responseDelay)await new Promise(r=>setTimeout(r,responseDelay));
   }
   if(p.endsWith('/confirm')){confirmations++;actionStatus='CONFIRMED';await new Promise(r=>setTimeout(r,120));data={id:'test-action',status:actionStatus,result:{receiptId:'synthetic-receipt',before:0,after:10,delta:10,unit:'kg'}};}
@@ -75,6 +78,12 @@ try{
  await page.locator('.zenix-ai-action').waitFor();assert.equal(confirmations,0);
  await openMode('expanded');await openMode('compact');assert.equal(await page.locator('.zenix-ai-action').count(),1);
  await page.screenshot({path:path.join(output,'dark-compact-action-390.png')});
+ expireNext=true;const beforeExpired=chats;
+ await page.locator('#zenix-ai-question').fill('Davom ettir');await page.locator('#zenix-ai-question').press('Enter');
+ await page.getByRole('button',{name:'Yangi suhbatda davom etish',exact:true}).waitFor();assert.equal(chats,beforeExpired+1);assert.equal(confirmations,0);assert.equal(await page.locator('.zenix-ai-action').count(),1);
+ await page.getByRole('button',{name:'Yangi suhbatda davom etish',exact:true}).click();assert.equal(chats,beforeExpired+1);assert.equal(await page.locator('#zenix-ai-question').inputValue(),'Davom ettir');
+ await page.locator('#zenix-ai-question').fill('Yangi erkin suhbat');await page.locator('#zenix-ai-question').press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#zenix-ai-question').value==='');assert.equal(lastChatBody.conversationId,null);assert.equal(confirmations,0);assert.equal(await page.locator('.zenix-ai-action').count(),1);
  const confirm=page.getByRole('button',{name:'Tasdiqlash',exact:true});await confirm.click();await page.locator('.zenix-ai-action').filter({hasText:'Bajarildi'}).waitFor();assert.equal(confirmations,1);
  await page.setViewportSize({width:1440,height:900});await openMode('expanded');
  await page.screenshot({path:path.join(output,'dark-expanded-action-1440.png')});

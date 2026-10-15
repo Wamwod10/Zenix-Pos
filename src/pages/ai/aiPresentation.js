@@ -39,7 +39,7 @@ export function aiErrorMessage(error){
   AI_TOOL_LIMIT:'Bu savol uchun juda ko‘p tekshiruv kerak bo‘ldi. Uni kichikroq savollarga bo‘ling.',
   AI_QUOTA_EXCEEDED:'Oylik muvaffaqiyatli AI so‘rovlari limiti tugagan.',
   AI_FORBIDDEN:'Bu biznes ma’lumotlarini ko‘rish uchun ruxsatingiz yo‘q.',
-  AI_CONVERSATION_EXPIRED:'Suhbat muddati tugagan. Davom etish uchun Yangi suhbat tugmasini bosing.',
+  AI_CONVERSATION_EXPIRED:'Suhbat muddati tugagan. Quyidagi tugma orqali yangi suhbatda davom eting. Yozilgan matn va operatsiya kartalari saqlanadi; amallar avtomatik takrorlanmaydi.',
   AI_CONVERSATION_FORBIDDEN:'Suhbat sessiyasi, filial doirasi yoki ruxsatlar o‘zgargan. Yangi suhbat boshlang.',
  };
  return messages[error?.code]||error?.message||'AI javobini olib bo‘lmadi. Qayta urinib ko‘ring.';
