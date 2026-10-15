@@ -7,7 +7,7 @@ import {useAuth} from '../../context/AuthContext';
 import {PremiumSelect} from '../../components/Ui';
 import ZenixAIIcon from '../../components/ZenixAIIcon';
 import {useFeedback} from '../../context/FeedbackContext';
-import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports} from './aiPresentation';
+import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks} from './aiPresentation';
 import './zenixAi.scss';
 
 const actionLabels={PENDING:'Tasdiqlash kutilmoqda',EXECUTING:'Bajarilmoqda…',SUCCEEDED:'Bajarildi',CONFIRMED:'Bajarildi',FAILED:'Bajarilmadi',CANCELLED:'Bekor qilindi',EXPIRED:'Tasdiqlash muddati tugadi',STALE:'Ma’lumot o‘zgargan. Yangi kirim taklifini so‘rang.'};
@@ -32,6 +32,9 @@ function ActionCard({action,writesEnabled,onAction,now}){
 }
 
 function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
+ const [progress,setProgress]=useState(null),progressPoll=useRef(null);
+ const stopProgress=useCallback(()=>{const poll=progressPoll.current;if(poll){poll.active=false;clearTimeout(poll.timer);poll.controller?.abort();progressPoll.current=null}},[]);
+ useEffect(()=>()=>stopProgress(),[stopProgress]);
  const {currentUser}=useAuth(),{hasPermission,reloadStore}=useStore();
  const {confirm}=useFeedback();
  const [status,setStatus]=useState(null),[statusLoading,setStatusLoading]=useState(true),[question,setQuestion]=useState(''),[messages,setMessages]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now);
@@ -91,11 +94,27 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
    }
   }finally{clearTimeout(timer);actionControllers.current.delete(c);actionLocks.current.delete(action.id)}
  }
+ function startProgress(requestId){
+  stopProgress();setProgress(null);
+  const poll={active:true,timer:null,controller:null};progressPoll.current=poll;
+  const read=async()=>{
+   if(!poll.active||!mounted.current)return;
+   const c=new AbortController();poll.controller=c;
+   try{
+    const data=await api.get(`/api/ai/requests/${encodeURIComponent(requestId)}/progress`,{signal:c.signal});
+    if(!poll.active||!mounted.current||c.signal.aborted)return;
+    setProgress(data?.phase||null);
+    if(['complete','failed'].includes(data?.phase)){stopProgress();return}
+   }catch{if(!poll.active||!mounted.current)return;setProgress(null);stopProgress();return}
+   if(poll.active)poll.timer=setTimeout(read,1000);
+  };
+  poll.timer=setTimeout(read,1000);
+ }
  async function submit(event){
   event.preventDefault();const text=question.trim();if(!text||busy||sending.current||blocked||!status||conversationExpired)return;
   sending.current=true;setBusy(true);setError('');follow.current=true;setNewReply(false);
   const body=retry.current?.question===text?retry.current:{requestId:crypto.randomUUID(),question:text,storeId:scope||null,conversationId:conversation.current};retry.current=body;
-  const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),35000);
+  const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),35000);startProgress(body.requestId);
   try{
    const response=await api.post('/api/ai/chat',body,{signal:c.signal});
    if(mounted.current&&!c.signal.aborted){
@@ -108,7 +127,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     setQuestion('');retry.current=null;
    }
   }catch(e){if(mounted.current&&!c.signal.aborted){setError(aiErrorMessage(e));if(e.code==='AI_CONVERSATION_EXPIRED')setConversationExpired(true);if(e.status&&e.code!=='AI_REQUEST_PENDING')retry.current=null}else if(mounted.current)setError('AI javobi kechikdi. Ayni savolni qayta yuboring.')}
-  finally{clearTimeout(timer);sending.current=false;if(mounted.current){setBusy(false);refresh().catch(()=>{})}}
+  finally{stopProgress();clearTimeout(timer);sending.current=false;if(mounted.current){setBusy(false);refresh().catch(()=>{})}}
  }
  return <>
   <header className="zenix-ai-panel-head">
@@ -138,12 +157,13 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
    {messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}
    <div className="zenix-ai-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Suhbat xabarlari">
     {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
-     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from} — {report.to} · {report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}</small><strong>{f.value===null?'Ma’lumot yetarli emas':`${f.value}${f.unit==='UZS'?' so‘m':f.unit==='count'?' ta':''}`}</strong></div>)}</div>
-     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
+     {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
+     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
+     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}{(t.from||t.to)&&<> · {t.from||"—"} — {t.to||"—"}</>}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
      {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
      {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>)}
     </div></article>)}
-    {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>Biznes ma’lumotlari tekshirilmoqda…</span></div>}<div ref={bottom}/>
+    {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>{aiProgressLabel(progress)}</span></div>}<div ref={bottom}/>
    </div>
    </div>
    {newReply&&<button className="zenix-ai-new-reply" type="button" onClick={()=>{follow.current=true;scroller.current.scrollTop=scroller.current.scrollHeight;setNewReply(false)}}>Yangi javobga o‘tish ↓</button>}
