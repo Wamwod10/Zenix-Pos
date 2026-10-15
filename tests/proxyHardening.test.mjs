@@ -27,6 +27,27 @@ const withEnvironment = async (url, work) => {
   }
 };
 
+test('AI proxy outlives backend deadline and preserves its timeout response without retrying POST',async t=>{
+ await withEnvironment('https://pos.example.test',async()=>{
+  const deadlines=[];let calls=0;
+  t.mock.method(AbortSignal,'timeout',ms=>{deadlines.push(ms);return new AbortController().signal});
+  t.mock.method(globalThis,'fetch',async()=>{calls++;return Response.json({ok:false,error:{code:'AI_TIMEOUT'}},{status:503})});
+  const res=mockResponse();await handler(request({path:'ai/chat',method:'POST'}),res);
+  assert.deepEqual(deadlines,[30000]);assert.equal(calls,1);assert.equal(res.statusCode,503);assert.equal(JSON.parse(res.payload).error.code,'AI_TIMEOUT');
+  await handler(request({path:'products'}),mockResponse());assert.deepEqual(deadlines,[30000,20000]);
+ });
+});
+
+test('AI proxy deadline is a distinct timeout, not generic backend unavailable',async t=>{
+ await withEnvironment('https://pos.example.test',async()=>{
+  const controller=new AbortController();controller.abort();let calls=0;
+  t.mock.method(AbortSignal,'timeout',()=>controller.signal);
+  t.mock.method(globalThis,'fetch',async()=>{calls++;throw new DOMException('private details','TimeoutError')});
+  const res=mockResponse();await handler(request({path:'ai/chat',method:'POST'}),res);
+  assert.equal(calls,1);assert.equal(res.statusCode,504);assert.equal(JSON.parse(res.payload).error.code,'AI_TIMEOUT');assert.ok(!res.payload.toString().includes('private details'));
+ });
+});
+
 test('proxy retries a transient read connection failure but never replays writes', async()=>{
   await withEnvironment('https://pos.example.test',async()=>{
     const previous=globalThis.fetch;

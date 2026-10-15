@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {aiState,aiSuggestions,shouldFollowChat} from '../src/pages/ai/aiPresentation.js';
+import {aiState,aiSuggestions,shouldFollowChat,aiProgressLabel,aiMessageBlocks,aiFactValue} from '../src/pages/ai/aiPresentation.js';
+
+test('quantity facts retain units and unknown quantities stay unknown',()=>{
+ assert.equal(aiFactValue({value:'1.627',unit:'kg'}),'1.627 kg');
+ assert.equal(aiFactValue({value:'2',unit:'dona'}),'2 dona');
+ assert.equal(aiFactValue({value:null,unit:'kg'}),'Ma’lumot yetarli emas');
+});
+
+test('progress labels use only recognized server phases',()=>{
+ for(const phase of ['understanding','reading_sales','reading_inventory','preparing_action','composing','verifying','complete','failed'])assert.notEqual(aiProgressLabel(phase),'Javob tayyorlanmoqda…');
+ for(const phase of [null,undefined,'invented','toString'])assert.equal(aiProgressLabel(phase),'Javob tayyorlanmoqda…');
+});
+test('message blocks safely map supported text and facts while preserving legacy messages',()=>{
+ assert.deepEqual(aiMessageBlocks({answer:'legacy'}),[]);
+ assert.deepEqual(aiMessageBlocks({blocks:{type:'facts'}}),[]);
+ assert.deepEqual(aiMessageBlocks({blocks:[null,{type:'html',text:'unsafe'},{type:'paragraph',text:'<b>plain</b>'},{type:'facts',facts:[{id:'a',text:'Sales: 5',html:'ignored'},{id:1,text:'bad'},null]},{type:'recommendation',text:4}]}),[{type:'paragraph',text:'<b>plain</b>',facts:[]},{type:'facts',text:'',facts:[{id:'a',text:'Sales: 5'}]}]);
+});
 
 test('AI status uses server state and keeps provider OFF ahead of tariff and errors',()=>{
  assert.equal(aiState({enabled:false,limit:0,writable:false},true,'offline').key,'off');

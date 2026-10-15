@@ -18,7 +18,7 @@ try{
  const topics=['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'];
  const questions=['Bugun qancha savdo bo‘ldi?','Eng ko‘p sotilgan mahsulotlar qaysilar?','Qaysi mahsulotlar kamaymoqda?','Qaysi tovarlar sotilmayapti?','Qaysi mahsulotlar foydali?','Xarajatlar holati qanday?','Mijozlar qarzdorligi qancha?','Ta’minotchilar qarzi qancha?','Filiallar savdosini solishtir.','Biznesim uchun tavsiyalar ber.'];
  let status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:topics.map((topic,i)=>({topic,question:questions[i]}))};
- let confirmations=0,chats=0,actionStatus='PENDING',responseDelay=0,expireNext=false,lastChatBody;
+ let confirmations=0,chats=0,actionStatus='PENDING',responseDelay=0,expireNext=false,lastChatBody,progressReads=0,progressUnavailable=false;
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
@@ -29,6 +29,11 @@ try{
   if(p==='/api/settings')data={selectedStoreId:store};
   if(p==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
   if(p==='/api/ai/status')data=status;
+  if(p.endsWith('/progress')){
+   progressReads++;
+   if(progressUnavailable)return route.fulfill({status:404,json:{error:{code:'AI_PROGRESS_UNAVAILABLE'}}});
+   data={phase:'reading_inventory'};
+  }
   if(p==='/api/ai/chat'){
    chats++;
    lastChatBody=route.request().postDataJSON();
@@ -36,6 +41,7 @@ try{
    data={conversationId:'33333333-3333-4333-8333-333333333333',answer:'Test ma’lumotlari asosida Guruch kirimi tayyorlandi. Quyidagi ma’lumotlarni tekshiring. Tasdiqlashsiz qoldiq o‘zgarmaydi.',insights:[],actions:[{id:'test-action',type:'stock_receipt',status:actionStatus,expiresAt:new Date(Date.now()+60000).toISOString(),confirmationToken:'synthetic-test-token',preview:{productName:'Guruch (test)',warehouseName:'Asosiy ombor',storeName:'Asosiy filial',quantity:10,unit:'kg',costPrice:12000}}]};
    if(route.request().postDataJSON().question.includes('uzun'))data={...data,answer:'Test hisobotining izohi.\n'.repeat(80),actions:[]};
    if(lastChatBody.question==='Yangi erkin suhbat')data={...data,actions:[]};
+   if(lastChatBody.question==='Tuzilgan javob')data={...data,actions:[],blocks:[{type:'paragraph',text:'Hisobot izohi'},{type:'facts',text:'Tasdiqlangan faktlar',facts:[{id:'sales',text:'Haftalik savdo: 5'},{id:'stock',text:'Joriy qoldiq: 10 <script>unsafe</script>'}]},{type:'recommendation',text:'Qoldiqni tekshiring'}],report:{storeId:store,facts:[{id:'profit',label:'Foyda',value:5,from:'2026-10-01',to:'2026-10-07'}],tables:[{title:'Joriy ombor',from:'2026-10-15',to:'2026-10-15',columns:['Qoldiq'],rows:[[10]]}]}};
    if(responseDelay)await new Promise(r=>setTimeout(r,responseDelay));
   }
   if(p.endsWith('/confirm')){confirmations++;actionStatus='CONFIRMED';await new Promise(r=>setTimeout(r,120));data={id:'test-action',status:actionStatus,result:{receiptId:'synthetic-receipt',before:0,after:10,delta:10,unit:'kg'}};}
@@ -95,6 +101,20 @@ try{
  await page.waitForFunction(()=>document.querySelectorAll('.zenix-ai-answer').length===2);
  assert.ok(await page.locator('.zenix-ai-scroll').evaluate(n=>n.scrollTop<50),'a delayed reply preserves readers’ position');
  await page.getByRole('button',{name:'Yangi javobga o‘tish ↓',exact:true}).click();responseDelay=0;
+ responseDelay=2200;
+ await page.locator('#zenix-ai-question').fill('Tuzilgan javob');await page.locator('#zenix-ai-question').press('Enter');
+ await page.locator('.zenix-ai-thinking').filter({hasText:'Ombor ma’lumotlari o‘qilmoqda…'}).waitFor();
+ await page.getByText('Haftalik savdo: 5',{exact:true}).waitFor();
+ assert.equal(await page.locator('.zenix-ai-answer li').filter({hasText:'Joriy qoldiq: 10 <script>unsafe</script>'}).count(),1);
+ assert.equal(await page.locator('.zenix-ai-answer script').count(),0);
+ assert.ok(await page.locator('.zenix-ai-facts').innerText().then(t=>t.includes('2026-10-01')&&t.includes('2026-10-07')));
+ assert.ok(await page.locator('.zenix-ai-table caption').innerText().then(t=>t.includes('2026-10-15')));
+ const stoppedReads=progressReads;await page.waitForTimeout(1200);assert.equal(progressReads,stoppedReads,'polling stops after chat completion');
+ progressUnavailable=true;
+ await page.locator('#zenix-ai-question').fill('Fallback uzun hisobot');await page.locator('#zenix-ai-question').press('Enter');
+ await page.waitForTimeout(1200);assert.equal(await page.locator('.zenix-ai-thinking').innerText(),'Javob tayyorlanmoqda…');
+ const unavailableReads=progressReads;await page.waitForTimeout(1200);assert.equal(progressReads,unavailableReads,'unavailable progress stops polling');
+ assert.equal(confirmations,1,'progress reads never duplicate action confirmation');responseDelay=0;
  await page.locator('#zenix-ai-question').fill('x'.repeat(1000));
  assert.ok(await page.locator('#zenix-ai-question').evaluate(n=>n.getBoundingClientRect().height<=160));
  await page.setViewportSize({width:360,height:520});await openMode('compact');

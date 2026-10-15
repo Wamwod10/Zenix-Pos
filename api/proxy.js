@@ -81,10 +81,13 @@ export default async function handler(req,res){
   if(req.headers.host)headers.set("x-forwarded-host",String(req.headers.host));
   headers.set("x-forwarded-proto","https");
 
+  // Backend AI work is bounded at 20s; allow time for its accounting and error
+  // response to cross the network. Other POS routes retain their existing limit.
+  const aiChat=suffix==='/api/ai/chat';
+  const signal=AbortSignal.timeout(aiChat?30_000:20_000);
   try{
     const body=await readRequestBody(req);
     const method=req.method||"GET";
-    const signal=AbortSignal.timeout(20_000);
     const options={method,headers,body,redirect:"manual",signal};
     let upstream;
     try{upstream=await fetch(target,options)}catch(error){
@@ -113,9 +116,10 @@ export default async function handler(req,res){
   }catch(error){
     const candidate=String(error?.cause?.code||error?.code||"").trim();
     const reason=/^[A-Z][A-Z0-9_]{1,63}$/.test(candidate)?candidate:"UPSTREAM_REQUEST_FAILED";
-    res.statusCode=502;
+    const aiTimeout=aiChat&&signal.aborted;
+    res.statusCode=aiTimeout?504:502;
     res.setHeader("content-type","application/json; charset=utf-8");
     res.setHeader("cache-control","no-store");
-    return res.end(JSON.stringify({ok:false,error:{code:"BACKEND_UNAVAILABLE",message:"Zenix POS backend bilan bog‘lanib bo‘lmadi",details:{reason}}}));
+    return res.end(JSON.stringify({ok:false,error:{code:aiTimeout?'AI_TIMEOUT':"BACKEND_UNAVAILABLE",message:aiTimeout?'AI javobini kutish vaqti tugadi.':"Zenix POS backend bilan bog‘lanib bo‘lmadi",details:{reason}}}));
   }
 }

@@ -1,4 +1,20 @@
 // Presentation only. The server remains authoritative for all access and writes.
+export function aiFactValue(fact){
+ if(fact.value===null)return 'Ma’lumot yetarli emas';
+ const unit=typeof fact.unit==='string'?fact.unit:'';
+ return `${fact.value}${unit==='UZS'?' so‘m':unit==='count'?' ta':unit?' '+unit:''}`;
+}
+export function aiProgressLabel(phase){
+ const labels={understanding:'Savol tushunilmoqda…',reading_sales:'Savdo ma’lumotlari o‘qilmoqda…',reading_inventory:'Ombor ma’lumotlari o‘qilmoqda…',preparing_action:'Amal taklifi tayyorlanmoqda…',composing:'Javob yozilmoqda…',verifying:'Javob tekshirilmoqda…',complete:'Javob tayyor',failed:'So‘rov bajarilmadi'};
+ return Object.hasOwn(labels,phase)?labels[phase]:'Javob tayyorlanmoqda…';
+}
+export function aiMessageBlocks(message){
+ if(!Array.isArray(message?.blocks))return [];
+ return message.blocks.filter(block=>block&&['paragraph','facts','recommendation'].includes(block.type)).map(block=>({
+  type:block.type,text:typeof block.text==='string'?block.text:'',
+  facts:Array.isArray(block.facts)?block.facts.filter(f=>f&&typeof f.id==='string'&&typeof f.text==='string').map(f=>({id:f.id,text:f.text})):[],
+ })).filter(block=>block.text||block.facts.length);
+}
 export function aiState(status,busy=false,error=''){
  if(status?.enabled===false)return {key:'off',label:'AI o‘chirilgan',message:'ZENIX AI hozircha faollashtirilmagan.'};
  if(!status)return error?{key:'error',label:'Vaqtincha mavjud emas',message:'AI holatini olib bo‘lmadi. Qayta urinib ko‘ring.'}:{key:'loading',label:'Holat tekshirilmoqda',message:''};
