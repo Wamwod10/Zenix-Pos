@@ -93,9 +93,19 @@ try{
  await page.locator('#zenix-ai-question').press('Escape');assert.ok(await panel.isHidden());
  await page.setViewportSize({width:720,height:450});await page.locator('.zenix-ai-trigger').click();
  assert.ok(await page.locator('.zenix-ai-compose').evaluate(n=>n.getBoundingClientRect().bottom<=innerHeight),'200% equivalent CSS viewport keeps composer in view');
- status={...status,enabled:false,limit:0,remaining:0};await page.reload();await page.locator('.zenix-ai-trigger').click();
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/sales`);
+ await page.evaluate(()=>document.body.classList.add('dark-mode'));
+ await page.locator('.checkout-primary').waitFor();await page.locator('.zenix-ai-trigger').click();await openMode('compact');
+ const checkout=await page.evaluate(()=>{const p=document.querySelector('#zenix-ai-panel').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,overlap:[...document.querySelectorAll('.checkout-primary,.payment-grid button')].some(n=>{const r=n.getBoundingClientRect();return r.width>0&&r.height>0&&r.right>p.left&&r.left<p.right&&r.bottom>p.top&&r.top<p.bottom})}});
+ assert.equal(checkout.overflow,false,'actual sales screen has no horizontal overflow when docked');assert.equal(checkout.overlap,false,'actual checkout and payment buttons are outside the drawer');
+ await page.screenshot({path:path.join(output,'dark-compact-checkout-1440.png')});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'AI panelini yopish',exact:true}).click();
+ const launcherOverlap=await page.evaluate(()=>{const p=document.querySelector('.zenix-ai-floating').getBoundingClientRect();return [...document.querySelectorAll('.pos-mobile-cart-bar,.mobile-bottom-nav,.checkout-primary')].some(n=>{const r=n.getBoundingClientRect();return r.width>0&&r.height>0&&r.right>p.left&&r.left<p.right&&r.bottom>p.top&&r.top<p.bottom})});
+ assert.equal(launcherOverlap,false,'launcher leaves mobile checkout/navigation controls clear');
+ status={...status,enabled:false,limit:0,remaining:0};await page.setViewportSize({width:360,height:844});await page.reload();await page.locator('.zenix-ai-trigger').click();
  await page.getByText('ZENIX AI hozircha faollashtirilmagan.',{exact:true}).waitFor();assert.ok(await page.locator('#zenix-ai-question').isDisabled());assert.equal(await page.locator('.zenix-ai-notice a').count(),0);
  await page.screenshot({path:path.join(output,'provider-off-360.png')});
  assert.deepEqual(errors,[]);
- console.log(`PASS: ${screens} light/dark viewport/mode screenshots; composer, suggestions, shared actions, reset confirmation, short viewport, OFF state, zero page errors.`);
+ console.log(`PASS: ${screens} light/dark viewport/mode screenshots; composer, suggestions, shared actions, reset confirmation, reader-safe scroll, focus/inert, short/zoom-equivalent viewports, real Sales checkout/launcher separation, OFF state, zero page errors.`);
 }finally{await browser?.close();await vite.close();}
