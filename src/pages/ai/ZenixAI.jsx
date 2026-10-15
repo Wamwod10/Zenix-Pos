@@ -115,7 +115,7 @@ export default function ZenixAI({open,onClose}){
  const panel=useRef(null),previousFocus=useRef(null);
  useEffect(()=>{if(!open)return;setActivated(true);previousFocus.current=document.activeElement;panel.current?.querySelector('button')?.focus();return()=>previousFocus.current?.isConnected&&previousFocus.current.focus()},[open]);
  const locked=['CASHIER','SALES','WAREHOUSE'].includes(currentUser?.appRole);
- return <aside id="zenix-ai-panel" className="zenix-ai zenix-ai-panel zenix-ai-workspace" ref={panel} hidden={!open} role="region" aria-label="ZENIX AI yordamchi" onKeyDown={event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();onClose()}}}>
+ return <aside id="zenix-ai-panel" className="zenix-ai zenix-ai-panel zenix-ai-workspace" ref={panel} hidden={!open} role="main" aria-label="ZENIX AI yordamchi" onKeyDown={event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();onClose()}}}>
   <div className="zenix-ai-panel-head"><div><strong>ZENIX AI</strong><small>Biznes yordamchi</small></div><div className="zenix-ai-panel-controls"><button className="pro-btn" type="button" onClick={onClose} aria-label="AI panelini minimallashtirish" title="Minimallashtirish"><FiMinus aria-hidden="true"/></button><button className="pro-btn" type="button" onClick={onClose} aria-label="AI panelini yopish" title="Yopish"><FiX aria-hidden="true"/></button></div></div>
   {!locked&&<PremiumSelect value={scope} onChange={event=>setScope(event.target.value)} aria-label="AI filial doirasi"><option value="">Barcha filiallar</option>{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect>}
   {activated&&<Chat key={scope} scope={scope} open={open}/>}
