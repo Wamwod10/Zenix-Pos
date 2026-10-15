@@ -2,7 +2,12 @@
 export function aiFactValue(fact){
  if(fact.value===null)return 'Ma’lumot yetarli emas';
  const unit=typeof fact.unit==='string'?fact.unit:'';
- return `${fact.value}${unit==='UZS'?' so‘m':unit==='count'?' ta':unit?' '+unit:''}`;
+ // Format exact server decimals as strings: large monetary values must not lose cents.
+ const raw=String(fact.value??'');
+ const parts=raw.split('.');
+ const value=unit==='UZS'&&/^-?\d+(?:\.\d+)?$/.test(raw)?parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ')+(parts.length===2?'.'+parts[1]:''):raw;
+ const suffix=unit==='UZS'?' so‘m':unit==='count'?' ta':['piece','pcs'].includes(unit)?' dona':unit&&!['text','datetime'].includes(unit)?' '+unit:'';
+ return `${value}${suffix}`;
 }
 export function aiProgressLabel(phase){
  const labels={understanding:'Savol tushunilmoqda…',reading_sales:'Savdo ma’lumotlari o‘qilmoqda…',reading_inventory:'Ombor ma’lumotlari o‘qilmoqda…',preparing_action:'Amal taklifi tayyorlanmoqda…',composing:'Javob yozilmoqda…',verifying:'Javob tekshirilmoqda…',complete:'Javob tayyor',failed:'So‘rov bajarilmadi'};
