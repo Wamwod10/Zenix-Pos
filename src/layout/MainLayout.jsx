@@ -7,7 +7,7 @@ import { useStore } from "../context/StoreContext";
 import { ROLE_LABELS, ROLES } from "../config/roles";
 import { BILLING_CONFIG } from "../config/billing";
 import {
-  FiActivity, FiArchive, FiBarChart2, FiBell, FiBriefcase, FiCheck, FiChevronDown, FiCommand,
+  FiMessageSquare, FiActivity, FiArchive, FiBarChart2, FiBell, FiBriefcase, FiCheck, FiChevronDown, FiCommand,
   FiCreditCard, FiGrid, FiHelpCircle, FiLogOut, FiMapPin, FiMenu, FiMoon, FiPackage, FiPlus, FiRefreshCw,
   FiSearch, FiSettings, FiShield, FiShoppingCart, FiSun, FiTruck, FiUserCheck, FiX, FiClock,
   FiCalendar, FiTrendingUp, FiWifiOff, FiMaximize2, FiMinimize2, FiUser,
@@ -15,6 +15,8 @@ import {
 import { formatWorkspaceDate, workspaceTime } from "../utils/workspaceDate";
 import Modal from "../components/Modal";
 import AppErrorBoundary from "../components/AppErrorBoundary";
+import ZenixAI from '../pages/ai/ZenixAI';
+import ZenixAILauncher from '../components/ZenixAILauncher';
 import { useFeedback } from "../context/FeedbackContext";
 import { api } from "../services/apiClient";
 import "./mainlayout.scss";
@@ -70,15 +72,17 @@ const contrastForHex = (hex) => {
 };
 
 function MainLayout(){
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, getActiveSessions } = useAuth();
   const {
     inventory, suppliers, stores, currentStore, currentStoreId, setSelectedStoreId, addStore,
     dailySales, salesHistory, employees, activeShift, payments, organizations, platformOverview, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings, hasPermission,
-    inventoryTransfers, inventoryCounts, businessFeatures, persistenceError,
+    inventoryTransfers, inventoryCounts, businessFeatures, persistenceError, rolePermissions,
   } = useStore();
   const navigate = useNavigate();
   const location=useLocation();
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  const [aiOpen,setAiOpen]=useState(false);
+  const openAi=()=>{setAiOpen(true);requestAnimationFrame(()=>document.getElementById('zenix-ai-panel')?.scrollIntoView?.({block:'nearest'}))};
   const [search,setSearch]=useState("");
   const [searchOpen,setSearchOpen]=useState(false);
   const [notificationsOpen,setNotificationsOpen]=useState(false);
@@ -138,7 +142,9 @@ function MainLayout(){
     if(item.path==="/suppliers"&&businessFeatures?.supplierTracking===false)return false;
     return !item.permission||hasPermission(item.permission,currentUser?.appRole);
   });
-  if(!isPlatform&&['moduleDashboard','moduleHistory','moduleAnalytics','moduleSellerAnalytics','moduleExpenses','moduleSuppliers'].some(p=>hasPermission(p,currentUser?.appRole))||!isPlatform&&hasPermission('moduleInventory',currentUser?.appRole)&&hasPermission('moduleProducts',currentUser?.appRole))visibleMenu.push({title:'ZENIX AI',path:'/ai',icon:FiBarChart2,group:'Tahlil'});
+  const canOpenAi=!isPlatform&&['moduleDashboard','moduleHistory','moduleAnalytics','moduleSellerAnalytics','moduleExpenses','moduleSuppliers','moduleProducts','moduleInventory'].some(p=>hasPermission(p,currentUser?.appRole));
+  const aiSessionId=currentUser?.sessionId||getActiveSessions?.().find(session=>session.current)?.id;
+  const aiIdentity=JSON.stringify([currentUser?.id,currentUser?.organizationId,aiSessionId,currentUser?.appRole,currentUser?.permissionOverrides,rolePermissions?.[currentUser?.appRole],currentStoreId]);
   const groupedMenu=visibleMenu.reduce((groups,item)=>{const key=item.group||"Platform";(groups[key]||(groups[key]=[])).push(item);return groups},{});
   const currentMenuItem=visibleMenu.find((item)=>item.path==="/"?location.pathname==="/":location.pathname===item.path||location.pathname.startsWith(`${item.path}/`));
   const mobilePriority=["/","/sales","/inventory","/analytics","/products","/shifts","/history","/platform"];
@@ -176,6 +182,7 @@ function MainLayout(){
     return()=>{window.clearTimeout(timeout);if(interval)window.clearInterval(interval)};
   },[]);
   useEffect(()=>setGuideStep(0),[guideId]);
+  useEffect(()=>{if(new URLSearchParams(location.search).get('ai')==='open'&&canOpenAi)setAiOpen(true)},[location.search,canOpenAi]);
   useEffect(()=>{
     const update=()=>{
       const next=navigator.onLine;
@@ -362,7 +369,7 @@ function MainLayout(){
 
   const closeGuide=()=>{const params=new URLSearchParams(location.search);params.delete("guide");navigate(`${location.pathname}${params.toString()?`?${params.toString()}`:""}`,{replace:true})};
 
-  return <div className={`layout ${sidebarOpen?"sidebar-open":""}`}>
+  return <div className={`layout ${sidebarOpen?"sidebar-open":""} ${canOpenAi?'ai-available':''} ${canOpenAi&&aiOpen?'ai-open':''}`}>
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="pos-logo-mark" style={{background:"transparent",boxShadow:"none",borderRadius:0}}><img src="/zenix-logo.png" alt="Zenix POS" width="40" height="40" style={{width:"100%",height:"100%",objectFit:"contain",transform:"scale(1.25)"}}/></div>
@@ -394,14 +401,18 @@ function MainLayout(){
           <div className="head-pop shortcut-pop"><button className="header-icon shortcut-trigger" onClick={()=>{setShortcutOpen(v=>!v);setToolsOpen(false);setStoreOpen(false);setQuickOpen(false);setNotificationsOpen(false);setProfileOpen(false)}} aria-label="Tezkor klaviatura"><FiCommand/></button>{shortcutOpen&&<div className="head-menu shortcuts-menu"><div className="head-menu-title">Tezkor klaviatura</div><div className="shortcut-row"><span>Global qidiruv</span><kbd>⌘ K</kbd></div><div className="shortcut-row"><span>POS qidiruv</span><kbd>F2</kbd></div><div className="shortcut-row"><span>To‘lov</span><kbd>F4</kbd></div><div className="shortcut-row"><span>Yopish</span><kbd>Esc</kbd></div></div>}</div>
 
           <div className="header-date" title={formatWorkspaceDate(clock,workspaceSettings.organization,{withTime:true})}><FiCalendar/><span>{headerDate}</span><i>·</i><strong>{headerTime}</strong></div>
-          <button className="header-icon" onClick={toggleFullscreen} aria-label={isFullscreen?"To‘liq ekrandan chiqish":"To‘liq ekran"}>{isFullscreen?<FiMinimize2/>:<FiMaximize2/>}</button>
-          <button className="header-icon" onClick={()=>go(`/help?from=${encodeURIComponent(location.pathname)}`)} aria-label="Yordam"><FiHelpCircle/></button>
+          {canOpenAi&&<button className="zenix-ai-trigger" type="button" onClick={openAi} aria-expanded={aiOpen} aria-controls="zenix-ai-panel" title="ZENIX AI suhbatini ochish"><FiMessageSquare aria-hidden="true"/><span>ZENIX AI</span></button>}
+          <button className="header-icon zenix-ai-mobile-overflow" onClick={toggleFullscreen} aria-label={isFullscreen?"To‘liq ekrandan chiqish":"To‘liq ekran"}>{isFullscreen?<FiMinimize2/>:<FiMaximize2/>}</button>
+          <button className="header-icon zenix-ai-mobile-overflow" onClick={()=>go(`/help?from=${encodeURIComponent(location.pathname)}`)} aria-label="Yordam"><FiHelpCircle/></button>
           <button className="header-icon" onClick={()=>setUiPreferences({theme:themeIsDark?"light":"dark"})} aria-label="Mavzu">{themeIsDark?<FiSun/>:<FiMoon/>}</button>
           <div className="head-pop notification-pop"><button className="header-icon notification-btn" onClick={()=>{setNotificationsOpen(v=>!v);setStoreOpen(false);setQuickOpen(false);setToolsOpen(false);setShortcutOpen(false);setProfileOpen(false)}} aria-label="Bildirishnomalar"><FiBell/>{unreadNotifications.length>0&&<b>{unreadNotifications.length}</b>}</button>{notificationsOpen&&<div className="head-menu notification-panel"><div className="notification-title"><div><strong>Bildirishnomalar</strong><small>{notifications.length?`${unreadNotifications.length} ta yangi · ${notifications.length} ta signal`:"Yangi bildirishnoma yo‘q"}</small></div>{unreadNotifications.length>0&&<button className="notice-read-all" onClick={markAllNotificationsRead}>Barchasini o‘qildi</button>}</div><div className="notification-view-tabs"><button type="button" className={notificationView==="all"?"active":""} onClick={()=>setNotificationView("all")}>Barchasi <span>{notifications.length}</span></button><button type="button" className={notificationView==="unread"?"active":""} onClick={()=>setNotificationView("unread")}>Yangi <span>{unreadNotifications.length}</span></button></div>{notifications.length===0?<div className="head-empty">Hammasi joyida</div>:visibleNotifications.length===0?<div className="head-empty">Yangi bildirishnoma yo‘q</div>:visibleNotifications.map(n=>{const read=readNotifications.has(n.id);return <button key={n.id} className={`notice ${n.tone} ${read?"read":"unread"}`} onClick={()=>{markNotificationRead(n.id);go(n.path)}}><span className="notice-dot"/><span><strong>{n.title}</strong><small>{n.text}</small></span>{!read&&<i className="notice-unread"/>}</button>})}</div>}</div>
-          <div className="head-pop profile-pop"><button className="profile-trigger" onClick={()=>{setProfileOpen(v=>!v);setStoreOpen(false);setQuickOpen(false);setToolsOpen(false);setNotificationsOpen(false)}} aria-label="Foydalanuvchi menyusi"><span className="avatar">{currentUser?.name?.charAt(0)||"U"}</span><span className="profile-copy"><strong>{currentUser?.name}</strong><small>{ROLE_LABELS[currentUser?.appRole]}</small></span><FiChevronDown/></button>{profileOpen&&<div className="head-menu profile-menu"><div className="profile-menu-head"><span className="avatar">{currentUser?.name?.charAt(0)||"U"}</span><div><strong>{currentUser?.name}</strong><small>{currentUser?.organizationName||"Zenix POS"}</small></div></div><button onClick={()=>go("/profile")}><FiUser/> Mening profilim</button>{canOpenSettings&&<button onClick={()=>go("/settings")}><FiSettings/> Sozlamalar</button>}<button onClick={()=>guardNavigation(logout,{title:"Hisobdan chiqasizmi?",confirmLabel:"Chiqish"})} className="danger"><FiLogOut/> Chiqish</button></div>}</div>
+          <div className="head-pop profile-pop"><button className="profile-trigger" onClick={()=>{setProfileOpen(v=>!v);setStoreOpen(false);setQuickOpen(false);setToolsOpen(false);setNotificationsOpen(false)}} aria-label="Foydalanuvchi menyusi"><span className="avatar">{currentUser?.name?.charAt(0)||"U"}</span><span className="profile-copy"><strong>{currentUser?.name}</strong><small>{ROLE_LABELS[currentUser?.appRole]}</small></span><FiChevronDown/></button>{profileOpen&&<div className="head-menu profile-menu"><div className="profile-menu-head"><span className="avatar">{currentUser?.name?.charAt(0)||"U"}</span><div><strong>{currentUser?.name}</strong><small>{currentUser?.organizationName||"Zenix POS"}</small></div></div><button onClick={()=>go("/profile")}><FiUser/> Mening profilim</button>{canOpenSettings&&<button onClick={()=>go("/settings")}><FiSettings/> Sozlamalar</button>}
+          {canOpenAi&&<><button className="zenix-ai-mobile-extra" onClick={()=>go(`/help?from=${encodeURIComponent(location.pathname)}`)}><FiHelpCircle/> Yordam</button><button className="zenix-ai-mobile-extra" onClick={()=>{setProfileOpen(false);void toggleFullscreen()}}>{isFullscreen?<FiMinimize2/>:<FiMaximize2/>} {isFullscreen?'To‘liq ekrandan chiqish':'To‘liq ekran'}</button></>}
+          <button onClick={()=>guardNavigation(logout,{title:"Hisobdan chiqasizmi?",confirmLabel:"Chiqish"})} className="danger"><FiLogOut/> Chiqish</button></div>}</div>
         </div>
       </header>
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
+      {canOpenAi&&<><ZenixAILauncher open={aiOpen} hidden={Boolean(guideSteps.length)} onOpen={openAi}/><AppErrorBoundary><ZenixAI key={aiIdentity} open={aiOpen} onClose={()=>setAiOpen(false)}/></AppErrorBoundary></>}
       <main className="content">
         {!isPlatform&&subscriptionAccess.readOnly&&<div className="pro-alert warning" role="status"><FiLock/><div><strong>Faqat ko‘rish rejimi</strong><span>{subscriptionAccess.reason==='BILLING_HOLD'?'Billing cheklovi bor.':'Trial yoki obuna muddati tugagan.'} Ma’lumotlaringiz saqlangan. Ko‘rish va to‘lovga ruxsat bor; biznes amallari bloklangan.</span>{hasPermission('moduleBilling')&&<NavLink className="pro-btn secondary" to="/billing">Obunani faollashtirish</NavLink>}</div></div>}
         <AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary>
