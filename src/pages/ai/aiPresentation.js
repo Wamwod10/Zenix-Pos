@@ -20,3 +20,27 @@ export function aiSuggestions(status,can){
  ].filter(Boolean);
 }
 export const shouldFollowChat=({scrollHeight,scrollTop,clientHeight})=>scrollHeight-scrollTop-clientHeight<96;
+
+export function aiMessageReports(message){
+ const reports=(message.toolResults||[]).filter(t=>t.result?.kind==='report'&&t.result.report).map(t=>t.result.report);
+ return reports.length?reports:message.report?[message.report]:[];
+}
+export function aiErrorMessage(error){
+ if(error?.details?.reason==='token_exhaustion')return 'AI javobi token chegarasida tugadi. Savolni qisqartiring yoki qismlarga bo‘ling.';
+ const messages={
+  AI_PROVIDER_FAILURE:'OpenAI vaqtincha javob bermadi. Birozdan keyin qayta urinib ko‘ring.',
+  AI_INVALID_RESPONSE:'AI javob formati tekshiruvdan o‘tmadi. Javob ko‘rsatilmadi; qayta urinib ko‘ring.',
+  AI_EVIDENCE_INVALID:'AI javobidagi biznes da’vosi tasdiqlanmadi. Tekshirilmagan raqamlar ko‘rsatilmadi.',
+  AI_TOKEN_LIMIT:'Suhbat yoki so‘rov hajmi chegaraga yetdi. Savolni qismlarga bo‘ling yoki yangi suhbat boshlang.',
+  AI_COST_LIMIT:'AI xarajat chegarasiga yetdi. So‘rovni qisqartiring yoki keyinroq qayta urinib ko‘ring.',
+  AI_TIMEOUT:'AI javobini kutish vaqti tugadi. Shu savolni qayta yuborishingiz mumkin.',
+  AI_TOOL_TIMEOUT:'Biznes ma’lumotlarini o‘qish vaqti tugadi. Ma’lumotlar taxmin qilinmadi; qayta urinib ko‘ring.',
+  AI_TOOL_FAILURE:'Biznes ma’lumotlari xizmati vaqtincha ishlamayapti. Keyinroq qayta urinib ko‘ring.',
+  AI_TOOL_LIMIT:'Bu savol uchun juda ko‘p tekshiruv kerak bo‘ldi. Uni kichikroq savollarga bo‘ling.',
+  AI_QUOTA_EXCEEDED:'Oylik muvaffaqiyatli AI so‘rovlari limiti tugagan.',
+  AI_FORBIDDEN:'Bu biznes ma’lumotlarini ko‘rish uchun ruxsatingiz yo‘q.',
+  AI_CONVERSATION_EXPIRED:'Suhbat muddati tugagan. Davom etish uchun Yangi suhbat tugmasini bosing.',
+  AI_CONVERSATION_FORBIDDEN:'Suhbat sessiyasi, filial doirasi yoki ruxsatlar o‘zgargan. Yangi suhbat boshlang.',
+ };
+ return messages[error?.code]||error?.message||'AI javobini olib bo‘lmadi. Qayta urinib ko‘ring.';
+}
