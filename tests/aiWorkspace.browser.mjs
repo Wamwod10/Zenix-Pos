@@ -53,9 +53,10 @@ try{
   const metrics=await page.evaluate(()=>{
    const p=document.querySelector('#zenix-ai-panel').getBoundingClientRect(),c=document.querySelector('.zenix-ai-compose').getBoundingClientRect();
    const main=document.querySelector('main.content').getBoundingClientRect();
-   return {overflow:document.documentElement.scrollWidth>innerWidth,panelRight:p.right,composerBottom:c.bottom,composerLeft:c.left,composerRight:c.right,mainRight:main.right};
+   return {overflow:document.documentElement.scrollWidth>innerWidth,panelWidth:p.width,workspaceWidth:document.querySelector('.main').getBoundingClientRect().width,panelRight:p.right,composerBottom:c.bottom,composerLeft:c.left,composerRight:c.right,mainRight:main.right};
   });
   assert.ok(!metrics.overflow,`${theme} ${width} ${mode}: horizontal overflow`);
+  if(mode==='expanded')assert.ok(metrics.panelWidth>=metrics.workspaceWidth-1,`${width}: expanded AI fills the available workspace without side gutters`);
   assert.ok(metrics.composerBottom<= (width<760?844:900)+1,`${theme} ${width} ${mode}: composer below viewport`);
   assert.ok(metrics.composerLeft>=0&&metrics.composerRight<=width+1,`${theme} ${width} ${mode}: composer outside screen`);
   if(mode==='compact'&&width>1280)assert.ok(metrics.mainRight<=width-468,`${width}: dock leaves POS controls unobstructed ${JSON.stringify(metrics)}`);
