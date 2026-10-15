@@ -107,6 +107,10 @@ try{
  await page.getByText('Haftalik savdo: 5',{exact:true}).waitFor();
  assert.equal(await page.locator('.zenix-ai-answer li').filter({hasText:'Joriy qoldiq: 10 <script>unsafe</script>'}).count(),1);
  assert.equal(await page.locator('.zenix-ai-answer script').count(),0);
+ const reportDetails=page.locator('details.zenix-ai-report-details').last();
+ assert.equal(await reportDetails.getAttribute('open'),null,'raw reports are collapsed by default');
+ assert.equal(await page.locator('.zenix-ai-facts').isVisible(),false,'the summary is not duplicated as visible raw facts');
+ await reportDetails.locator('summary').click();assert.equal(await page.locator('.zenix-ai-facts').isVisible(),true);
  assert.ok(await page.locator('.zenix-ai-facts').innerText().then(t=>t.includes('2026-10-01')&&t.includes('2026-10-07')));
  assert.ok(await page.locator('.zenix-ai-table caption').innerText().then(t=>t.includes('2026-10-15')));
  const stoppedReads=progressReads;await page.waitForTimeout(1200);assert.equal(progressReads,stoppedReads,'polling stops after chat completion');
