@@ -14,7 +14,7 @@ test('shared AI panel preserves conversation across navigation and requires expl
   const [{AuthProvider,useAuth},{StoreProvider,useStore},{FeedbackProvider},{default:MainLayout},{api},{createRoot}]=await Promise.all([
    vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/context/StoreContext.jsx'),vite.ssrLoadModule('/src/context/FeedbackContext.jsx'),vite.ssrLoadModule('/src/layout/MainLayout.jsx'),vite.ssrLoadModule('/src/services/apiClient.js'),import('react-dom/client')]);
   const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
-  const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:Array.from({length:10},(_,i)=>({topic:`sample-${i}`,question:`Namuna savol ${i+1}`}))};
+  const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'].map((topic,i)=>({topic,question:`Namuna savol ${i+1}`}))};
   const preview={productName:'Olma',warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
   let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,failChat=false,failStatus=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
   const posts=[];
@@ -56,7 +56,18 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.ok(container.querySelector('.header-date').nextElementSibling.classList.contains('zenix-ai-trigger'),'topbar AI sits beside date/time');
   assert.ok(container.querySelector('.zenix-ai-trigger svg'),'topbar launcher has a compact icon');
   assert.equal(container.querySelectorAll('.zenix-ai-suggestions button').length,10,'server examples remain suggestions');
+  assert.equal(container.querySelectorAll('.zenix-ai-suggestion-cards button').length,4,'four permitted premium suggestions are immediately available');
+  await act(async()=>container.querySelector('.zenix-ai-suggestion-cards button').click());
+  assert.equal(container.querySelector('#zenix-ai-question').value,'Bugungi savdo natijalarini tahlil qil.');
+  assert.equal(posts.length,0,'suggestion only fills the composer');
   await type('Yuborilmagan savol');
+  await act(async()=>container.querySelector('[aria-label="Ixcham panelga o‘tish"]').click());
+  assert.equal(container.querySelector('main.content').hidden,false,'compact chat keeps the POS page available');
+  assert.ok(container.querySelector('#zenix-ai-panel').classList.contains('zenix-ai-compact'));
+  assert.equal(container.querySelector('#zenix-ai-question').value,'Yuborilmagan savol');
+  await act(async()=>container.querySelector('[aria-label="Keng workspace ochish"]').click());
+  assert.equal(container.querySelector('main.content').hidden,true);
+  assert.equal(container.querySelector('#zenix-ai-question').value,'Yuborilmagan savol','mode switch retains draft');
   await act(async()=>container.querySelector('[aria-label="AI panelini minimallashtirish"]').click());
   assert.equal(container.querySelector('#zenix-ai-panel').hidden,true);
   assert.equal(container.querySelector('main.content').hidden,false,'closing AI restores the existing page');
@@ -65,7 +76,13 @@ test('shared AI panel preserves conversation across navigation and requires expl
   await act(async()=>container.querySelector('#zenix-ai-panel').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
   assert.equal(container.querySelector('#zenix-ai-panel').hidden,true);
   await act(async()=>button('ZENIX AI').click());
-  await submit('Omborga 5 kg olma kirim qil');
+  await type('Omborga 5 kg olma kirim qil');
+  await act(async()=>container.querySelector('#zenix-ai-question').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true,cancelable:true})));
+  assert.equal(posts.length,0,'Shift+Enter does not send');
+  await act(async()=>container.querySelector('#zenix-ai-question').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true})));
+  assert.equal(posts.length,0,'IME composition does not send');
+  await act(async()=>container.querySelector('#zenix-ai-question').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})));
+  assert.equal(posts.length,1,'Enter submits exactly once');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Olma.*Main.*Asosiy ombor.*5.*kg.*10000/s);
   assert.equal(posts.filter(p=>p.path.endsWith('/confirm')).length,0);
   assert.equal(posts[0].body.conversationId,null);
@@ -117,6 +134,8 @@ test('shared AI panel preserves conversation across navigation and requires expl
   expiryOffset=-1000;await submit('Muddati tugagan kirim');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/muddati tugadi/);
   assert.equal(button('Tasdiqlash'),undefined);
+  assert.equal(button('Yangi suhbat').disabled,false,'expired previews do not lock new chat indefinitely');
+  assert.equal(container.querySelector('[aria-label="AI filial doirasi"]').disabled,false,'expired previews release branch selection');
   await act(async()=>store.setSelectedStoreId(a));
   expiryOffset=60000;status.writesEnabled=false;await submit('Yozish o‘chirilgan');
   assert.equal(button('Tasdiqlash').disabled,true);
@@ -129,6 +148,8 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(button('Tasdiqlash'),undefined);
   assert.ok(button('Yangi suhbat'));
   await act(async()=>button('Yangi suhbat').click());
+  assert.notEqual(container.querySelectorAll('.zenix-ai-answer').length,0,'new chat must ask before discarding history');
+  await act(async()=>Array.from(container.querySelectorAll('[role="dialog"] button')).find(node=>node.textContent==='Yangi suhbat boshlash').click());
   assert.equal(container.querySelectorAll('.zenix-ai-answer').length,0);
   await submit('Yangi suhbat savoli');
   assert.equal(posts.at(-1).body.conversationId,null,'manual new chat discards old server context');

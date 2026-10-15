@@ -1,11 +1,13 @@
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
-import {FiX,FiMinus} from 'react-icons/fi';
+import {FiX,FiMinus,FiMaximize2,FiMinimize2,FiPlus,FiArrowUp,FiBarChart2,FiPackage,FiTrendingUp,FiArchive,FiClock,FiChevronDown,FiShield} from 'react-icons/fi';
 import {api} from '../../services/apiClient';
 import {useStore} from '../../context/StoreContext';
 import {useAuth} from '../../context/AuthContext';
 import {PremiumSelect} from '../../components/Ui';
 import ZenixAIIcon from '../../components/ZenixAIIcon';
+import {useFeedback} from '../../context/FeedbackContext';
+import {aiState,aiSuggestions,shouldFollowChat} from './aiPresentation';
 import './zenixAi.scss';
 
 const actionLabels={PENDING:'Tasdiqlash kutilmoqda',EXECUTING:'Bajarilmoqda…',SUCCEEDED:'Bajarildi',CONFIRMED:'Bajarildi',FAILED:'Bajarilmadi',CANCELLED:'Bekor qilindi',EXPIRED:'Tasdiqlash muddati tugadi',STALE:'Ma’lumot o‘zgargan. Yangi kirim taklifini so‘rang.'};
@@ -29,18 +31,35 @@ function ActionCard({action,writesEnabled,onAction,now}){
  </section>;
 }
 
-function Chat({scope,open}){
+function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const {currentUser}=useAuth(),{hasPermission,reloadStore}=useStore();
+ const {confirm}=useFeedback();
  const [status,setStatus]=useState(null),[statusLoading,setStatusLoading]=useState(true),[question,setQuestion]=useState(''),[messages,setMessages]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[now,setNow]=useState(Date.now);
  const mounted=useRef(false),controller=useRef(null),retry=useRef(null),sending=useRef(false),bottom=useRef(null),conversation=useRef(null),actionLocks=useRef(new Set()),actionControllers=useRef(new Set());
+ const input=useRef(null),scroller=useRef(null),follow=useRef(true),previousCount=useRef(0),[newReply,setNewReply]=useState(false),[resetBusy,setResetBusy]=useState(false);
  const refresh=useCallback(async signal=>{if(mounted.current)setStatusLoading(true);try{const data=await api.get('/api/ai/status',{signal});if(mounted.current&&!signal?.aborted)setStatus(data)}finally{if(mounted.current&&!signal?.aborted)setStatusLoading(false)}},[]);
  async function retryStatus(){setError('');controller.current?.abort();const c=new AbortController();controller.current=c;try{await refresh(c.signal)}catch(e){if(mounted.current&&!c.signal.aborted)setError(e.message)}}
  useEffect(()=>{mounted.current=true;const c=new AbortController();refresh(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>{mounted.current=false;c.abort();controller.current?.abort();actionControllers.current.forEach(c=>c.abort())}},[refresh]);
- useEffect(()=>{if(open)bottom.current?.scrollIntoView?.({block:'nearest',behavior:'smooth'})},[messages,busy,open]);
- const pending=messages.some(m=>m.actions?.some(a=>a.status==='PENDING'));
+ useLayoutEffect(()=>{if(!open)return;const node=scroller.current;if(!messages.length&&!busy){if(node)node.scrollTop=0;follow.current=true;setNewReply(false)}else if(follow.current&&node){node.scrollTop=node.scrollHeight;setNewReply(false)}else if(messages.length>previousCount.current)setNewReply(true);previousCount.current=messages.length},[messages,busy,open,mode]);
+ useEffect(()=>{const node=input.current;if(node&&open){node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight||48,160)}px`}},[question,open,mode]);
+ const pending=messages.some(m=>m.actions?.some(a=>a.status==='PENDING'&&Date.parse(a.expiresAt)>now));
  useEffect(()=>{if(!pending)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[pending]);
  const canBill=hasPermission('moduleBilling',currentUser?.appRole);
  const blocked=status&&!status.enabled?'ZENIX AI hozircha faollashtirilmagan.':status&&!status.limit?'ZENIX AI Business va Premium tariflarida mavjud.':status&&!status.writable?'Obuna muddati tugagan. Ma’lumotlaringiz saqlangan; AI uchun tarifni faollashtirish kerak.':status&&status.remaining<=0?'Oylik AI so‘rovlari tugagan. POS modullari ishlashda davom etadi.':'';
+ const state=aiState(status,busy,error),cards=aiSuggestions(status,p=>hasPermission(p,currentUser?.appRole));
+ const unsettled=messages.some(m=>m.actions?.some(unresolved)),hasContext=Boolean(messages.length||question.trim());
+ async function newChat(){
+  if(busy||unsettled||pending||resetBusy)return;
+  setResetBusy(true);
+  try{if(hasContext&&!await confirm({title:'Yangi suhbat boshlaysizmi?',message:'Joriy suhbat va yozilmagan matn tozalanadi. Bu amalni ortga qaytarib bo‘lmaydi.',confirmLabel:'Yangi suhbat boshlash',tone:'warning'}))return;
+   if(!mounted.current)return;conversation.current=null;retry.current=null;setMessages([]);setQuestion('');setError('');follow.current=true;setNewReply(false);input.current?.focus();
+  }finally{if(mounted.current)setResetBusy(false)}
+ }
+ async function changeScope(value){
+  if(busy||pending||unsettled||value===scope)return;
+  if(hasContext&&!await confirm({title:'Suhbat filialini almashtirasizmi?',message:'Boshqa filial uchun yangi suhbat boshlanadi. Joriy suhbat va matn tozalanadi.',confirmLabel:'Filialni almashtirish',tone:'warning'}))return;
+  if(mounted.current)onScope(value);
+ }
  const patchAction=(id,patch)=>{if(mounted.current)setMessages(old=>old.map(m=>({...m,actions:(m.actions||[]).map(a=>a.id===id?{...a,...patch,confirmationToken:patch.confirmationToken||a.confirmationToken,preview:patch.preview||a.preview}:a)})))};
  async function runAction(action,operation){
   if(actionLocks.current.has(action.id))return;
@@ -69,7 +88,7 @@ function Chat({scope,open}){
  }
  async function submit(event){
   event.preventDefault();const text=question.trim();if(!text||busy||sending.current||blocked||!status)return;
-  sending.current=true;setBusy(true);setError('');
+  sending.current=true;setBusy(true);setError('');follow.current=true;setNewReply(false);
   const body=retry.current?.question===text?retry.current:{requestId:crypto.randomUUID(),question:text,storeId:scope||null,conversationId:conversation.current};retry.current=body;
   const c=new AbortController();controller.current=c;const timer=setTimeout(()=>c.abort(),25000);
   try{
@@ -87,37 +106,68 @@ function Chat({scope,open}){
   finally{clearTimeout(timer);sending.current=false;if(mounted.current){setBusy(false);refresh().catch(()=>{})}}
  }
  return <>
-  <button className="pro-btn" type="button" disabled={busy||messages.some(m=>m.actions?.some(unresolved))} onClick={()=>{conversation.current=null;retry.current=null;setMessages([]);setQuestion('');setError('')}}>Yangi suhbat</button>
-  <div className="pro-card zenix-ai-summary"><div><strong>{status?.planCode||'Joriy tarif'}</strong><p>{status?`${status.remaining} / ${status.limit} ta so‘rov qoldi`:statusLoading?'AI holati yuklanmoqda…':'AI holati olinmadi.'}</p><small>{status?.resetsAt&&`Limit yangilanishi: ${new Date(status.resetsAt).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'})} (Toshkent)`}</small></div>{!status&&<button className="pro-btn" type="button" onClick={retryStatus} disabled={statusLoading}>{statusLoading?'Yuklanmoqda…':'Holatni qayta yuklash'}</button>}{canBill&&<Link className="pro-btn" to="/billing">Tarif va to‘lovlar</Link>}</div>
+  <header className="zenix-ai-panel-head">
+   <div className="zenix-ai-brand"><span className="zenix-ai-mark"><ZenixAIIcon/></span><div><strong>ZENIX AI</strong><small>Biznes yordamchingiz</small></div></div>
+   <span className="zenix-ai-state" data-state={state.key} role="status"><i aria-hidden="true"/>{state.label}</span>
+   <div className="zenix-ai-panel-controls">
+    <button className="zenix-ai-new" type="button" disabled={busy||unsettled||pending||resetBusy} onClick={newChat} title="Yangi suhbat"><FiPlus aria-hidden="true"/><span>Yangi suhbat</span></button>
+    <button type="button" onClick={onClose} aria-label="AI panelini minimallashtirish" title="Minimallashtirish"><FiMinus aria-hidden="true"/></button>
+    <button type="button" onClick={()=>onModeChange(mode==='expanded'?'compact':'expanded')} aria-label={mode==='expanded'?'Ixcham panelga o‘tish':'Keng workspace ochish'} title={mode==='expanded'?'Ixcham panel':'Keng workspace'}>{mode==='expanded'?<FiMinimize2 aria-hidden="true"/>:<FiMaximize2 aria-hidden="true"/>}</button>
+    <button type="button" onClick={onClose} aria-label="AI panelini yopish" title="Yopish"><FiX aria-hidden="true"/></button>
+   </div>
+  </header>
+  <div className="zenix-ai-context">
+   <div className="zenix-ai-summary"><FiShield aria-hidden="true"/><strong>{status?.planCode||'Tarif'}</strong><span>{status?`${status.remaining} / ${status.limit} ta so‘rov qoldi`:statusLoading?'Holat yuklanmoqda…':'Holat olinmadi'}</span>{status?.resetsAt&&<span className="zenix-ai-reset-date" title={`Limit yangilanishi: ${new Date(status.resetsAt).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'})} (Toshkent)`}><FiClock aria-hidden="true"/></span>}</div>
+   <div className="zenix-ai-scope">{!locked?<PremiumSelect value={scope} disabled={busy||pending||unsettled} onChange={event=>void changeScope(event.target.value)} aria-label="AI filial doirasi"><option value="">Barcha filiallar</option>{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect>:<span>{stores.find(s=>s.id===scope)?.name||'Biriktirilgan filial'}</span>}</div>
+   {canBill&&<Link className="zenix-ai-billing" to="/billing">Tarif va to‘lovlar</Link>}
+  </div>
+  <div className="zenix-ai-scope-note">Suhbat doirasi: <strong>{stores.find(s=>s.id===scope)?.name||(locked?'Biriktirilgan filial':'Barcha filiallar')}</strong><span> · Filial almashsa, yangi suhbat boshlanadi.</span></div>
+  {!status&&<button className="pro-btn zenix-ai-retry-status" type="button" onClick={retryStatus} disabled={statusLoading}>{statusLoading?'Yuklanmoqda…':'Holatni qayta yuklash'}</button>}
   {blocked&&<div className="pro-card zenix-ai-notice" role="status"><p>{blocked}</p>{status.enabled&&canBill&&(!status.limit||status.remaining<=0)&&<Link className="pro-btn primary" to="/billing">Tarifni oshirish</Link>}</div>}
-  <div className="pro-card zenix-ai-chat">
-   <details className="zenix-ai-examples"><summary>Namuna savollar</summary><div className="zenix-ai-suggestions" aria-label="Tavsiya etilgan savollar">{status?.suggestions?.map(s=><button type="button" className="pro-btn" key={s.topic} disabled={busy||Boolean(blocked)} onClick={()=>setQuestion(s.question)}>{s.question}</button>)}</div></details>
-   <div className="zenix-ai-messages" aria-live="polite" aria-relevant="additions">
-    {!messages.length&&<div className="pro-empty zenix-ai-welcome"><ZenixAIIcon/><small>ZENIX AI · BIZNES YORDAMCHINGIZ</small><strong>Bugun biznesingiz uchun<br/>nima qilamiz?</strong><span>Savdolarni tahlil qiling, qoldiqlarni tekshiring yoki ombor kirimini tayyorlang.</span></div>}
-    {messages.map(m=><article key={m.id}><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><strong>ZENIX AI</strong><p>{m.answer}</p>
+  <div className="zenix-ai-chat">
+   <div className="zenix-ai-scroll" ref={scroller} onScroll={()=>{follow.current=shouldFollowChat(scroller.current);if(follow.current)setNewReply(false)}}>
+   {!messages.length&&<section className="zenix-ai-welcome"><span className="zenix-ai-welcome-mark"><ZenixAIIcon/></span><small>BIZNESINGIZ UCHUN ISHONCHLI YORDAMCHI</small><h1>Bugun biznesingiz uchun<br/>nima qilamiz?</h1><p>Savollaringizga javob olishingiz, biznesingizni tahlil qilishingiz yoki xavfsiz amallarni tayyorlashingiz mumkin.</p>
+    <div className="zenix-ai-suggestion-cards">{cards.map(card=>{const Icon={sales:FiBarChart2,stock:FiPackage,profit:FiTrendingUp,receipt:FiArchive}[card.id];return <button type="button" key={card.id} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(card.question);input.current?.focus()}}><Icon aria-hidden="true"/><span><strong>{card.title}</strong><small>{card.question}</small></span><span className="zenix-ai-card-arrow" aria-hidden="true">↗</span></button>})}</div>
+    {Boolean(status?.suggestions?.length)&&<details className="zenix-ai-examples"><summary>Ko‘proq savollar <FiChevronDown aria-hidden="true"/></summary><div className="zenix-ai-suggestions" aria-label="Tavsiya etilgan savollar">{status.suggestions.map(s=><button type="button" key={s.topic} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(s.question);input.current?.focus()}}>{s.question}</button>)}</div></details>}
+   </section>}
+   {messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}
+   <div className="zenix-ai-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Suhbat xabarlari">
+    {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
      {m.report&&<><small>{m.report.from} — {m.report.to} · {m.report.storeId?'Tanlangan filial':'Barcha filiallar'}{m.report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{m.report.facts?.map(f=><div key={f.id}><small>{f.label}</small><strong>{f.value===null?'Ma’lumot yetarli emas':`${f.value}${f.unit==='UZS'?' so‘m':f.unit==='count'?' ta':''}`}</strong></div>)}</div>
      {m.report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</>}
      {[...(m.report?.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
      {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>)}
     </div></article>)}
-    {busy&&<p role="status">Biznes ko‘rsatkichlari tahlil qilinmoqda…</p>}<div ref={bottom}/>
+    {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>Biznes ma’lumotlari tekshirilmoqda…</span></div>}<div ref={bottom}/>
    </div>
+   </div>
+   {newReply&&<button className="zenix-ai-new-reply" type="button" onClick={()=>{follow.current=true;scroller.current.scrollTop=scroller.current.scrollHeight;setNewReply(false)}}>Yangi javobga o‘tish ↓</button>}
    {error&&<p role="alert" className="zenix-ai-error">{error}</p>}
-   <form onSubmit={submit} className="zenix-ai-compose"><label htmlFor="zenix-ai-question">Savolingiz</label><textarea id="zenix-ai-question" value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1000} rows={3} disabled={busy||Boolean(blocked)} placeholder="Biznesingiz haqida savol yoki buyruq yozing…"/><button className="pro-btn primary" type="submit" disabled={busy||Boolean(blocked)||!status||!question.trim()}>{busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'}</button></form>
-   <small>Kirim faqat kartadagi Tasdiqlash tugmasi orqali bajariladi. Ma’lumotlarni avval tekshiring.</small>
+   <form onSubmit={submit} className="zenix-ai-compose" aria-busy={busy}><label htmlFor="zenix-ai-question" className="zenix-ai-sr-only">Savolingiz</label><textarea ref={input} id="zenix-ai-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&!event.repeat){event.preventDefault();event.currentTarget.form.requestSubmit()}}} maxLength={1000} rows={2} disabled={busy||Boolean(blocked)||!status} placeholder="Biznesingiz haqida savol yoki buyruq yozing..." aria-describedby="zenix-ai-composer-help"/><div className="zenix-ai-compose-footer"><small id="zenix-ai-composer-help">Enter — yuborish <span>· Shift + Enter — yangi qator</span></small><button className="pro-btn primary" type="submit" aria-label={busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'} title={error?'Qayta urinish':'Yuborish'} disabled={busy||Boolean(blocked)||!status||!question.trim()}><FiArrowUp aria-hidden="true"/><span className="zenix-ai-sr-only">{busy?'Tahlil qilinmoqda…':error?'Qayta urinish':'Yuborish'}</span></button></div></form>
+   <small className="zenix-ai-safety"><FiShield aria-hidden="true"/>ZENIX AI amallarni bajarishdan oldin tasdiqlashingizni so‘raydi.</small>
   </div>
  </>;
 }
 
-export default function ZenixAI({open,onClose}){
+export default function ZenixAI({open,mode='expanded',onModeChange,onClose}){
  const {currentUser}=useAuth(),{currentStoreId,stores}=useStore();
  const [scope,setScope]=useState(currentStoreId||''),[activated,setActivated]=useState(open);
  const panel=useRef(null),previousFocus=useRef(null);
- useEffect(()=>{if(!open)return;setActivated(true);previousFocus.current=document.activeElement;panel.current?.querySelector('button')?.focus();return()=>previousFocus.current?.isConnected&&previousFocus.current.focus()},[open]);
+ const [smallScreen,setSmallScreen]=useState(()=>window.innerWidth<=1280);
+ const modal=open&&mode==='compact'&&smallScreen;
+ useEffect(()=>{const resize=()=>{setSmallScreen(window.innerWidth<=1280);const viewport=window.visualViewport;if(panel.current)panel.current.dataset.keyboard=String(window.innerHeight-(viewport?.height||window.innerHeight)>80);panel.current?.style.setProperty('--ai-viewport-height',`${viewport?.height||window.innerHeight}px`);panel.current?.style.setProperty('--ai-keyboard-gap',`${Math.max(0,window.innerHeight-(viewport?.height||window.innerHeight)-(viewport?.offsetTop||0))}px`)};resize();window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);return()=>{window.removeEventListener('resize',resize);window.visualViewport?.removeEventListener('resize',resize)}},[]);
+ useEffect(()=>{if(!open)return;setActivated(true);previousFocus.current=document.activeElement;const frame=requestAnimationFrame(()=>panel.current?.querySelector('button:not(:disabled)')?.focus());return()=>{window.cancelAnimationFrame(frame);previousFocus.current?.isConnected&&previousFocus.current.focus()}},[open]);
+ useEffect(()=>{if(!modal)return;const nodes=[...document.querySelectorAll('.header,main.content,.sidebar,.mobile-bottom-nav')],before=nodes.map(n=>n.inert);nodes.forEach(n=>{n.inert=true});const overflow=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{nodes.forEach((n,i)=>{n.inert=before[i]});document.body.style.overflow=overflow}},[modal]);
  const locked=['CASHIER','SALES','WAREHOUSE'].includes(currentUser?.appRole);
- return <aside id="zenix-ai-panel" className="zenix-ai zenix-ai-panel zenix-ai-workspace" ref={panel} hidden={!open} role="main" aria-label="ZENIX AI yordamchi" onKeyDown={event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();onClose()}}}>
-  <div className="zenix-ai-panel-head"><div><strong>ZENIX AI</strong><small>Biznes yordamchi</small></div><div className="zenix-ai-panel-controls"><button className="pro-btn" type="button" onClick={onClose} aria-label="AI panelini minimallashtirish" title="Minimallashtirish"><FiMinus aria-hidden="true"/></button><button className="pro-btn" type="button" onClick={onClose} aria-label="AI panelini yopish" title="Yopish"><FiX aria-hidden="true"/></button></div></div>
-  {!locked&&<PremiumSelect value={scope} onChange={event=>setScope(event.target.value)} aria-label="AI filial doirasi"><option value="">Barcha filiallar</option>{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect>}
-  {activated&&<Chat key={scope} scope={scope} open={open}/>}
+ return <aside id="zenix-ai-panel" className={`zenix-ai zenix-ai-panel zenix-ai-${mode==='expanded'?'workspace':'compact'}`} ref={panel} hidden={!open} role={mode==='expanded'?'main':modal?'dialog':'complementary'} aria-modal={modal||undefined} aria-label="ZENIX AI yordamchi" onKeyDown={event=>{
+  if(!panel.current?.contains(event.target))return;
+  event.stopPropagation();if(event.key==='Escape'){event.preventDefault();onClose()}
+  if(modal&&event.key==='Tab'){
+   const elements=[...panel.current.querySelectorAll('button:not(:disabled),a[href],textarea:not(:disabled),summary,[tabindex="0"]')].filter(n=>n.getClientRects().length&&!n.closest('details:not([open]) :not(summary)'));
+   const first=elements[0],last=elements.at(-1);
+   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+  }
+ }}>
+  {activated&&<Chat key={scope} scope={scope} onScope={setScope} stores={stores} locked={locked} open={open} mode={mode} onModeChange={onModeChange} onClose={onClose}/>}
  </aside>;
 }
