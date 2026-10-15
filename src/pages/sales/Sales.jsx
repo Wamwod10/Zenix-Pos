@@ -1,5 +1,6 @@
 import {refundAttemptKey,refundReference,acknowledgeRefund,rejectRefund} from "../../utils/refundAttempt";
 import {lineAmount,sumMoney} from "../../utils/posMoney";
+import {createPosCatalogSearch,searchPosCatalog} from "../../utils/posCatalogSearch";
 import TodaySales from "./TodaySales";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -125,8 +126,9 @@ function Sales(){
   const canDiscount=currentUser?.appRole!==ROLES.CASHIER||Boolean(workspaceSettings.pos.cashierDiscountAllowed);
   const discountLimit=Math.max(0,Number(workspaceSettings.pos.discountLimit||0));
   const restoreReady=Boolean(workspaceReady&&draftKey&&currentStore?.id===currentStoreId);
+  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
   const reconcileRestore=useCallback((saved)=>{
-    const result=reconcilePersistedCart({lines:saved?.cart,products:inventory,storeId:currentStoreId,discountAllowed:canDiscount,discountLimit});
+    const result=reconcilePersistedCart({lines:saved?.cart,products:productById,storeId:currentStoreId,discountAllowed:canDiscount,discountLimit});
     const allowedCartDiscount=result.lines.length?Math.max(0,Math.min(discountLimit,...result.lines.map(line=>{
       const itemPct=Number(line.discountPercent||0);
       return itemPct>=100?0:Math.max(0,((discountLimit-itemPct)/(100-itemPct))*100);
@@ -135,7 +137,7 @@ function Sales(){
     const restoredDiscount=canDiscount?Math.min(requestedDiscount,allowedCartDiscount):0;
     if(requestedDiscount!==restoredDiscount)result.changes.push({type:"discount_changed",name:"Savat",previousDiscount:requestedDiscount,currentDiscount:restoredDiscount});
     return {...result,cartDiscountPct:restoredDiscount};
-  },[inventory,currentStoreId,canDiscount,discountLimit]);
+  },[productById,currentStoreId,canDiscount,discountLimit]);
   // An awaited server DELETE may outlive a branch change or catalog refresh.
   const restoreContextRef=useRef(null);
   restoreContextRef.current={draftKey,restoreReady,reconcileRestore,cart};
@@ -230,8 +232,8 @@ function Sales(){
   },[activeShift?.id]);
 
   const categories=useMemo(()=>[...new Set(inventory.filter(p=>!p.archived).map(p=>p.category).filter(Boolean))],[inventory]);
-  const filteredProducts=useMemo(()=>inventory.filter(p=>!p.archived&&(category==="all"||p.category===category)&&`${p.name} ${p.sku||""} ${p.barcode||""}`.toLowerCase().includes(search.toLowerCase())),[inventory,category,search]);
-  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
+  const catalogSearch=useMemo(()=>createPosCatalogSearch(inventory),[inventory]);
+  const filteredProducts=useMemo(()=>searchPosCatalog(catalogSearch,search,category),[catalogSearch,category,search]);
   const productByBarcode=useMemo(()=>{const map=new Map();for(const item of inventory){const code=String(item.barcode||"").trim();if(code&&!item.archived)map.set(code,item)}return map},[inventory]);
   const products=useMemo(()=>filteredProducts.slice(0,productLimit),[filteredProducts,productLimit]);
   useEffect(()=>setProductLimit(40),[category,search]);
@@ -256,7 +258,7 @@ function Sales(){
   const effectiveDiscount=(itemPct,cartPct)=>100-(100-Number(itemPct||0))*(100-Number(cartPct||0))/100;
   const maxCartDiscountAllowed=cart.length?Math.max(0,Math.min(discountLimit,...cart.map(item=>{const itemPct=Math.max(0,Number(item.discountPercent||0));if(itemPct>=100)return 0;return Math.max(0,((discountLimit-itemPct)/(100-itemPct))*100)}))):discountLimit;
   const maxItemDiscountAllowed=cartDiscountPct>=100?0:Math.max(0,((discountLimit-cartDiscountPct)/(100-cartDiscountPct))*100);
-  const packFactor=item=>Number(selectedPackaging(item,item.packUnit)?.factor||1);
+  const packFactor=useCallback(item=>Number(selectedPackaging(item,item.packUnit)?.factor||1),[]);
   const getBaseUnitPrice=(item)=>{const pack=selectedPackaging(item,item.packUnit);return pack?Number(pack.salePrice)/Number(pack.factor):Math.max(0,Number(item.sellPrice||item.price||0))};
   const getItemUnitPrice=(item)=>getBaseUnitPrice(item)*(1-Number(item.discountPercent||0)/100);
   const getFinalUnitPrice=(item)=>getItemUnitPrice(item)*(1-cartDiscountPct/100);
@@ -266,7 +268,7 @@ function Sales(){
   const itemDiscountTotal=subtotal-afterItemDiscount;
   const cartDiscountAmount=sumMoney([afterItemDiscount,-sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct))))]);
   const total=Math.max(0,sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct)))));
-  const cartStockIssue=useMemo(()=>reconcilePersistedCart({lines:cart,products:inventory,storeId:currentStoreId}).hasBlockingStockIssue,[cart,inventory,currentStoreId]);
+  const cartStockIssue=useMemo(()=>reconcilePersistedCart({lines:cart,products:productById,storeId:currentStoreId}).hasBlockingStockIssue,[cart,productById,currentStoreId]);
   const discountTotal=itemDiscountTotal+cartDiscountAmount;
   // Empty draft tender follows the live total; an entered tender stays fixed.
   const cashTendered=cashTenderedInput===""?String(total):cashTenderedInput;
@@ -280,7 +282,7 @@ function Sales(){
   const splitValid=splitCardN+splitTransferN<=total&&splitMethodCount>=2&&(splitCash<=0||splitCashTenderedN>=splitCash);
   const storeDailySales=useMemo(()=>dailySales.filter(sale=>sale.storeId?String(sale.storeId)===String(currentStoreId):sale.store===currentStore?.name),[dailySales,currentStoreId,currentStore?.name]);
 
-  const add=(product)=>{
+  const add=useCallback((product)=>{
     if(!draftReady||holdRestorePendingRef.current||processing||recoveryPacket)return;
     setError("");
     if(blockNegative&&Number(product.quantity)<=0){setError(`${product.name} omborda tugagan`);return}
@@ -292,7 +294,7 @@ function Sales(){
       }
       return [...items,{...product,cartQty:1,discountPercent:0}];
     });
-  };
+  },[draftReady,processing,recoveryPacket,blockNegative,packFactor]);
   const qty=(id,next)=>{
     if(!draftReady||holdRestorePendingRef.current)return;
     const product=productById.get(String(id));
@@ -334,7 +336,7 @@ function Sales(){
     };
     window.addEventListener("keydown",onScannerKey);
     return()=>{window.removeEventListener("keydown",onScannerKey);if(scannerResetRef.current)window.clearTimeout(scannerResetRef.current)};
-  },[productByBarcode,workspaceSettings.pos.barcodeAutoAdd,blockNegative,currentStoreId]);
+  },[productByBarcode,workspaceSettings.pos.barcodeAutoAdd,add,currentStoreId]);
   const handleSearchKey=(event)=>{
     if(event.key!=="Enter")return;
     const exact=productByBarcode.get(search.trim());
