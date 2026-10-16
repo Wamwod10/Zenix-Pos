@@ -31,7 +31,8 @@ try{
  browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{})});
  const store='11111111-1111-4111-8111-111111111111';
  const inventory=Array.from({length:50000},(_,i)=>({id:`product-${i}`,name:`Guruch ${i} qadoq`,sku:`SKU-${i}`,barcode:`998${String(i).padStart(10,'0')}`,category:'Food',unit:'dona',sellPrice:12500,costPrice:10000,stockByStore:{[store]:100}}));
- for(const width of process.argv.includes('--profile')?[390]:[390,768,1366,1920]){
+ const widths=process.env.ZENIX_PERF_WIDTHS?process.env.ZENIX_PERF_WIDTHS.split(',').map(Number):[390,768,1366,1920];
+ for(const width of process.argv.includes('--profile')?[390]:widths){
   console.log(`Benchmark ${baseline?'before':'after'}: ${width}px`);
   const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce'});
   page.on('pageerror',e=>errors.push(e.message));
@@ -81,7 +82,7 @@ try{
    console.log(JSON.stringify(profile.nodes.filter(n=>n.hitCount).sort((a,b)=>b.hitCount-a.hitCount).slice(0,12).map(n=>({name:n.callFrame.functionName,url:n.callFrame.url,line:n.callFrame.lineNumber,hits:n.hitCount}))));
   }
   console.log('Search samples complete');
-  await page.evaluate(()=>{
+  if(!baseline){await page.evaluate(()=>{
    document.activeElement?.blur();
    for(let i=0;i<20;i++){
     const code='998'+String(49995+i%5).padStart(10,'0');
@@ -90,10 +91,10 @@ try{
   });
   await page.waitForFunction(()=>document.querySelectorAll('.cart-item').length===5);
   const quantities=await page.locator('.cart-item .qty-value').allTextContents();
-  assert.deepEqual(quantities,['4','4','4','4','4'],'all 20 consecutive scans reach the cart');
+  assert.deepEqual(quantities,['4','4','4','4','4'],'all 20 consecutive scans reach the cart');}
   await page.evaluate(()=>document.querySelector('.pos-camera-scan').click());
   await page.waitForSelector('[role="dialog"]',{state:'attached',timeout:10000});
-  results.push({width,products:inventory.length,cpuThrottle:width<768?4:1,samples:samples.length,p50:samples[14],p95:samples[28],p99:samples[29],barcodeScans:20,cartLines:5,quantityPerLine:4});
+  results.push({width,products:inventory.length,cpuThrottle:width<768?4:1,samples:samples.length,p50:samples[14],p95:samples[28],p99:samples[29],barcodeScans:baseline?null:20,cartLines:baseline?null:5,quantityPerLine:baseline?null:4});
   await page.screenshot({path:path.join(output,`${baseline?'before':'after'}-${width}.png`)});
   await page.close();
  }

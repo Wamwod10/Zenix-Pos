@@ -9,6 +9,7 @@ import ZenixAIIcon from '../../components/ZenixAIIcon';
 import {useFeedback} from '../../context/FeedbackContext';
 import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks} from './aiPresentation';
 import './zenixAi.scss';
+import {scheduleChatScroll} from './aiScroll';
 
 const actionLabels={PENDING:'Tasdiqlash kutilmoqda',EXECUTING:'Bajarilmoqda…',SUCCEEDED:'Bajarildi',CONFIRMED:'Bajarildi',FAILED:'Bajarilmadi',CANCELLED:'Bekor qilindi',EXPIRED:'Tasdiqlash muddati tugadi',STALE:'Ma’lumot o‘zgargan. Yangi kirim taklifini so‘rang.'};
 const actionData=response=>response?.action||response;
@@ -43,7 +44,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const refresh=useCallback(async signal=>{if(mounted.current)setStatusLoading(true);try{const data=await api.get('/api/ai/status',{signal});if(mounted.current&&!signal?.aborted)setStatus(data)}finally{if(mounted.current&&!signal?.aborted)setStatusLoading(false)}},[]);
  async function retryStatus(){setError('');controller.current?.abort();const c=new AbortController();controller.current=c;try{await refresh(c.signal)}catch(e){if(mounted.current&&!c.signal.aborted)setError(e.message)}}
  useEffect(()=>{mounted.current=true;const c=new AbortController();refresh(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>{mounted.current=false;c.abort();controller.current?.abort();actionControllers.current.forEach(c=>c.abort())}},[refresh]);
- useLayoutEffect(()=>{if(!open)return;const node=scroller.current;if(!messages.length&&!busy){if(node)node.scrollTop=0;follow.current=true;setNewReply(false)}else if(follow.current&&node){node.scrollTop=node.scrollHeight;setNewReply(false)}else if(messages.length>previousCount.current)setNewReply(true);previousCount.current=messages.length},[messages,busy,open,mode]);
+ useLayoutEffect(()=>{if(!open)return;const node=scroller.current,reset=!messages.length&&!busy;let cancel;if(reset){if(node)cancel=scheduleChatScroll(node,true);follow.current=true;setNewReply(false)}else if(follow.current&&node){cancel=scheduleChatScroll(node,false,requestAnimationFrame,cancelAnimationFrame,()=>follow.current);setNewReply(false)}else if(messages.length>previousCount.current)setNewReply(true);previousCount.current=messages.length;return cancel},[messages,busy,open,mode]);
  useEffect(()=>{const node=input.current;if(node&&open){node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight||48,160)}px`}},[question,open,mode]);
  const pending=messages.some(m=>m.actions?.some(a=>a.status==='PENDING'&&Date.parse(a.expiresAt)>now));
  useEffect(()=>{if(!pending)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[pending]);

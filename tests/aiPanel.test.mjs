@@ -7,8 +7,8 @@ import {MemoryRouter,Routes,Route,Link} from 'react-router-dom';
 
 test('shared AI panel preserves conversation across navigation and requires explicit action confirmation',async()=>{
  const dom=new JSDOM('<div id="root"></div>',{url:'http://localhost',pretendToBeVisual:true});
- const old={window:globalThis.window,document:globalThis.document,act:globalThis.IS_REACT_ACT_ENVIRONMENT,raf:globalThis.requestAnimationFrame};
- globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.requestAnimationFrame=dom.window.requestAnimationFrame.bind(dom.window);
+ const old={window:globalThis.window,document:globalThis.document,act:globalThis.IS_REACT_ACT_ENVIRONMENT,raf:globalThis.requestAnimationFrame,cancelRaf:globalThis.cancelAnimationFrame};
+ globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.requestAnimationFrame=dom.window.requestAnimationFrame.bind(dom.window);globalThis.cancelAnimationFrame=dom.window.cancelAnimationFrame.bind(dom.window);
  const vite=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom',logLevel:'silent'});let root;
  try{
   const [{AuthProvider,useAuth},{StoreProvider,useStore},{FeedbackProvider},{default:MainLayout},{api},{createRoot}]=await Promise.all([
@@ -184,6 +184,6 @@ test('shared AI panel preserves conversation across navigation and requires expl
   failStatus=false;await act(async()=>button('Holatni qayta yuklash').click());
   assert.equal(container.querySelector('.zenix-ai-notice p').textContent,'ZENIX AI hozircha faollashtirilmagan.');
  }finally{
-  if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;
+  if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;globalThis.cancelAnimationFrame=old.cancelRaf;
  }
 });
