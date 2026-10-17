@@ -247,7 +247,7 @@ function Sales(){
     if(!remoteSearch)return;
     if(firstRemoteSearch.current){firstRemoteSearch.current=false;return;}
     remoteInvalidate();
-    const timer=setTimeout(()=>{setProductLimit(40);void remoteSearch({search,category:category==='all'?'':category})},150);
+    const timer=setTimeout(()=>{setProductLimit(40);void remoteSearch({search,category:category==='all'?'':category})},60);
     return()=>clearTimeout(timer);
   },[search,category,remoteSearch,remoteInvalidate]);
   useEffect(()=>{remotePin?.(cart.map(p=>p.id))},[cart,remotePin]);

@@ -6,15 +6,16 @@ import {createPosCatalog} from '../utils/posCatalog';
 import {posDraftKey,readPosDraft} from '../utils/posDraft';
 import {PageSkeleton} from '../components/Ui';
 
-export default function PosWorkspace({children}){
+export default function PosWorkspace({children,loadPage}){
  const base=useStore(),{currentUser}=useAuth();
- // Start route code while the bounded catalog request is still in flight.
- useEffect(()=>{void import('../pages/sales/Sales').catch(()=>{})},[]);
+ // Resolve the actual page alongside data, avoiding a second lazy suspension.
+ const [page,setPage]=useState(null);
+ useEffect(()=>{if(!loadPage){void import('../pages/sales/Sales').catch(()=>{});return}let current=true;loadPage().then(module=>{if(current)setPage({Component:module.default})},()=>{if(current)setPage({failed:true})});return()=>{current=false}},[loadPage]);
  // Do not remount the cashier when another module completes a full snapshot.
  const [remote]=useState(()=>!base.catalogComplete);
  if(!remote)return children;
  const scope=JSON.stringify([currentUser?.organizationId,currentUser?.id,currentUser?.appRole,currentUser?.permissionOverrides,base.currentStoreId]);
- return <RemotePos key={scope} base={base} user={currentUser}>{children}</RemotePos>;
+ return <RemotePos key={scope} base={base} user={currentUser}>{!loadPage||page?.failed?children:page?.Component?<page.Component/>:<PageSkeleton/>}</RemotePos>;
 }
 function RemotePos({base,user,children}){
  const [view,setView]=useState({products:[],results:[],categories:[],hasMore:false}),[ready,setReady]=useState(false),[error,setError]=useState(''),[pending,setPending]=useState(false),[attempt,setAttempt]=useState(0);

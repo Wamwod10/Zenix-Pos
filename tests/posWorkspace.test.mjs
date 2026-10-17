@@ -25,11 +25,14 @@ test('remote POS resolves a persisted unloaded product before exposing a partial
    return {revision:'1',users:[],holds:[]};
   };
   function Probe(){state=useStore();React.useEffect(()=>{mounts++},[]);return React.createElement('span',{'data-pos':'ready'},state.inventory.map(p=>p.id).join(','))}
-  function Gate(){const base=useStore();outer=base;return base.workspaceReady&&base.stores.length?React.createElement(PosWorkspace,null,React.createElement(Probe)):null}
+  let resolvePage;const loadPage=()=>new Promise(resolve=>{resolvePage=resolve});
+  function Gate(){const base=useStore();outer=base;return base.workspaceReady&&base.stores.length?React.createElement(PosWorkspace,{loadPage},React.createElement(Probe)):null}
   root=createRoot(document.getElementById('root'));
   await act(async()=>root.render(React.createElement(React.StrictMode,null,React.createElement(AuthProvider,null,React.createElement(StoreProvider,null,React.createElement(Gate))))));
   await act(async()=>{await new Promise(r=>setTimeout(r,30))});assert.ok(coreHeader);assert.equal(document.querySelector('[data-pos]'),null);assert.deepEqual(JSON.parse(window.localStorage.getItem(key)),draft);
   await act(async()=>{resolveDraft({products:[{id:'last',name:'Last',sellPrice:12.34,stockByStore:{[store]:'1.250'},metadata:{packaging:[{unit:'box',factor:12,salePrice:120}]},serializedUnits:[{serial:'S'}]}],missingIds:[]});await new Promise(r=>setTimeout(r,20))});
+  assert.equal(document.querySelector('[data-pos]'),null,'catalog readiness must also wait for page code');
+  await act(async()=>{resolvePage({default:Probe});await new Promise(r=>setTimeout(r,10))});
   assert.equal(state.catalogComplete,false);assert.equal(state.inventory.length,2);assert.equal(state.getStoreStock('last',store),1.25);assert.equal(state.getStoreProduct('last',store).serializedUnits[0].serial,'S');assert.throws(()=>state.getStoreStock('unknown',store),/tekshirilmagan/);assert.deepEqual(JSON.parse(window.localStorage.getItem(key)),draft);
   const node=document.querySelector('[data-pos]'),initialMounts=mounts;
   await act(async()=>{await assert.rejects(outer.ensureCatalog(),/Complete catalog/)});assert.equal(outer.catalogComplete,false);
