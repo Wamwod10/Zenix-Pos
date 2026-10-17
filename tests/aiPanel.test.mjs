@@ -7,16 +7,19 @@ import {MemoryRouter,Routes,Route,Link} from 'react-router-dom';
 
 test('shared AI panel preserves conversation across navigation and requires explicit action confirmation',async()=>{
  const dom=new JSDOM('<div id="root"></div>',{url:'http://localhost',pretendToBeVisual:true});
- const old={window:globalThis.window,document:globalThis.document,act:globalThis.IS_REACT_ACT_ENVIRONMENT,raf:globalThis.requestAnimationFrame};
- globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.requestAnimationFrame=dom.window.requestAnimationFrame.bind(dom.window);
+ const old={window:globalThis.window,document:globalThis.document,act:globalThis.IS_REACT_ACT_ENVIRONMENT,raf:globalThis.requestAnimationFrame,cancelRaf:globalThis.cancelAnimationFrame};
+ globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.IS_REACT_ACT_ENVIRONMENT=true;globalThis.requestAnimationFrame=dom.window.requestAnimationFrame.bind(dom.window);globalThis.cancelAnimationFrame=dom.window.cancelAnimationFrame.bind(dom.window);
  const vite=await createServer({server:{middlewareMode:true,hmr:false,watch:null},appType:'custom',logLevel:'silent'});let root;
  try{
   const [{AuthProvider,useAuth},{StoreProvider,useStore},{FeedbackProvider},{default:MainLayout},{api},{createRoot}]=await Promise.all([
    vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/context/StoreContext.jsx'),vite.ssrLoadModule('/src/context/FeedbackContext.jsx'),vite.ssrLoadModule('/src/layout/MainLayout.jsx'),vite.ssrLoadModule('/src/services/apiClient.js'),import('react-dom/client')]);
   const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
   const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'].map((topic,i)=>({topic,question:`Namuna savol ${i+1}`}))};
-  const preview={productName:'Olma',warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
+  let previewReads=0;
+  const preview={get productName(){previewReads++;return 'Olma'},warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
   let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,failChat=false,failStatus=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
+  let reportRowsRead=0;
+  report={facts:[],tables:[{title:'Synthetic report',columns:['Value'],get rows(){reportRowsRead++;return [['1.00']];}}]};
   const posts=[];
   api.get=async path=>{
    if(path==='/api/auth/me')return {user:{id:'owner',organizationId:'org',appRole:'OWNER'}};
@@ -83,6 +86,17 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(posts.length,0,'IME composition does not send');
   await act(async()=>container.querySelector('#zenix-ai-question').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})));
   assert.equal(posts.length,1,'Enter submits exactly once');
+  const readsAfterReply=reportRowsRead;
+  assert.ok(readsAfterReply>0,'report rows were rendered');
+  const previewsAfterReply=previewReads;
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,1100)));
+  assert.equal(previewReads,previewsAfterReply,'expiry polling does not re-render a still-pending preview');
+  await type('Performance draft');
+  assert.equal(previewReads,previewsAfterReply,'editing the composer does not re-render unchanged action previews');
+  await act(async()=>container.querySelector('.zenix-ai-panel-controls button:nth-last-child(2)').click());
+  assert.equal(previewReads,previewsAfterReply,'switching modes does not re-render unchanged action previews');
+  await act(async()=>container.querySelector('.zenix-ai-panel-controls button:nth-last-child(2)').click());
+  assert.equal(reportRowsRead,readsAfterReply,'editing the composer does not render unchanged report rows');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Olma.*Main.*Asosiy ombor.*5.*kg.*10000/s);
   assert.equal(posts.filter(p=>p.path.endsWith('/confirm')).length,0);
   assert.equal(posts[0].body.conversationId,null);
@@ -131,7 +145,9 @@ test('shared AI panel preserves conversation across navigation and requires expl
   delayChat=false;await submit('Sessiya suhbat');sessionId='session-two';
   await act(async()=>auth.refreshSessions());
   assert.equal(container.querySelectorAll('.zenix-ai-answer').length,0,'new session clears conversation for the same user');
-  expiryOffset=-1000;await submit('Muddati tugagan kirim');
+  expiryOffset=50;await submit('Muddati tugagan kirim');
+  assert.ok(button('Tasdiqlash'),'pending confirmation initially remains available');
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,1100)));
   assert.match(container.querySelector('.zenix-ai-action').textContent,/muddati tugadi/);
   assert.equal(button('Tasdiqlash'),undefined);
   assert.equal(button('Yangi suhbat').disabled,false,'expired previews do not lock new chat indefinitely');
@@ -184,6 +200,6 @@ test('shared AI panel preserves conversation across navigation and requires expl
   failStatus=false;await act(async()=>button('Holatni qayta yuklash').click());
   assert.equal(container.querySelector('.zenix-ai-notice p').textContent,'ZENIX AI hozircha faollashtirilmagan.');
  }finally{
-  if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;
+  if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;globalThis.cancelAnimationFrame=old.cancelRaf;
  }
 });

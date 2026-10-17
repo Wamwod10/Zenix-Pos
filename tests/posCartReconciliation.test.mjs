@@ -5,6 +5,20 @@ import {allocateTrackedStock} from '../src/utils/stockTracking.js';
 const product = {id:'p1',name:'Current phone',sellPrice:120,taxRate:12,serialTracking:true,batchTracking:true,stockByStore:{s1:5,s2:50},serializedUnits:[],stockBatches:[]};
 const savedLine = {id:'p1',name:'Old phone',sellPrice:100,taxRate:0,serialTracking:false,cartQty:3,discountPercent:10,quantity:999};
 
+test('snapshot maps preserve array reconciliation, tracking, discounts and branch stock',()=>{
+ const products=[{...product,serializedUnits:[{id:'serial',storeId:'s1',status:'available'}],stockBatches:[{id:'lot',storeId:'s1',quantity:2}]},{id:'archived',name:'Archived',archived:true}];
+ const index=new Map(products.map(p=>[String(p.id),p]));
+ for(const storeId of ['s1','s2','missing'])for(const discountAllowed of [true,false]){
+  const lines=[{...savedLine,tracking:{serials:['serial'],batches:[{id:'lot',quantity:1}]}},{...savedLine,cartQty:10},{id:'archived',cartQty:1},{id:'missing',cartQty:1}];
+  const options={lines,storeId,discountAllowed,discountLimit:5};
+  assert.deepEqual(reconcile({...options,products:index}),reconcile({...options,products}));
+  const inventory=[{...product,stockByStore:{s1:1}}];
+  assert.deepEqual(reconcile({...options,products:index,inventory:new Map(inventory.map(p=>[p.id,p]))}),reconcile({...options,products,inventory}));
+ }
+ assert.equal(index.get('p1'),products[0]);
+ assert.equal(index.size,2);
+});
+
 test('restore reports price increases and decreases and rebuilds catalog fields',()=>{
  for (const [price,type] of [[120,'price_increased'],[80,'price_decreased']]) {
   const result=reconcile({lines:[savedLine],products:[{...product,sellPrice:price}],storeId:'s1'});
@@ -126,8 +140,8 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
  const {JSDOM}=await import('jsdom');
  const {createServer}=await import('vite');
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'http://localhost'});
- const previous={window:globalThis.window,document:globalThis.document,navigator:globalThis.navigator,act:globalThis.IS_REACT_ACT_ENVIRONMENT};
- globalThis.window=dom.window;globalThis.document=dom.window.document;
+ const previous={window:globalThis.window,document:globalThis.document,navigator:globalThis.navigator,HTMLElement:globalThis.HTMLElement,act:globalThis.IS_REACT_ACT_ENVIRONMENT};
+ globalThis.window=dom.window;globalThis.document=dom.window.document;globalThis.HTMLElement=dom.window.HTMLElement;
  Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
  globalThis.IS_REACT_ACT_ENVIRONMENT=true;
  const vite=await createServer({server:{middlewareMode:true},appType:'custom',logLevel:'silent'});
@@ -140,7 +154,7 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
   const storeId='11111111-1111-4111-8111-111111111111';
   const key=posDraftKey('org-1','owner-1',storeId);
   const saved={...savedLine,tracking:{serials:[{id:'u1',serial:'OLD'}],batches:[{batchId:'b1',quantity:2}]}};
-  const current={...product,stockByStore:{[storeId]:5},metadata:{taxRate:12,name:'Metadata snapshot',sellPrice:777,stockByStore:{[storeId]:999},serializedUnits:[{id:'obsolete',storeId:'elsewhere'}]},serializedUnits:[{id:'u1',serial:'CURRENT',storeId,status:'IN_STOCK'}],stockBatches:[{id:'b1',storeId,batchNo:'CURRENT-B',remaining:5}]};
+  const current={...product,barcode:'4780012345678',stockByStore:{[storeId]:5},metadata:{taxRate:12,name:'Metadata snapshot',sellPrice:777,stockByStore:{[storeId]:999},serializedUnits:[{id:'obsolete',storeId:'elsewhere'}]},serializedUnits:[{id:'u1',serial:'CURRENT',storeId,status:'IN_STOCK'}],stockBatches:[{id:'b1',storeId,batchNo:'CURRENT-B',remaining:5}]};
   const outcomes=[];
   for(const source of ['draft','local','server']){
    dom.window.localStorage.clear();
@@ -197,6 +211,13 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
    assert.equal(draft.cart[0].cartQty,3);assert.equal(draft.cart[0].discountPercent,10);
    assert.deepEqual(draft.cart[0].tracking.serials.map(row=>[row.id,row.serial]),[['u1','CURRENT']]);
    assert.deepEqual(draft.cart[0].tracking.batches.map(row=>[row.batchId,row.batchNo,row.quantity]),[['b1','CURRENT-B',2]]);
+   if(source!=='draft'){
+    await React.act(async()=>{
+     document.activeElement?.blur();
+     for(const key of [...current.barcode,'Enter'])window.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key,bubbles:true}));
+    });
+    assert.equal(container.querySelector('.qty-value').textContent,'4','scanner must use hydrated readiness after a held cart restore');
+   }
    if(source==='draft'){
     const submitted=[];
     api.post=async(path,body)=>{assert.equal(path,'/api/sales');submitted.push(body);return {sale:{id:'committed',saleNumber:'1'}};};
@@ -234,7 +255,7 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
  }finally{
   if(root)await React.act(async()=>root.unmount());
   await vite.close();dom.window.close();
-  globalThis.window=previous.window;globalThis.document=previous.document;globalThis.IS_REACT_ACT_ENVIRONMENT=previous.act;
+  globalThis.window=previous.window;globalThis.document=previous.document;globalThis.HTMLElement=previous.HTMLElement;globalThis.IS_REACT_ACT_ENVIRONMENT=previous.act;
   Object.defineProperty(globalThis,'navigator',{configurable:true,value:previous.navigator});
  }
 });

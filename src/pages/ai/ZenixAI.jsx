@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {memo,useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {FiX,FiMinus,FiMaximize2,FiMinimize2,FiPlus,FiArrowUp,FiBarChart2,FiPackage,FiTrendingUp,FiArchive,FiClock,FiChevronDown,FiShield} from 'react-icons/fi';
 import {api} from '../../services/apiClient';
@@ -9,13 +9,13 @@ import ZenixAIIcon from '../../components/ZenixAIIcon';
 import {useFeedback} from '../../context/FeedbackContext';
 import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks} from './aiPresentation';
 import './zenixAi.scss';
+import {scheduleChatScroll} from './aiScroll';
 
 const actionLabels={PENDING:'Tasdiqlash kutilmoqda',EXECUTING:'Bajarilmoqda…',SUCCEEDED:'Bajarildi',CONFIRMED:'Bajarildi',FAILED:'Bajarilmadi',CANCELLED:'Bekor qilindi',EXPIRED:'Tasdiqlash muddati tugadi',STALE:'Ma’lumot o‘zgargan. Yangi kirim taklifini so‘rang.'};
 const actionData=response=>response?.action||response;
 const unresolved=action=>action.status==='EXECUTING'||action.uncertain;
 
-function ActionCard({action,writesEnabled,onAction,now}){
- const expired=action.status==='PENDING'&&(!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=now);
+const ActionCard=memo(function ActionCard({action,writesEnabled,onAction,expired}){
  const state=expired?'EXPIRED':action.status,pending=state==='PENDING',preview=action.preview||{};
  const canConfirm=pending&&!action.uncertain&&writesEnabled&&action.type==='stock_receipt'&&Boolean(action.confirmationToken);
  return <section className="zenix-ai-action" aria-label="Kirimni tasdiqlash" data-status={state}>
@@ -29,7 +29,26 @@ function ActionCard({action,writesEnabled,onAction,now}){
   {pending&&<div className="zenix-ai-action-buttons"><button type="button" className="pro-btn primary" disabled={!canConfirm||action.checking} onClick={()=>onAction(action,'confirm')}>Tasdiqlash</button><button type="button" className="pro-btn" disabled={!action.confirmationToken||action.checking||action.uncertain} onClick={()=>onAction(action,'cancel')}>Bekor qilish</button></div>}
   {(action.uncertain||state==='EXECUTING')&&<button type="button" className="pro-btn" disabled={action.checking} onClick={()=>onAction(action,'status')}>Holatni tekshirish</button>}
  </section>;
-}
+});
+
+// Completed report trees stay unchanged while typing, polling progress, or switching modes.
+// Live action controls remain outside this boundary so expiry and permissions still update.
+const ChatAnswerContent=memo(function ChatAnswerContent({message:m}){
+ return <><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
+     {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
+     {(aiMessageReports(m).length>0||m.insights?.length>0)&&<details className="zenix-ai-history zenix-ai-report-details"><summary>Batafsil ma’lumotlar</summary>
+     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
+     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}{(t.from||t.to)&&<> · {t.from||"—"} — {t.to||"—"}</>}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
+     {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
+     </details>}</>;
+});
+
+// Keep transcript traversal out of composer, progress, and mode updates.
+const ChatHistory=memo(function ChatHistory({messages,follow}){return <>{messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}</>});
+
+const ChatMessages=memo(function ChatMessages({messages,writesEnabled,onAction,now}){return <>{messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/>
+     {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={writesEnabled} onAction={onAction} expired={action.status==='PENDING'&&(!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=now)}/>)}
+    </div></article>)}</>});
 
 function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const [progress,setProgress]=useState(null),progressPoll=useRef(null);
@@ -43,7 +62,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const refresh=useCallback(async signal=>{if(mounted.current)setStatusLoading(true);try{const data=await api.get('/api/ai/status',{signal});if(mounted.current&&!signal?.aborted)setStatus(data)}finally{if(mounted.current&&!signal?.aborted)setStatusLoading(false)}},[]);
  async function retryStatus(){setError('');controller.current?.abort();const c=new AbortController();controller.current=c;try{await refresh(c.signal)}catch(e){if(mounted.current&&!c.signal.aborted)setError(e.message)}}
  useEffect(()=>{mounted.current=true;const c=new AbortController();refresh(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message)});return()=>{mounted.current=false;c.abort();controller.current?.abort();actionControllers.current.forEach(c=>c.abort())}},[refresh]);
- useLayoutEffect(()=>{if(!open)return;const node=scroller.current;if(!messages.length&&!busy){if(node)node.scrollTop=0;follow.current=true;setNewReply(false)}else if(follow.current&&node){node.scrollTop=node.scrollHeight;setNewReply(false)}else if(messages.length>previousCount.current)setNewReply(true);previousCount.current=messages.length},[messages,busy,open,mode]);
+ useLayoutEffect(()=>{if(!open)return;const node=scroller.current,reset=!messages.length&&!busy;let cancel;if(reset){if(node)cancel=scheduleChatScroll(node,true);follow.current=true;setNewReply(false)}else if(follow.current&&node){cancel=scheduleChatScroll(node,false,requestAnimationFrame,cancelAnimationFrame,()=>follow.current);setNewReply(false)}else if(messages.length>previousCount.current)setNewReply(true);previousCount.current=messages.length;return cancel},[messages,busy,open,mode]);
  useEffect(()=>{const node=input.current;if(node&&open){node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight||48,160)}px`}},[question,open,mode]);
  const pending=messages.some(m=>m.actions?.some(a=>a.status==='PENDING'&&Date.parse(a.expiresAt)>now));
  useEffect(()=>{if(!pending)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[pending]);
@@ -68,8 +87,8 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
   if(hasContext&&!await confirm({title:'Suhbat filialini almashtirasizmi?',message:'Boshqa filial uchun yangi suhbat boshlanadi. Joriy suhbat va matn tozalanadi.',confirmLabel:'Filialni almashtirish',tone:'warning'}))return;
   if(mounted.current)onScope(value);
  }
- const patchAction=(id,patch)=>{if(mounted.current)setMessages(old=>old.map(m=>({...m,actions:(m.actions||[]).map(a=>a.id===id?{...a,...patch,confirmationToken:patch.confirmationToken||a.confirmationToken,preview:patch.preview||a.preview}:a)})))};
- async function runAction(action,operation){
+ const patchAction=useCallback((id,patch)=>{if(mounted.current)setMessages(old=>old.map(m=>m.actions?.some(a=>a.id===id)?({...m,actions:(m.actions||[]).map(a=>a.id===id?{...a,...patch,confirmationToken:patch.confirmationToken||a.confirmationToken,preview:patch.preview||a.preview}:a)}):m))},[]);
+ const runAction=useCallback(async(action,operation)=>{
   if(actionLocks.current.has(action.id))return;
   if(operation!=='status'&&(action.status!=='PENDING'||action.uncertain||!action.confirmationToken||!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=Date.now()))return;
   if(operation==='confirm'&&(status?.writesEnabled!==true||action.type!=='stock_receipt'))return;
@@ -93,7 +112,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     finally{clearTimeout(recoveryTimer);actionControllers.current.delete(recovery)}
    }
   }finally{clearTimeout(timer);actionControllers.current.delete(c);actionLocks.current.delete(action.id)}
- }
+ },[patchAction,status?.writesEnabled,reloadStore]);
  function startProgress(requestId){
   stopProgress();setProgress(null);
   const poll={active:true,timer:null,controller:null};progressPoll.current=poll;
@@ -154,17 +173,9 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     <div className="zenix-ai-suggestion-cards">{cards.map(card=>{const Icon={sales:FiBarChart2,stock:FiPackage,profit:FiTrendingUp,receipt:FiArchive}[card.id];return <button type="button" key={card.id} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(card.question);input.current?.focus()}}><Icon aria-hidden="true"/><span><strong>{card.title}</strong><small>{card.question}</small></span><span className="zenix-ai-card-arrow" aria-hidden="true">↗</span></button>})}</div>
     {Boolean(status?.suggestions?.length)&&<details className="zenix-ai-examples"><summary>Ko‘proq savollar <FiChevronDown aria-hidden="true"/></summary><div className="zenix-ai-suggestions" aria-label="Tavsiya etilgan savollar">{status.suggestions.map(s=><button type="button" key={s.topic} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(s.question);input.current?.focus()}}>{s.question}</button>)}</div></details>}
    </section>}
-   {messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}
+   <ChatHistory messages={messages} follow={follow}/>
    <div className="zenix-ai-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Suhbat xabarlari">
-    {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
-     {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
-     {(aiMessageReports(m).length>0||m.insights?.length>0)&&<details className="zenix-ai-history zenix-ai-report-details"><summary>Batafsil ma’lumotlar</summary>
-     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
-     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}{(t.from||t.to)&&<> · {t.from||"—"} — {t.to||"—"}</>}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
-     {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
-     </details>}
-     {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>)}
-    </div></article>)}
+    <ChatMessages messages={messages} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>
     {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>{aiProgressLabel(progress)}</span></div>}<div ref={bottom}/>
    </div>
    </div>
