@@ -142,7 +142,7 @@ test('shared AI panel preserves conversation across navigation and requires expl
   await act(async()=>store.setSelectedStoreId(b));
   status.writesEnabled=true;report={from:'2026-10-01',to:'2026-10-15',facts:[{id:'sales',label:'Savdo',value:'123456.78',unit:'UZS'}],tables:[],notes:['Hisobot izohi']};
   await submit('Eski hisobot');
-  assert.match(container.querySelector('.zenix-ai-answer').textContent,/123456.78/);
+  assert.match(container.querySelector('.zenix-ai-answer').textContent,/123 456\.78 so‘m/);
   actionStatus='STALE';await act(async()=>button('Tasdiqlash').click());
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Yangi kirim taklifini/);
   assert.equal(button('Tasdiqlash'),undefined);
@@ -161,7 +161,7 @@ test('shared AI panel preserves conversation across navigation and requires expl
   }
   permissionOverrides=undefined;await act(async()=>auth.login('role-map-user','test'));
   await submit('Maxfiy savdo hisoboti');
-  assert.match(container.querySelector('.zenix-ai-answer').textContent,/123456.78/);
+  assert.match(container.querySelector('.zenix-ai-answer').textContent,/123 456\.78 so‘m/);
   const unchangedBranch=store.currentStoreId;
   settingsRolePermissions={MANAGER:{moduleAnalytics:false,moduleHistory:false,moduleInventory:true}};
   await act(async()=>store.reloadStore({silent:true}));

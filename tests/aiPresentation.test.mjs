@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {aiState,aiSuggestions,shouldFollowChat,aiProgressLabel,aiMessageBlocks,aiFactValue} from '../src/pages/ai/aiPresentation.js';
 
+test('business facts format exact money and package units without numeric conversion',()=>{
+ assert.equal(aiFactValue({value:'69000.00',unit:'UZS'}),'69 000.00 so‘m');
+ assert.equal(aiFactValue({value:'9007199254740993.123456',unit:'UZS'}),'9 007 199 254 740 993.123456 so‘m');
+ assert.equal(aiFactValue({value:'-12500.25',unit:'UZS'}),'-12 500.25 so‘m');
+ assert.equal(aiFactValue({value:'2.000',unit:'piece'}),'2.000 dona');
+ assert.equal(aiFactValue({value:'TEST-014',unit:'text'}),'TEST-014');
+ assert.equal(aiFactValue({value:'2026-10-14T10:00:00Z',unit:'datetime'}),'2026-10-14T10:00:00Z');
+});
+
 test('quantity facts retain units and unknown quantities stay unknown',()=>{
  assert.equal(aiFactValue({value:'1.627',unit:'kg'}),'1.627 kg');
  assert.equal(aiFactValue({value:'2',unit:'dona'}),'2 dona');
