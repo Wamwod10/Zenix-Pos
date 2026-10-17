@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import MainLayout from "./layout/MainLayout";
 import { useAuth } from "./context/AuthContext";
 import { useStore } from "./context/StoreContext";
+import PosWorkspace from './context/PosWorkspace';
 import { ROLES } from "./config/roles";
 import { workspaceAccessState } from "./utils/license";
 import { workspaceRouteDecision } from "./utils/workspaceReadiness";
@@ -15,7 +16,8 @@ const Register=lazy(()=>import("./pages/register/Register"));
 const ChangePassword=lazy(()=>import("./pages/login/ChangePassword"));
 const ResetPassword=lazy(()=>import('./pages/login/ResetPassword'));
 const Dashboard=lazy(()=>import("./pages/dashboard/Dashboard"));
-const Sales=lazy(()=>import("./pages/sales/Sales"));
+const loadSales=()=>import("./pages/sales/Sales");
+const Sales=lazy(loadSales);
 const Customers=lazy(()=>import("./pages/customers/Customers"));
 const Products=lazy(()=>import("./pages/products/Products"));
 const Inventory=lazy(()=>import("./pages/inventory/Inventory"));
@@ -91,16 +93,29 @@ function WorkspaceAccess({children}){
   }
   return decision==="allowed" ? children : <Navigate to="/billing" replace/>;
 }
-const W=({children})=><WorkspaceAccess>{children}</WorkspaceAccess>;
+function CatalogAccess({children}){
+ const {catalogComplete,catalogError,catalogEpoch,ensureCatalog,workspaceReady}=useStore();
+ const {pathname}=useLocation();
+ const required=['/products','/inventory','/suppliers','/analytics','/history','/settings'].includes(pathname);
+ useEffect(()=>{if(required&&workspaceReady&&!catalogComplete)void ensureCatalog().catch(()=>{})},[required,workspaceReady,catalogComplete,catalogEpoch,ensureCatalog]);
+ if(required&&!catalogComplete)return catalogError?<WorkspaceLoadFailure message={catalogError} onRetry={()=>{void ensureCatalog().catch(()=>{})}}/>:<Fallback/>;
+ return children;
+}
+const W=({children})=><WorkspaceAccess><CatalogAccess>{children}</CatalogAccess></WorkspaceAccess>;
 const Fallback=()=> <PageSkeleton/>;
 
+function SalesRoute(){
+ const {key}=useLocation();
+ const [loader]=useState(()=>key==='default'?undefined:loadSales);
+ return <PosWorkspace loadPage={loader}><Sales/></PosWorkspace>;
+}
 function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fallback/>}><Routes>
  <Route path="/reset-password" element={<ResetPassword/>}/><Route path="/login" element={<Login/>}/><Route path="/register" element={<Register/>}/><Route path="/change-password" element={<Protected allowPasswordChange><ChangePassword/></Protected>}/>
  <Route path="/activation" element={<Protected><Access roles={[ROLES.OWNER]}><Billing activation/></Access></Protected>}/>
  <Route path="/" element={<Protected><MainLayout/></Protected>}>
   <Route index element={<PermissionAccess permission="moduleDashboard"><W><Dashboard/></W></PermissionAccess>}/>
   <Route path="shifts" element={<PermissionAccess permission="moduleShifts"><W><Shifts/></W></PermissionAccess>}/>
-  <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><Sales/></W></PermissionAccess>}/>
+  <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><SalesRoute/></W></PermissionAccess>}/>
   <Route path="customers" element={<PermissionAccess permission="moduleSales"><W><Customers/></W></PermissionAccess>}/>
   <Route path="products" element={<PermissionAccess permission="moduleProducts"><W><Products/></W></PermissionAccess>}/>
   <Route path="inventory" element={<PermissionAccess permission="moduleInventory"><W><Inventory/></W></PermissionAccess>}/>

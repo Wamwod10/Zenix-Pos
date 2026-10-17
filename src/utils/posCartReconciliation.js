@@ -12,8 +12,8 @@ const price = product => Math.max(0, number(product?.sellPrice ?? product?.price
  * No allocation, quantity reduction, or checkout authorization happens here.
  */
 export function reconcilePersistedCart({lines = [], products = [], inventory = products, serials, batches, storeId, discountAllowed = true, discountLimit = 100} = {}) {
-  const catalog = new Map(rows(products).map(product => [id(product.id), product]));
-  const stock = new Map(rows(inventory).map(product => [id(product.id), product]));
+  const catalog = products instanceof Map ? products : new Map(rows(products).map(product => [id(product.id), product]));
+  const stock = inventory === products ? catalog : inventory instanceof Map ? inventory : new Map(rows(inventory).map(product => [id(product.id), product]));
   const changes = [];
   const reconciled = [];
   const requestedByProduct = new Map();

@@ -7,11 +7,12 @@ import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
 import {
-  financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInPeriod, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
+  financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
   saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale, netItemContribution,
 } from "../../utils/reporting";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
 import ResponsiveChart from "../../components/ResponsiveChart";
+import {filterAnalyticsPeriod} from "./analyticsPeriod.js";
 import "./analytics.scss";
 
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
@@ -48,10 +49,8 @@ function Analytics() {
   }, [allSales]);
   const categories = useMemo(() => [...new Set(inventoryState.map((product) => product.category).filter(Boolean))].sort(), [inventoryState]);
 
-  const basePeriodSales = useMemo(() => allSales.filter((sale) => (
-    recordInPeriod(sale, periodKey, periodOptions)
-    && (seller === "all" || sellerIdentity(sale) === seller)
-  )), [allSales, period, from, to, timezone, workspaceSettings.businessDay, seller]);
+  const basePeriodSales = useMemo(() => filterAnalyticsPeriod(allSales,currentRange,timezone)
+    .filter((sale) => seller === "all" || sellerIdentity(sale) === seller), [allSales, currentRange.from, currentRange.to, timezone, seller]);
 
   const categoryPredicate = (item) => {
     if (category === "all") return true;
@@ -80,9 +79,8 @@ function Analytics() {
   const returnTotal = category==='all'&&summary.aggregate?summary.aggregate.refundAmount:filteredSales.reduce((sum, sale) => sum + returnedAmountForSale(sale), 0);
   const returnedSales = filteredSales.filter((sale) => returnedAmountForSale(sale) > 0).length;
 
-  const filteredExpenses = useMemo(() => expenses.filter((expense) => (
-    recordInPeriod(expense, periodKey, periodOptions) && matchesStore(expense, store, stores)
-  )), [expenses, period, from, to, timezone, workspaceSettings.businessDay, store, stores]);
+  const filteredExpenses = useMemo(() => filterAnalyticsPeriod(expenses,currentRange,timezone)
+    .filter((expense) => matchesStore(expense, store, stores)), [expenses, currentRange.from, currentRange.to, timezone, store, stores]);
   const expenseTotal = summary.aggregate?.expenseTotal??filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const previousExpenses=useMemo(()=>previousRange?expenses.filter((expense)=>recordInRange(expense,previousRange,timezone)&&matchesStore(expense,store,stores)):[],[expenses,previousRange,timezone,store,stores]);
   const previousExpenseTotal=previousExpenses.reduce((sum,expense)=>sum+Number(expense.amount||0),0);

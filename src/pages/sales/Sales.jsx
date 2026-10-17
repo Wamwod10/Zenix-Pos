@@ -1,5 +1,6 @@
 import {refundAttemptKey,refundReference,acknowledgeRefund,rejectRefund} from "../../utils/refundAttempt";
 import {lineAmount,sumMoney} from "../../utils/posMoney";
+import {createPosCatalogSearch,searchPosCatalog} from "../../utils/posCatalogSearch";
 import TodaySales from "./TodaySales";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,10 +32,12 @@ function Sales(){
   const {currentUser}=useAuth();
   const {undo,confirm}=useFeedback();
   const {
-    inventory,dailySales,salesHistory,returns,reloadStore,
+    inventory,dailySales,salesHistory,returns,reloadStore,remoteCatalog,
     activeShift,effectiveWorkspaceSettings:workspaceSettings,addActivityLog,currentStore,currentStoreId,workspaceReady,getStoreStock,getStoreProduct,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,hasPermission,
   }=useStore();
   const [search,setSearch]=useState("");
+  const [barcodePending,setBarcodePending]=useState(0);
+  const scanQueueRef=useRef(Promise.resolve());
   const [mobilePane,setMobilePane]=useState("catalog");
   const [category,setCategory]=useState("all");
   const [cart,setCart]=useState([]);
@@ -64,6 +67,7 @@ function Sales(){
   const [receipt,setReceipt]=useState(null);
   const [processing,setProcessing]=useState(false);
   const [returnProcessing,setReturnProcessing]=useState(false);
+  const returnLookupBusyRef=useRef(false),returnIntentRef=useRef('');
   const [productLimit,setProductLimit]=useState(40);
 
   const [saleConfirmOpen,setSaleConfirmOpen]=useState(false);
@@ -90,6 +94,7 @@ function Sales(){
   const holdCartActionRef=useRef(null);
   const holdCartEnabledRef=useRef(false);
   const draftKey=useMemo(()=>currentUser?.organizationId&&currentUser?.id&&currentStoreId?posDraftKey(currentUser.organizationId,currentUser.id,currentStoreId):null,[currentUser?.organizationId,currentUser?.id,currentStoreId]);
+  returnIntentRef.current=JSON.stringify([draftKey,returnSale?.id,returnItem?.id,returnItem?.productId,returnQty,returnReason,refundMethod]);
   const [restoredDraftKey,setRestoredDraftKey]=useState(null);
   const checkoutReferenceRef=useRef(null);
   const saleBusyRef=useRef(false);
@@ -125,8 +130,10 @@ function Sales(){
   const canDiscount=currentUser?.appRole!==ROLES.CASHIER||Boolean(workspaceSettings.pos.cashierDiscountAllowed);
   const discountLimit=Math.max(0,Number(workspaceSettings.pos.discountLimit||0));
   const restoreReady=Boolean(workspaceReady&&draftKey&&currentStore?.id===currentStoreId);
-  const reconcileRestore=useCallback((saved)=>{
-    const result=reconcilePersistedCart({lines:saved?.cart,products:inventory,storeId:currentStoreId,discountAllowed:canDiscount,discountLimit});
+  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
+  const reconcileRestore=useCallback((saved,resolved=[])=>{
+    const products=resolved.length?new Map([...productById,...resolved.map(p=>[String(p.id),p])]):productById;
+    const result=reconcilePersistedCart({lines:saved?.cart,products,storeId:currentStoreId,discountAllowed:canDiscount,discountLimit});
     const allowedCartDiscount=result.lines.length?Math.max(0,Math.min(discountLimit,...result.lines.map(line=>{
       const itemPct=Number(line.discountPercent||0);
       return itemPct>=100?0:Math.max(0,((discountLimit-itemPct)/(100-itemPct))*100);
@@ -135,7 +142,7 @@ function Sales(){
     const restoredDiscount=canDiscount?Math.min(requestedDiscount,allowedCartDiscount):0;
     if(requestedDiscount!==restoredDiscount)result.changes.push({type:"discount_changed",name:"Savat",previousDiscount:requestedDiscount,currentDiscount:restoredDiscount});
     return {...result,cartDiscountPct:restoredDiscount};
-  },[inventory,currentStoreId,canDiscount,discountLimit]);
+  },[productById,currentStoreId,canDiscount,discountLimit]);
   // An awaited server DELETE may outlive a branch change or catalog refresh.
   const restoreContextRef=useRef(null);
   restoreContextRef.current={draftKey,restoreReady,reconcileRestore,cart};
@@ -186,7 +193,7 @@ function Sales(){
     const persist=()=>{if(cart.length)savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:checkoutReferenceRef.current});else clearPosDraft(window.localStorage,draftKey)};
     const timeout=setTimeout(persist,180);
     window.addEventListener("pagehide",persist);
-    return()=>{clearTimeout(timeout);window.removeEventListener("pagehide",persist)};
+    return()=>{clearTimeout(timeout);if(checkoutReferenceRef.current)persist();window.removeEventListener("pagehide",persist)};
   },[draftKey,draftReady,holdRestoring,recoveryPacket,cart,customer,customerId,note,payment,cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered]);
   useEffect(()=>{
     const changed=event=>{if(event.key!==checkoutKey)return;const packet=readAttempt(window.localStorage,checkoutKey);setRecoveryPacket(packet);if(packet)checkoutReferenceRef.current=packet.clientReference;if(!packet&&window.localStorage.getItem(`${checkoutKey}:confirmed`)===checkoutReferenceRef.current){clearPosDraft(window.localStorage,draftKey);setCart([]);checkoutReferenceRef.current=null;reloadStore({silent:true})}};
@@ -229,11 +236,21 @@ function Sales(){
     return()=>clearInterval(timer);
   },[activeShift?.id]);
 
-  const categories=useMemo(()=>[...new Set(inventory.filter(p=>!p.archived).map(p=>p.category).filter(Boolean))],[inventory]);
-  const filteredProducts=useMemo(()=>inventory.filter(p=>!p.archived&&(category==="all"||p.category===category)&&`${p.name} ${p.sku||""} ${p.barcode||""}`.toLowerCase().includes(search.toLowerCase())),[inventory,category,search]);
-  const productById=useMemo(()=>new Map(inventory.map((item)=>[String(item.id),item])),[inventory]);
+  const categories=useMemo(()=>remoteCatalog?.categories||[...new Set(inventory.filter(p=>!p.archived).map(p=>p.category).filter(Boolean))],[inventory,remoteCatalog?.categories]);
+  const catalogSearch=useMemo(()=>createPosCatalogSearch(inventory),[inventory]);
+  const filteredProducts=useMemo(()=>remoteCatalog?.results||searchPosCatalog(catalogSearch,search,category),[remoteCatalog?.results,catalogSearch,category,search]);
   const productByBarcode=useMemo(()=>{const map=new Map();for(const item of inventory){const code=String(item.barcode||"").trim();if(code&&!item.archived)map.set(code,item)}return map},[inventory]);
   const products=useMemo(()=>filteredProducts.slice(0,productLimit),[filteredProducts,productLimit]);
+  const remoteSearch=remoteCatalog?.search,remotePin=remoteCatalog?.pin,remoteInvalidate=remoteCatalog?.invalidateSearch;
+  const firstRemoteSearch=useRef(true);
+  useEffect(()=>{
+    if(!remoteSearch)return;
+    if(firstRemoteSearch.current){firstRemoteSearch.current=false;return;}
+    remoteInvalidate();
+    const timer=setTimeout(()=>{setProductLimit(40);void remoteSearch({search,category:category==='all'?'':category})},60);
+    return()=>clearTimeout(timer);
+  },[search,category,remoteSearch,remoteInvalidate]);
+  useEffect(()=>{remotePin?.(cart.map(p=>p.id))},[cart,remotePin]);
   useEffect(()=>setProductLimit(40),[category,search]);
   const topProducts=useMemo(()=>inventory.filter(p=>!p.archived&&p.quantity>0).slice(0,5),[inventory]);
   const canReturn=hasPermission("returns",currentUser?.appRole);
@@ -256,7 +273,7 @@ function Sales(){
   const effectiveDiscount=(itemPct,cartPct)=>100-(100-Number(itemPct||0))*(100-Number(cartPct||0))/100;
   const maxCartDiscountAllowed=cart.length?Math.max(0,Math.min(discountLimit,...cart.map(item=>{const itemPct=Math.max(0,Number(item.discountPercent||0));if(itemPct>=100)return 0;return Math.max(0,((discountLimit-itemPct)/(100-itemPct))*100)}))):discountLimit;
   const maxItemDiscountAllowed=cartDiscountPct>=100?0:Math.max(0,((discountLimit-cartDiscountPct)/(100-cartDiscountPct))*100);
-  const packFactor=item=>Number(selectedPackaging(item,item.packUnit)?.factor||1);
+  const packFactor=useCallback(item=>Number(selectedPackaging(item,item.packUnit)?.factor||1),[]);
   const getBaseUnitPrice=(item)=>{const pack=selectedPackaging(item,item.packUnit);return pack?Number(pack.salePrice)/Number(pack.factor):Math.max(0,Number(item.sellPrice||item.price||0))};
   const getItemUnitPrice=(item)=>getBaseUnitPrice(item)*(1-Number(item.discountPercent||0)/100);
   const getFinalUnitPrice=(item)=>getItemUnitPrice(item)*(1-cartDiscountPct/100);
@@ -266,7 +283,7 @@ function Sales(){
   const itemDiscountTotal=subtotal-afterItemDiscount;
   const cartDiscountAmount=sumMoney([afterItemDiscount,-sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct))))]);
   const total=Math.max(0,sumMoney(cart.map(item=>cartLineAmount(item,effectiveDiscount(item.discountPercent,cartDiscountPct)))));
-  const cartStockIssue=useMemo(()=>reconcilePersistedCart({lines:cart,products:inventory,storeId:currentStoreId}).hasBlockingStockIssue,[cart,inventory,currentStoreId]);
+  const cartStockIssue=useMemo(()=>reconcilePersistedCart({lines:cart,products:productById,storeId:currentStoreId}).hasBlockingStockIssue,[cart,productById,currentStoreId]);
   const discountTotal=itemDiscountTotal+cartDiscountAmount;
   // Empty draft tender follows the live total; an entered tender stays fixed.
   const cashTendered=cashTenderedInput===""?String(total):cashTenderedInput;
@@ -280,7 +297,7 @@ function Sales(){
   const splitValid=splitCardN+splitTransferN<=total&&splitMethodCount>=2&&(splitCash<=0||splitCashTenderedN>=splitCash);
   const storeDailySales=useMemo(()=>dailySales.filter(sale=>sale.storeId?String(sale.storeId)===String(currentStoreId):sale.store===currentStore?.name),[dailySales,currentStoreId,currentStore?.name]);
 
-  const add=(product)=>{
+  const add=useCallback((product)=>{
     if(!draftReady||holdRestorePendingRef.current||processing||recoveryPacket)return;
     setError("");
     if(blockNegative&&Number(product.quantity)<=0){setError(`${product.name} omborda tugagan`);return}
@@ -292,7 +309,19 @@ function Sales(){
       }
       return [...items,{...product,cartQty:1,discountPercent:0}];
     });
-  };
+  },[draftReady,processing,recoveryPacket,blockNegative,packFactor]);
+  const latestAddRef=useRef(add);latestAddRef.current=add;
+  const scanRemote=useCallback((code,fallback=null)=>{
+    if(!remoteCatalog?.resolveBarcode)return;
+    const scope=draftKey;setBarcodePending(n=>n+1);
+    scanQueueRef.current=scanQueueRef.current.catch(()=>{}).then(async()=>{
+      try{
+        const product=await remoteCatalog.resolveBarcode(code);
+        if(restoreContextRef.current?.draftKey===scope){latestAddRef.current(product);setSearch('');}
+      }catch(e){if(restoreContextRef.current?.draftKey===scope){if(e.code==='BARCODE_NOT_FOUND'&&fallback){latestAddRef.current(fallback);setSearch('')}else setError(e?.message||'Shtrix-kodni tekshirib bo‘lmadi')}}
+      finally{if(restoreContextRef.current?.draftKey===scope)setBarcodePending(n=>Math.max(0,n-1))}
+    });
+  },[remoteCatalog?.resolveBarcode,draftKey]);
   const qty=(id,next)=>{
     if(!draftReady||holdRestorePendingRef.current)return;
     const product=productById.get(String(id));
@@ -321,6 +350,7 @@ function Sales(){
         if(code.length<4)return;
         const exact=productByBarcode.get(code);
         if(exact&&workspaceSettings.pos.barcodeAutoAdd!==false){event.preventDefault();add(exact);setSearch("");return}
+        if(!exact&&remoteCatalog&&workspaceSettings.pos.barcodeAutoAdd!==false){event.preventDefault();scanRemote(code);return}
         setSearch(code);
         requestAnimationFrame(()=>searchRef.current?.focus());
         return;
@@ -334,10 +364,15 @@ function Sales(){
     };
     window.addEventListener("keydown",onScannerKey);
     return()=>{window.removeEventListener("keydown",onScannerKey);if(scannerResetRef.current)window.clearTimeout(scannerResetRef.current)};
-  },[productByBarcode,workspaceSettings.pos.barcodeAutoAdd,blockNegative,currentStoreId]);
+  },[productByBarcode,workspaceSettings.pos.barcodeAutoAdd,add,currentStoreId,Boolean(remoteCatalog),scanRemote]);
   const handleSearchKey=(event)=>{
     if(event.key!=="Enter")return;
     const exact=productByBarcode.get(search.trim());
+    if(!exact&&remoteCatalog&&search.trim()&&(workspaceSettings.pos.barcodeAutoAdd!==false||workspaceSettings.pos.enterAddsProduct)){
+      const matches=searchPosCatalog(catalogSearch,search,category);
+      const fallback=workspaceSettings.pos.enterAddsProduct&&!remoteCatalog.pending?products.find(p=>matches.some(m=>m.id===p.id)):null;
+      event.preventDefault();scanRemote(search.trim(),fallback);return;
+    }
     if(!exact&&!workspaceSettings.pos.enterAddsProduct)return;
     if(exact&&!workspaceSettings.pos.barcodeAutoAdd&&!workspaceSettings.pos.enterAddsProduct)return;
     const target=exact||products[0];
@@ -377,6 +412,14 @@ function Sales(){
     if(!draftReady||holdRestorePendingRef.current){setError("Savatni tiklash uchun joriy filial ma’lumotlari yuklanishini kuting.");return;}
     // Replacing an unsent active cart silently would discard its products.
     if(cart.length){setError("Avval joriy savatni yakunlang yoki ushlab turing, keyin boshqa savatni tiklang.");setHeldModal(false);return;}
+    holdRestorePendingRef.current=true;setHoldRestoring(true);
+    try{
+    let resolvedProducts=[];
+    if(remoteCatalog){
+      try{resolvedProducts=(await remoteCatalog.resolveProducts(heldCart.cart.map(p=>p.id))).products}
+      catch(e){setError(e?.message||'Savat mahsulotlarini tekshirib bo‘lmadi');return;}
+      if(restoreContextRef.current?.draftKey!==draftKey)return;
+    }
     const local=String(heldCart.id).startsWith("local-");
     // Keep a durable draft *before* deleting the persisted hold. If the browser
     // closes between the DELETE response and the next React render, no data is lost.
@@ -386,11 +429,9 @@ function Sales(){
     })){
       setError("Savatni tiklashdan oldin qurilmaga zaxira saqlab bo‘lmadi.");return;
     }
-    holdRestorePendingRef.current=true;setHoldRestoring(true);
     let result;
     try{result=local?{success:true}:await deleteSaleHold(heldCart.id)}
     catch(error){result={success:false,message:error?.message}}
-    finally{holdRestorePendingRef.current=false;setHoldRestoring(false)}
     const latest=restoreContextRef.current;
     // The old branch draft was backed up above. Never install it in a new branch.
     if(latest.draftKey!==draftKey)return;
@@ -405,13 +446,14 @@ function Sales(){
       setError(result?.message||"Savatni davom ettirib bo‘lmadi");return;
     }
     if(local)saveLocalHolds(readLocalHolds().filter(item=>item.id!==heldCart.id));
-    const current=latest.reconcileRestore(heldCart);
+    const current=latest.reconcileRestore(heldCart,resolvedProducts);
     reconciledCatalogRef.current=latest.reconcileRestore;checkoutReviewRequiredRef.current=false;
     checkoutReferenceRef.current=heldCart.clientReference||`POS-HOLD-${heldCart.id}`;
     setCart(current.lines);setReconciliationNotice(cartReconciliationMessage(current.changes));setCustomer(heldCart.customer||"");setCustomerId(heldCart.customerId||"");setNote(heldCart.note||"");
     setCashTendered("");setCreditPaid("");setCreditDueDate("");
     setCartDiscountPct(current.cartDiscountPct);setCartDiscountInput(String(current.cartDiscountPct));
     setHeld(items=>items.filter(item=>item.id!==heldCart.id));setHeldModal(false);
+    }finally{holdRestorePendingRef.current=false;setHoldRestoring(false)}
   };
   const clearCart=()=>{if(!cart.length)return;const previous={cart:[...cart],cartDiscountPct};setCart([]);setCartDiscountPct(0);setCartDiscountInput("0");undo({title:"Savat tozalandi",message:`${previous.cart.reduce((sum,item)=>sum+Number(item.cartQty||0),0)} dona`,onUndo:()=>{setCart(previous.cart);setCartDiscountPct(previous.cartDiscountPct);setCartDiscountInput(String(previous.cartDiscountPct||0))}})};
   const requestDeleteHold=async(item)=>{
@@ -492,7 +534,7 @@ function Sales(){
     setCloseDayModal(false);
   };
   const performReturn=async()=>{
-    if(returnProcessing)return;
+    if(returnProcessing||returnLookupBusyRef.current)return;
     setReturnError("");
     if(!canReturn||!returnSale||!returnItem||returnQty<=0||!returnReason)return;
     const productId=returnItem.productId||returnItem.id;
@@ -503,7 +545,13 @@ function Sales(){
     if(cashAdjustment&&!activeShift){setReturnError("Naqd pul harakati talab qilinadi. Avval smenani oching.");return}
     const returnStoreId=returnSale.storeId||currentStoreId;
     if(String(returnStoreId)!==String(currentStoreId)){setReturnError("Qaytarish savdo amalga oshirilgan filialda bajarilishi kerak. Avval o‘sha filialga o‘ting.");return}
-    const product=getStoreProduct(productId,returnStoreId);
+    let product;
+    const intent=returnIntentRef.current;
+    returnLookupBusyRef.current=true;setReturnProcessing(true);
+    try{product=remoteCatalog?(await remoteCatalog.resolveProducts([productId])).products[0]:getStoreProduct(productId,returnStoreId)}
+    catch(e){setReturnError(e?.message||'Qaytarish mahsulotini tekshirib bo‘lmadi');return;}
+    finally{returnLookupBusyRef.current=false;setReturnProcessing(false)}
+    if(intent!==returnIntentRef.current)return;
     if(!product){setReturnError("Mahsulot katalogda topilmadi. Qoldiqni tiklamasdan qaytarish bajarilmaydi.");return}
     let productUpdates=[];
     const attemptKey=refundAttemptKey(currentUser.organizationId,currentUser.id,returnStoreId,returnSale.id,productId);
@@ -548,8 +596,9 @@ function Sales(){
         <div className="pos-search-row"><div className="pos-search"><FiSearch/><input ref={searchRef} value={search} onChange={event=>setSearch(event.target.value)} onKeyDown={handleSearchKey} placeholder="Mahsulot nomi, SKU yoki shtrix-kod..." aria-label="Mahsulot qidirish"/></div><button type="button" className="pro-btn secondary pos-camera-scan" onClick={()=>setScannerOpen(true)}><FiCamera/> <span>Skanerlash</span></button></div>
         <div className="pos-categories"><button className={category==="all"?"active":""} onClick={()=>setCategory("all")}>Barchasi</button>{categories.map(item=><button key={item} className={category===item?"active":""} onClick={()=>setCategory(item)}>{item}</button>)}</div>
         {!search&&topProducts.length>0&&<div className="quick-products"><span>Tezkor</span>{topProducts.map(product=><button key={product.id} onClick={()=>add(product)} disabled={blockNegative&&product.quantity<=0}>{product.name}</button>)}</div>}
+        {(remoteCatalog?.pending||barcodePending>0)&&<p role="status">Mahsulotlar tekshirilmoqda...</p>}{remoteCatalog?.error&&<p role="alert">{remoteCatalog.error}<button className="pro-btn secondary" onClick={()=>remoteSearch({search,category:category==="all"?"":category})}>Qayta urinish</button></p>}
         <div className="pos-product-grid">{products.length?products.map(product=><button className={`pos-product ${blockNegative&&product.quantity<=0?"disabled":""}`} key={product.id} onClick={()=>add(product)} disabled={blockNegative&&product.quantity<=0}><div className="pos-product-icon"><FiPackage/></div><span><strong>{product.name}</strong><small>{product.sku}{product.category?` · ${product.category}`:""}</small></span><div><b>{formatPrice(product.sellPrice||product.price)}</b><em className={product.quantity<=0?"out":product.quantity<=product.minStock?"low":""}>{product.quantity} {product.unit||"dona"}</em></div></button>):<div className="pro-empty"><FiPackage/><strong>Mahsulot topilmadi</strong><span>Shtrix-kod yoki nom bilan qayta qidiring.</span></div>}</div>
-        {filteredProducts.length>products.length&&<button type="button" className="pro-btn secondary pos-load-more" onClick={()=>setProductLimit(limit=>limit+40)}>Yana {Math.min(40,filteredProducts.length-products.length)} ta mahsulot</button>}
+        {(filteredProducts.length>products.length||remoteCatalog?.hasMore)&&<button type="button" className="pro-btn secondary pos-load-more" disabled={remoteCatalog?.pending} onClick={()=>{if(remoteCatalog?.hasMore&&products.length===filteredProducts.length)void remoteSearch({},true);setProductLimit(limit=>limit+40)}}>Yana {remoteCatalog?.hasMore?40:Math.min(40,filteredProducts.length-products.length)} ta mahsulot</button>}
         <button type="button" className="pos-mobile-cart-bar" onClick={()=>setMobilePane("cart")} disabled={!cart.length}><span><FiShoppingCart/><strong>Savat</strong><small>{cart.reduce((sum,item)=>sum+item.cartQty,0)} dona · {cart.length} tur</small></span><b>{formatPrice(total)}</b></button>
       </section>
       <aside className={`pos-checkout pro-card ${mobilePane==="cart"?"mobile-pane-active":"mobile-pane-hidden"}`}>
@@ -566,7 +615,7 @@ function Sales(){
       </aside>
     </div>
 
-    <BarcodeScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} title="Savdo uchun shtrix-kod" onDetected={(code)=>{const product=productByBarcode.get(String(code).trim());if(product){add(product);setSearch("");setScannerOpen(false)}else{setSearch(String(code));setError(`Shtrix-kod ${code} bo‘yicha mahsulot topilmadi`);setScannerOpen(false);requestAnimationFrame(()=>searchRef.current?.focus())}}}/>
+    <BarcodeScannerModal open={scannerOpen} onClose={()=>setScannerOpen(false)} title="Savdo uchun shtrix-kod" onDetected={(code)=>{const product=productByBarcode.get(String(code).trim());if(product){add(product);setSearch("");setScannerOpen(false)}else if(remoteCatalog){scanRemote(String(code).trim());setScannerOpen(false)}else{setSearch(String(code));setError(`Shtrix-kod ${code} bo‘yicha mahsulot topilmadi`);setScannerOpen(false);requestAnimationFrame(()=>searchRef.current?.focus())}}}/>
     <Modal open={todaySalesOpen} onClose={()=>setTodaySalesOpen(false)} title="Bugungi savdolar" subtitle={`${currentStore?.name||"Filial"} · ${storeDailySales.length} ta tranzaksiya`} size="lg">
       <TodaySales key={currentStoreId} storeId={currentStoreId} canReturn={canReturn} onReturn={sale=>{setTodaySalesOpen(false);setReturnSale(sale);setReturnItem(null);setReturnReason("");setReturnQty(1);setRefundMethod("original");setReturnError("")}}/>
     </Modal>

@@ -9,11 +9,12 @@ import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspac
 import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
 import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
+import {mapBootstrapInventory} from '../utils/bootstrapInventory';
 import {productMetadata} from '../utils/productOptions';
 import {workspaceAccessState} from '../utils/license';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
 
-const StoreContext = createContext(null);
+export const StoreContext = createContext(null);
 const DEFAULT_STORE_ID = "dokon-1";
 
 const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -65,7 +66,7 @@ const projectInventory = (items = [], storeId = DEFAULT_STORE_ID) => items.map((
   const qty = number(item.stockByStore?.[storeId], 0);
   return { ...item, quantity:qty, stock:qty };
 });
-const productFromApi=(row,storeIds=[])=>normalizeProduct({
+export const productFromApi=(row,storeIds=[])=>normalizeProduct({
   ...(row.metadata||{}),metadata:row.metadata||{},
   id:row.id,name:row.name,sku:row.sku||"",barcode:row.barcode||"",category:row.category||"",brand:row.brand||"",unit:row.unit||"dona",
   costPrice:number(row.cost_price??row.costPrice,0),sellPrice:number(row.sell_price??row.sellPrice,0),wholesalePrice:number(row.wholesale_price??row.wholesalePrice,0),
@@ -92,6 +93,11 @@ export const StoreProvider = ({ children }) => {
     try{window.localStorage.setItem(selectionKey,next)}catch{}
   },[selectionIdentity,selectionKey]);
   const [inventoryState, setInventoryState] = useState([]);
+  const [catalogComplete,setCatalogComplete]=useState(false);
+  const [catalogError,setCatalogError]=useState('');
+  const [catalogEpoch,setCatalogEpoch]=useState(0);
+  const catalogRequestRef=useRef(null);
+  const fullCatalogIdentityRef=useRef(null);
   const [dailySales, setDailySales] = useState([]);
   const [salesHistory, setSalesHistory] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -214,14 +220,20 @@ export const StoreProvider = ({ children }) => {
     }
     if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);return;}
     try{
-      const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap"),api.get("/api/settings")]);
+      const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap",{headers:{'x-zenix-bootstrap':'core'}}),api.get("/api/settings")]);
       if(!isCurrent())return;
       if(baseResult.status!=="fulfilled")throw baseResult.reason;
-      const base=baseResult.value;
+      let base=baseResult.value;
+      // Once a legacy aggregate/editor has requested full inventory, refresh it
+      // completely. A later core response must not erase an active legacy cart.
+      if(base.catalog?.complete===false&&fullCatalogIdentityRef.current===hydrationIdentity)base=await api.get('/api/bootstrap');
+      if(!isCurrent())return;
       const settingsData=settingsResult.status==="fulfilled"?(settingsResult.value||{}):{};
       const settingsLoaded=settingsResult.status==="fulfilled";
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
+      const nextInventory=await mapBootstrapInventory(base.inventory,item=>productFromApi(item,storeIds),{isCurrent});
+      if(!nextInventory||!isCurrent())return;
       setStores(nextStores);
       setSelectedStoreIdState(()=>{
         let saved="";
@@ -229,7 +241,9 @@ export const StoreProvider = ({ children }) => {
         const preferred=(selectedStoreRef.current.identity===hydrationIdentity?selectedStoreRef.current.id:"")||saved||settingsData?.selectedStoreId;
         return nextStores.some((store)=>store.id===preferred&&store.active!==false)?preferred:(nextStores[0]?.id||"");
       });
-      setInventoryState((base.inventory||[]).map((item)=>productFromApi(item,storeIds)));
+      setInventoryState(nextInventory);
+      setCatalogComplete(base.catalog?.complete!==false);setCatalogError('');setCatalogEpoch(requestId);
+      if(base.catalog?.complete!==false)fullCatalogIdentityRef.current=hydrationIdentity;
       setDailySales(base.dailySales||[]);setSalesHistory(base.salesHistory||[]);setSuppliers(base.suppliers||[]);setExpenses(base.expenses||[]);setReturns(base.returns||[]);
       setActiveShifts(base.activeShifts||{});setShiftHistory(base.shiftHistory||[]);setActivityLogs(base.activityLogs||[]);setInventoryTransfers(base.inventoryTransfers||[]);
       setStockMovements(base.stockMovements||[]);setInventoryCounts(base.inventoryCounts||[]);setPaymentsState(base.payments||[]);
@@ -276,6 +290,28 @@ export const StoreProvider = ({ children }) => {
       setPersistenceError(message);if(!silent){setWorkspaceLoadError(message);setWorkspaceLoading(false);}
     }
   },[currentUser]);
+
+  const ensureCatalog=useCallback(()=>{
+    if(catalogComplete)return Promise.resolve();
+    const identity=currentWorkspaceIdentityRef.current,generation=hydrationRequestRef.current;
+    fullCatalogIdentityRef.current=identity;
+    const key=`${identity}:${generation}`;
+    if(catalogRequestRef.current?.key===key)return catalogRequestRef.current.promise;
+    setCatalogError('');
+    const promise=(async()=>{
+      try{
+        const base=await api.get('/api/bootstrap');
+        if(base.catalog?.complete===false||!Array.isArray(base.inventory))throw Error('Complete catalog unavailable');
+        const isCurrent=()=>identity===currentWorkspaceIdentityRef.current&&generation===hydrationRequestRef.current;
+        const rows=await mapBootstrapInventory(base.inventory,item=>productFromApi(item,(base.stores||[]).map(s=>s.id)),{isCurrent});
+        if(!rows||!isCurrent())return;
+        setInventoryState(rows);setCatalogComplete(true);
+      }catch(error){
+        if(identity===currentWorkspaceIdentityRef.current&&generation===hydrationRequestRef.current)setCatalogError(error?.message||'Katalogni yuklab bo‘lmadi');
+        throw error;
+      }finally{if(catalogRequestRef.current?.key===key)catalogRequestRef.current=null;}
+    })();catalogRequestRef.current={key,promise};return promise;
+  },[catalogComplete]);
 
   const workspaceRefreshScheduler=useMemo(()=>createWorkspaceRefreshScheduler({
     currentIdentity:()=>currentWorkspaceIdentityRef.current,
@@ -759,8 +795,8 @@ export const StoreProvider = ({ children }) => {
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
-    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,catalogComplete,catalogError,catalogEpoch,ensureCatalog,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
+  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

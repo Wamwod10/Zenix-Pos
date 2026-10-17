@@ -22,6 +22,8 @@ jobs:
       - run: npm run audit
       - run: npm run verify:production
       - run: npm run build
+      - name: Synthetic CPU and bundle regression budgets
+        run: node scripts/check-performance-budget.mjs --bundle
 
       # Read-only browser check against a local Vite preview; no Neon credentials.
       - name: Install Playwright Chromium for local login smoke
