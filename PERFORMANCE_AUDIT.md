@@ -244,7 +244,7 @@ A negotiated columnar snapshot and worker parsing/normalization were implemented
 
 AI mobile send P99 250.5→110.8ms; reply P99 1637.9→608.5ms; mode P99 1093.4→707.7ms. Long-history typing P50/P95/P99 60.6/141.2/208.3→43.2/124.9/163.3ms. Cold launch was a single ~803ms DOM/~963ms two-RAF observation, not a percentile or proof of instant launch. Two additional 20-sample desktop pairs did not reproduce the original mode P95 regression: 46.9→42.2ms and 63.9→44.4ms; P99 slightly worsened 84.9→85.8 and 71.9→73.8ms. No universal tail-win claim. Evidence: `artifacts/performance-continuation-20261016/ai-interaction-tails`.
 
-Current-only AI backend phase observations use real local PostgreSQL and a scripted 10ms provider, **not OpenAI**: verified report n=30 total P50/P95/P99 368.91/462.99/464.09ms; fallback n=10 437.40/507.43/507.43ms. Report phase P50/P95 39.01/63.74ms, tool 63.81/93.99, evidence 0.39/2.13, memory 0.04/0.18, validation 0.06/0.24. Provider phase includes dispatch/quota DB overhead and is not external model latency. Synthetic token counters are not tokenizer measurements. Evidence: `ai-backend-phases.json`. Live OpenAI key was absent; no credentials were obtained or production quota consumed.
+Current-only AI backend phase observations use real local PostgreSQL and a scripted 10ms provider, **not OpenAI**: verified report n=30 total P50/P95/P99 382.86/451.88/512.82ms; fallback n=10 430.35/512.55/512.55ms. Report phase P50/P95 58.05/71.87ms, tool 82.88/98.09, evidence 0.78/1.36, memory 0.06/0.15, validation 0.07/0.15. Provider phase includes dispatch/quota DB overhead and is not external model latency. Synthetic token counters are not tokenizer measurements. Evidence: `ai-backend-phases.json`. Live OpenAI key was absent; no credentials were obtained or production quota consumed.
 
 ### Controls and migration security review
 
@@ -286,3 +286,21 @@ Observed 250ms-sampled renderer JS heap maximum: desktop 50,719,012→50,452,120
 | Monitoring/CI | PARTIALLY COMPLETED | Bounded optional phase/HTTP/DB metrics and regression budgets; production collection policy/observation remains. |
 
 Final local production POS browser passed at 390/768/1366/1920px: every width retained all 20 scanner inputs as five cart lines, quantity four each, zero browser errors. Search P50/P95/P99 ms respectively 47.0/126.4/150.8, 8.4/14.5/14.8, 11.0/16.1/16.2, 8.3/13.3/13.5. API intercepted, mobile 4x CPU; this was a functional regression run overlapping disposable DB tests, not an isolated before/after latency claim. Evidence: `artifacts/performance-final-pos-browser.log`.
+
+### Final local quality gate
+
+- Frontend full suite **253/253**, no failures/skips; backend standalone **600 passed, 50 DB-only skipped** (650 total), syntax **150 modules**.
+- Disposable PG/HTTP/billing/subscription/tenant/branch/checkout/AI evidence/confirmation/security: **166/166** passed with diagnostics enabled; additional trial/OTP security **12/12** passed, no skips. These are separate serialized runs (178 passing cases total), not 178 standalone unit tests.
+- Existing AI Chromium **28/28** cases, new representative controls **45 checks**, final four-width POS/barcode assertions passed. Design/import/readiness/build/CPU/bundle gates passed. Main gzip **113,908**, total JS gzip **419,053** bytes.
+- Final checkout current-only revalidation: cash P50/P95/P99 **78.06/130.38/132.08ms**, card **111.73/130.66/131.55**, mixed **67.48/130.62/132.16**; refund cash **125.48/150.40/151.27**, card **116.55/136.47/142.76**, mixed **108.21/153.60/159.79**. Ten-user burst **554.18/1061.21/1135.24**, fifty-user **1872.96/3804.31/4507.89**. Exact 274 sales/90 refunds/9816 stock, cash 12960/card 14440, duplicate replay and tenant isolation passed. Pool max five, peak waiting 78; transactions/locks retained. No checkout-speedup claim from this current-only repeat.
+- `benchmark-ai-phases.mjs` reran successfully with process exit 0 using a local scripted provider and actual DB; this still does not validate real OpenAI.
+- Logs: `artifacts/performance-final-db.log`, `performance-final-trial.log`, `performance-final-checkout.log`, `performance-final-ai-phases.log`, frontend `.cache/performance/final-full-tests.log`, backend `performance-final-tests.log`.
+
+Push/CI: both final runtime heads passed; exact run links follow. Historical green heads above do not certify later commits. PR metadata editing is unavailable (connector 403); committed audit/readiness reports provide the reviewable update instead. No credential extraction was attempted.
+
+### Final runtime GitHub verification
+
+- Frontend `3c05aff303395b0a138d41f4ca1f5277048067ee`: [Verify Frontend 39022937418](https://github.com/Wamwod10/Zenix-Pos/actions/runs/39022937418), **success**.
+- Backend `3892e96223aab4b29d8a0a573b6f51f02d68f30c`: [Verify Backend 39023031810](https://github.com/Wamwod10/Zenix-Pos-Backend/actions/runs/39023031810), **success**, including isolated DB, billing/AI, checkout budget, legacy migration and backup/restore.
+
+Both existing performance branches were pushed; AI base commits remain ancestors. The follow-up report synchronization changes documentation only. Check the branch-tip workflow as well before release. Disposable container `zenix-perf-final-20261017` was verified loopback-only and stopped after all tests. No production resources were modified. Overall release status remains **BLOCKED** for the explicit staging/provider/device and large-snapshot/mobile gates in `RELEASE_READINESS.md`.
