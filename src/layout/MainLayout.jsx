@@ -77,7 +77,7 @@ function MainLayout(){
   const {
     inventory, suppliers, stores, currentStore, currentStoreId, setSelectedStoreId, addStore,
     dailySales, salesHistory, employees, activeShift, payments, organizations, platformOverview, uiPreferences, setUiPreferences, effectiveWorkspaceSettings:workspaceSettings, hasPermission,
-    inventoryTransfers, inventoryCounts, businessFeatures, persistenceError, rolePermissions,
+    inventoryTransfers, inventoryCounts, businessFeatures, persistenceError, rolePermissions,catalogComplete,ensureCatalog,
   } = useStore();
   const navigate = useNavigate();
   const location=useLocation();
@@ -278,7 +278,7 @@ function MainLayout(){
     }
     if(currentOrg?.settings?.billingNotice&&currentUser?.appRole===ROLES.OWNER)items.unshift({id:`billing-notice-${currentOrg.settings.billingNoticeAt}`,tone:"warning",title:"Platforma administratori xabari",text:currentOrg.settings.billingNotice,path:"/billing"});
     const notify=workspaceSettings.notifications||{};
-    if(hasPermission("moduleInventory",currentUser?.appRole)){
+    if(catalogComplete&&hasPermission("moduleInventory",currentUser?.appRole)){
       if(notify.outOfStock!==false)inventory.filter(p=>Number(p.quantity)<=0).slice(0,2).forEach(p=>items.push({id:`out-${p.id}`,tone:"danger",title:"Mahsulot tugagan",text:p.name,path:"/inventory"}));
       if(notify.lowStock!==false)inventory.filter(p=>Number(p.quantity)>0&&Number(p.quantity)<=Number(p.minStock??workspaceSettings.inventory.defaultLowStock??5)).slice(0,2).forEach(p=>items.push({id:`low-${p.id}`,tone:"warning",title:"Kam qoldiq",text:`${p.name} · ${p.quantity} ${p.unit||"dona"}`,path:"/inventory"}));
     }
@@ -312,7 +312,7 @@ function MainLayout(){
       if(orgReview)items.unshift({id:"billing-review",tone:"info",title:"To‘lov tekshiruvda",text:"Chekingiz administrator tomonidan ko‘rib chiqilmoqda",path:"/billing"});
     }
     return items.slice(0,9);
-  },[inventory,suppliers,activeShift,isPlatform,payments,platformOverview,workspaceSettings.inventory.defaultLowStock,workspaceSettings.notifications,inventoryCounts,inventoryTransfers,organizations,currentUser?.appRole,currentUser?.organizationId,currentStoreId,clock,hasPermission,canApproveInventoryCount,canApproveTransfer,customerCreditStats]);
+  },[catalogComplete,inventory,suppliers,activeShift,isPlatform,payments,platformOverview,workspaceSettings.inventory.defaultLowStock,workspaceSettings.notifications,inventoryCounts,inventoryTransfers,organizations,currentUser?.appRole,currentUser?.organizationId,currentStoreId,clock,hasPermission,canApproveInventoryCount,canApproveTransfer,customerCreditStats]);
   const unreadNotifications=notifications.filter(item=>!readNotifications.has(item.id));
   const visibleNotifications=notificationView==="unread"?unreadNotifications:notifications;
   const persistReadNotifications=(next)=>{
@@ -329,11 +329,12 @@ function MainLayout(){
     setUiPreferences({readNotificationIds:[...pruned]});
   },[notifications,readNotifications,setUiPreferences]);
 
+  useEffect(()=>{if(search.trim()&&!catalogComplete&&hasPermission("moduleProducts"))void ensureCatalog().catch(()=>{})},[search,catalogComplete,ensureCatalog,hasPermission]);
   const results=useMemo(()=>{
     const q=search.trim().toLowerCase();if(!q)return [];
     const allowed=(path)=>visibleMenu.some(item=>item.path===path);
     const routes=routeIndex.filter(([a,b,path])=>allowed(path)&&`${a} ${b}`.toLowerCase().includes(q)).map(([title,meta,path])=>({type:"Bo‘lim",title,meta,path}));
-    const products=allowed("/products")?inventory.filter(p=>`${p.name} ${p.sku||""} ${p.barcode||""} ${p.brand||""}`.toLowerCase().includes(q)).slice(0,5).map(p=>({type:"Mahsulot",title:p.name,meta:`${p.sku||"SKU yo‘q"} · ${p.quantity} ${p.unit||"dona"}`,path:"/products"})):[];
+    const products=allowed("/products")&&catalogComplete?inventory.filter(p=>`${p.name} ${p.sku||""} ${p.barcode||""} ${p.brand||""}`.toLowerCase().includes(q)).slice(0,5).map(p=>({type:"Mahsulot",title:p.name,meta:`${p.sku||"SKU yo‘q"} · ${p.quantity} ${p.unit||"dona"}`,path:"/products"})):[];
     const customerLookup=allowed("/customers")&&q.length>=2?[{type:"Mijoz",title:`“${search.trim()}” bo‘yicha mijozlarni qidirish`,meta:"Mijozlar va nasiya",path:`/customers?search=${encodeURIComponent(search.trim())}`}]:[];
     const supplierResults=allowed("/suppliers")?suppliers.filter(s=>`${s.name} ${s.phone||""} ${s.contact||""}`.toLowerCase().includes(q)).slice(0,3).map(s=>({type:"Ta’minotchi",title:s.name,meta:s.phone||s.contact||"Aloqa yo‘q",path:"/suppliers"})):[];
     const invoices=allowed("/suppliers")?suppliers.flatMap(supplier=>(supplier.purchaseHistory||[]).map(row=>({supplier,row}))).filter(({supplier,row})=>`${row.invoiceNo||""} ${supplier.name} ${(row.items||[]).map(item=>item.name||item.productName||"").join(" ")}`.toLowerCase().includes(q)).slice(0,3).map(({supplier,row})=>({type:"Nakladnoy",title:row.invoiceNo||"Raqamsiz nakladnoy",meta:`${supplier.name} · ${row.date||row.dateISO||""}`,path:"/suppliers"})):[];
@@ -341,7 +342,7 @@ function MainLayout(){
     const sales=allowed("/history")?allSales.filter(sale=>`${sale.id||""} ${sale.customer||""} ${sale.sellerName||sale.seller||""} ${(sale.items||[]).map(item=>item.name||"").join(" ")}`.toLowerCase().includes(q)).slice(0,4).map(sale=>({type:"Savdo",title:sale.id||"Savdo",meta:`${sale.customer||sale.sellerName||sale.seller||"Mijoz"} · ${sale.date||sale.dateISO||""}`,path:`/history?search=${encodeURIComponent(sale.id||q)}`})):[];
     const employeeResults=allowed("/settings")?(employees||[]).filter(employee=>`${employee.name||""} ${employee.phone||""} ${employee.login||""}`.toLowerCase().includes(q)).slice(0,3).map(employee=>({type:"Xodim",title:employee.name,meta:`${employee.phone||"Telefon yo‘q"} · ${ROLE_LABELS[employee.role]||employee.role||"Xodim"}`,path:"/settings?tab=Xodimlar"})):[];
     return [...routes,...products,...customerLookup,...sales,...supplierResults,...invoices,...employeeResults].slice(0,12);
-  },[search,inventory,suppliers,dailySales,salesHistory,employees,visibleMenu]);
+  },[catalogComplete,search,inventory,suppliers,dailySales,salesHistory,employees,visibleMenu]);
 
   const quickActions=isPlatform?[{label:"To‘lovlarni tekshirish",path:"/platform",icon:FiShield}]:[
     hasPermission("moduleSales")&&{label:"Yangi savdo",path:"/sales",icon:FiShoppingCart},
@@ -428,7 +429,7 @@ function MainLayout(){
       <button type="button" className={mobileMoreActive||sidebarOpen?"active":""} onClick={()=>setSidebarOpen(true)}><FiMenu/><span>Yana</span></button>
     </nav>
 
-    {searchOpen&&<div className="command-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSearchOpen(false)}}><div className="command-palette" ref={commandRef} role="dialog" aria-modal="true" aria-label="Global qidiruv"><div className="command-input"><FiSearch/><input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Mahsulot, bo‘lim, ta’minotchi qidiring..."/><kbd>ESC</kbd></div><div className="command-results">{!search?<><div className="command-hint">Tezkor o‘tish</div>{(isPlatform?[["Platforma administratori","Mijozlar va to‘lovlar","/platform"]]:routeIndex.filter(([, ,path])=>visibleMenu.some(item=>item.path===path)).slice(0,6)).map(([title,meta,path])=><button key={path} onClick={()=>go(path)}><span><strong>{title}</strong><small>{meta}</small></span><em>Bo‘lim</em></button>)}</>:results.length?results.map((r,i)=><button key={`${r.type}-${r.title}-${i}`} onClick={()=>go(r.path)}><span><strong>{r.title}</strong><small>{r.meta}</small></span><em>{r.type}</em></button>):<div className="command-empty">Natija topilmadi</div>}</div></div></div>}
+    {searchOpen&&<div className="command-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSearchOpen(false)}}><div className="command-palette" ref={commandRef} role="dialog" aria-modal="true" aria-label="Global qidiruv"><div className="command-input"><FiSearch/><input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Mahsulot, bo‘lim, ta’minotchi qidiring..."/><kbd>ESC</kbd></div><div className="command-results">{!search?<><div className="command-hint">Tezkor o‘tish</div>{(isPlatform?[["Platforma administratori","Mijozlar va to‘lovlar","/platform"]]:routeIndex.filter(([, ,path])=>visibleMenu.some(item=>item.path===path)).slice(0,6)).map(([title,meta,path])=><button key={path} onClick={()=>go(path)}><span><strong>{title}</strong><small>{meta}</small></span><em>Bo‘lim</em></button>)}</>:results.length?results.map((r,i)=><button key={`${r.type}-${r.title}-${i}`} onClick={()=>go(r.path)}><span><strong>{r.title}</strong><small>{r.meta}</small></span><em>{r.type}</em></button>):<div className="command-empty" role="status">{!catalogComplete&&hasPermission("moduleProducts")?"Katalog hali yuklanmagan":"Natija topilmadi"}</div>}</div></div></div>}
 
     {guideSteps.length>0&&<aside className="zenix-guide-coach" role="dialog" aria-label="Bosqichma-bosqich yordam"><div className="guide-coach-head"><span><small>Menga ko‘rsat</small><strong>{guideStep+1} / {guideSteps.length}</strong></span><button type="button" onClick={closeGuide} aria-label="Yordamni yopish"><FiX/></button></div><p>{guideSteps[guideStep]}</p><div className="guide-coach-actions"><button type="button" className="pro-btn secondary" disabled={guideStep===0} onClick={()=>setGuideStep(step=>Math.max(0,step-1))}>Oldingi</button>{guideStep<guideSteps.length-1?<button type="button" className="pro-btn primary" onClick={()=>setGuideStep(step=>Math.min(guideSteps.length-1,step+1))}>Keyingi</button>:<button type="button" className="pro-btn primary" onClick={closeGuide}>Tayyor</button>}</div></aside>}
 

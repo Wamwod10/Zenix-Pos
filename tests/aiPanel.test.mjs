@@ -15,7 +15,8 @@ test('shared AI panel preserves conversation across navigation and requires expl
    vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/context/StoreContext.jsx'),vite.ssrLoadModule('/src/context/FeedbackContext.jsx'),vite.ssrLoadModule('/src/layout/MainLayout.jsx'),vite.ssrLoadModule('/src/services/apiClient.js'),import('react-dom/client')]);
   const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
   const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'].map((topic,i)=>({topic,question:`Namuna savol ${i+1}`}))};
-  const preview={productName:'Olma',warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
+  let previewReads=0;
+  const preview={get productName(){previewReads++;return 'Olma'},warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
   let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,failChat=false,failStatus=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
   let reportRowsRead=0;
   report={facts:[],tables:[{title:'Synthetic report',columns:['Value'],get rows(){reportRowsRead++;return [['1.00']];}}]};
@@ -87,7 +88,14 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(posts.length,1,'Enter submits exactly once');
   const readsAfterReply=reportRowsRead;
   assert.ok(readsAfterReply>0,'report rows were rendered');
+  const previewsAfterReply=previewReads;
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,1100)));
+  assert.equal(previewReads,previewsAfterReply,'expiry polling does not re-render a still-pending preview');
   await type('Performance draft');
+  assert.equal(previewReads,previewsAfterReply,'editing the composer does not re-render unchanged action previews');
+  await act(async()=>container.querySelector('.zenix-ai-panel-controls button:nth-last-child(2)').click());
+  assert.equal(previewReads,previewsAfterReply,'switching modes does not re-render unchanged action previews');
+  await act(async()=>container.querySelector('.zenix-ai-panel-controls button:nth-last-child(2)').click());
   assert.equal(reportRowsRead,readsAfterReply,'editing the composer does not render unchanged report rows');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Olma.*Main.*Asosiy ombor.*5.*kg.*10000/s);
   assert.equal(posts.filter(p=>p.path.endsWith('/confirm')).length,0);
@@ -137,7 +145,9 @@ test('shared AI panel preserves conversation across navigation and requires expl
   delayChat=false;await submit('Sessiya suhbat');sessionId='session-two';
   await act(async()=>auth.refreshSessions());
   assert.equal(container.querySelectorAll('.zenix-ai-answer').length,0,'new session clears conversation for the same user');
-  expiryOffset=-1000;await submit('Muddati tugagan kirim');
+  expiryOffset=50;await submit('Muddati tugagan kirim');
+  assert.ok(button('Tasdiqlash'),'pending confirmation initially remains available');
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,1100)));
   assert.match(container.querySelector('.zenix-ai-action').textContent,/muddati tugadi/);
   assert.equal(button('Tasdiqlash'),undefined);
   assert.equal(button('Yangi suhbat').disabled,false,'expired previews do not lock new chat indefinitely');

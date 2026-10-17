@@ -15,8 +15,7 @@ const actionLabels={PENDING:'Tasdiqlash kutilmoqda',EXECUTING:'Bajarilmoqda…',
 const actionData=response=>response?.action||response;
 const unresolved=action=>action.status==='EXECUTING'||action.uncertain;
 
-function ActionCard({action,writesEnabled,onAction,now}){
- const expired=action.status==='PENDING'&&(!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=now);
+const ActionCard=memo(function ActionCard({action,writesEnabled,onAction,expired}){
  const state=expired?'EXPIRED':action.status,pending=state==='PENDING',preview=action.preview||{};
  const canConfirm=pending&&!action.uncertain&&writesEnabled&&action.type==='stock_receipt'&&Boolean(action.confirmationToken);
  return <section className="zenix-ai-action" aria-label="Kirimni tasdiqlash" data-status={state}>
@@ -30,7 +29,7 @@ function ActionCard({action,writesEnabled,onAction,now}){
   {pending&&<div className="zenix-ai-action-buttons"><button type="button" className="pro-btn primary" disabled={!canConfirm||action.checking} onClick={()=>onAction(action,'confirm')}>Tasdiqlash</button><button type="button" className="pro-btn" disabled={!action.confirmationToken||action.checking||action.uncertain} onClick={()=>onAction(action,'cancel')}>Bekor qilish</button></div>}
   {(action.uncertain||state==='EXECUTING')&&<button type="button" className="pro-btn" disabled={action.checking} onClick={()=>onAction(action,'status')}>Holatni tekshirish</button>}
  </section>;
-}
+});
 
 // Completed report trees stay unchanged while typing, polling progress, or switching modes.
 // Live action controls remain outside this boundary so expiry and permissions still update.
@@ -43,6 +42,13 @@ const ChatAnswerContent=memo(function ChatAnswerContent({message:m}){
      {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
      </details>}</>;
 });
+
+// Keep transcript traversal out of composer, progress, and mode updates.
+const ChatHistory=memo(function ChatHistory({messages,follow}){return <>{messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}</>});
+
+const ChatMessages=memo(function ChatMessages({messages,writesEnabled,onAction,now}){return <>{messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/>
+     {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={writesEnabled} onAction={onAction} expired={action.status==='PENDING'&&(!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=now)}/>)}
+    </div></article>)}</>});
 
 function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const [progress,setProgress]=useState(null),progressPoll=useRef(null);
@@ -81,8 +87,8 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
   if(hasContext&&!await confirm({title:'Suhbat filialini almashtirasizmi?',message:'Boshqa filial uchun yangi suhbat boshlanadi. Joriy suhbat va matn tozalanadi.',confirmLabel:'Filialni almashtirish',tone:'warning'}))return;
   if(mounted.current)onScope(value);
  }
- const patchAction=(id,patch)=>{if(mounted.current)setMessages(old=>old.map(m=>({...m,actions:(m.actions||[]).map(a=>a.id===id?{...a,...patch,confirmationToken:patch.confirmationToken||a.confirmationToken,preview:patch.preview||a.preview}:a)})))};
- async function runAction(action,operation){
+ const patchAction=useCallback((id,patch)=>{if(mounted.current)setMessages(old=>old.map(m=>m.actions?.some(a=>a.id===id)?({...m,actions:(m.actions||[]).map(a=>a.id===id?{...a,...patch,confirmationToken:patch.confirmationToken||a.confirmationToken,preview:patch.preview||a.preview}:a)}):m))},[]);
+ const runAction=useCallback(async(action,operation)=>{
   if(actionLocks.current.has(action.id))return;
   if(operation!=='status'&&(action.status!=='PENDING'||action.uncertain||!action.confirmationToken||!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=Date.now()))return;
   if(operation==='confirm'&&(status?.writesEnabled!==true||action.type!=='stock_receipt'))return;
@@ -106,7 +112,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     finally{clearTimeout(recoveryTimer);actionControllers.current.delete(recovery)}
    }
   }finally{clearTimeout(timer);actionControllers.current.delete(c);actionLocks.current.delete(action.id)}
- }
+ },[patchAction,status?.writesEnabled,reloadStore]);
  function startProgress(requestId){
   stopProgress();setProgress(null);
   const poll={active:true,timer:null,controller:null};progressPoll.current=poll;
@@ -167,11 +173,9 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
     <div className="zenix-ai-suggestion-cards">{cards.map(card=>{const Icon={sales:FiBarChart2,stock:FiPackage,profit:FiTrendingUp,receipt:FiArchive}[card.id];return <button type="button" key={card.id} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(card.question);input.current?.focus()}}><Icon aria-hidden="true"/><span><strong>{card.title}</strong><small>{card.question}</small></span><span className="zenix-ai-card-arrow" aria-hidden="true">↗</span></button>})}</div>
     {Boolean(status?.suggestions?.length)&&<details className="zenix-ai-examples"><summary>Ko‘proq savollar <FiChevronDown aria-hidden="true"/></summary><div className="zenix-ai-suggestions" aria-label="Tavsiya etilgan savollar">{status.suggestions.map(s=><button type="button" key={s.topic} disabled={busy||Boolean(blocked)} onClick={()=>{setQuestion(s.question);input.current?.focus()}}>{s.question}</button>)}</div></details>}
    </section>}
-   {messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}
+   <ChatHistory messages={messages} follow={follow}/>
    <div className="zenix-ai-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Suhbat xabarlari">
-    {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/>
-     {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>)}
-    </div></article>)}
+    <ChatMessages messages={messages} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>
     {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>{aiProgressLabel(progress)}</span></div>}<div ref={bottom}/>
    </div>
    </div>

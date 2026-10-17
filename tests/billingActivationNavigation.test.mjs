@@ -28,7 +28,7 @@ test("expired active organization remains blocked", () => {
 });
 test("workspace hydration commits bootstrap entitlement even when settings refresh fails", () => {
   const source = fs.readFileSync(new URL("../src/context/StoreContext.jsx", import.meta.url), "utf8");
-  assert.match(source, /Promise\.allSettled\(\[api\.get\("\/api\/bootstrap"\),api\.get\("\/api\/settings"\)\]\)/);
+  assert.match(source, /Promise\.allSettled\(\[api\.get\("\/api\/bootstrap",\{headers:\{'x-zenix-bootstrap':'core'\}\}\),api\.get\("\/api\/settings"\)\]\)/);
   assert.match(source, /if\(baseResult\.status!=="fulfilled"\)throw baseResult\.reason/);
   assert.match(source, /settingsResult\.status==="fulfilled"\?\(settingsResult\.value\|\|\{\}\):\{\}/);
 });

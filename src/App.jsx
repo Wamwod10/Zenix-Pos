@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import MainLayout from "./layout/MainLayout";
 import { useAuth } from "./context/AuthContext";
 import { useStore } from "./context/StoreContext";
+import PosWorkspace from './context/PosWorkspace';
 import { ROLES } from "./config/roles";
 import { workspaceAccessState } from "./utils/license";
 import { workspaceRouteDecision } from "./utils/workspaceReadiness";
@@ -91,7 +92,15 @@ function WorkspaceAccess({children}){
   }
   return decision==="allowed" ? children : <Navigate to="/billing" replace/>;
 }
-const W=({children})=><WorkspaceAccess>{children}</WorkspaceAccess>;
+function CatalogAccess({children}){
+ const {catalogComplete,catalogError,catalogEpoch,ensureCatalog,workspaceReady}=useStore();
+ const {pathname}=useLocation();
+ const required=['/products','/inventory','/suppliers','/analytics','/history','/settings'].includes(pathname);
+ useEffect(()=>{if(required&&workspaceReady&&!catalogComplete)void ensureCatalog().catch(()=>{})},[required,workspaceReady,catalogComplete,catalogEpoch,ensureCatalog]);
+ if(required&&!catalogComplete)return catalogError?<WorkspaceLoadFailure message={catalogError} onRetry={()=>{void ensureCatalog().catch(()=>{})}}/>:<Fallback/>;
+ return children;
+}
+const W=({children})=><WorkspaceAccess><CatalogAccess>{children}</CatalogAccess></WorkspaceAccess>;
 const Fallback=()=> <PageSkeleton/>;
 
 function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fallback/>}><Routes>
@@ -100,7 +109,7 @@ function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fall
  <Route path="/" element={<Protected><MainLayout/></Protected>}>
   <Route index element={<PermissionAccess permission="moduleDashboard"><W><Dashboard/></W></PermissionAccess>}/>
   <Route path="shifts" element={<PermissionAccess permission="moduleShifts"><W><Shifts/></W></PermissionAccess>}/>
-  <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><Sales/></W></PermissionAccess>}/>
+  <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><PosWorkspace><Sales/></PosWorkspace></W></PermissionAccess>}/>
   <Route path="customers" element={<PermissionAccess permission="moduleSales"><W><Customers/></W></PermissionAccess>}/>
   <Route path="products" element={<PermissionAccess permission="moduleProducts"><W><Products/></W></PermissionAccess>}/>
   <Route path="inventory" element={<PermissionAccess permission="moduleInventory"><W><Inventory/></W></PermissionAccess>}/>
