@@ -9,6 +9,7 @@ import { isCurrentWorkspaceHydration, isWorkspaceReadyFor, shouldHydrateWorkspac
 import { createWorkspaceRefreshScheduler, normalizeOpenedShift, withOpenedShift } from "../utils/workspaceRefresh";
 import { createWorkspaceSyncController } from "../utils/workspaceSync";
 import { api, ApiError } from "../services/apiClient";
+import {mapBootstrapInventory} from '../utils/bootstrapInventory';
 import {productMetadata} from '../utils/productOptions';
 import {workspaceAccessState} from '../utils/license';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
@@ -222,6 +223,8 @@ export const StoreProvider = ({ children }) => {
       const settingsLoaded=settingsResult.status==="fulfilled";
       const nextStores=(base.stores||[]).map((store)=>({...store,active:store.active!==false}));
       const storeIds=nextStores.map((store)=>store.id);
+      const nextInventory=await mapBootstrapInventory(base.inventory,item=>productFromApi(item,storeIds),{isCurrent});
+      if(!nextInventory||!isCurrent())return;
       setStores(nextStores);
       setSelectedStoreIdState(()=>{
         let saved="";
@@ -229,7 +232,7 @@ export const StoreProvider = ({ children }) => {
         const preferred=(selectedStoreRef.current.identity===hydrationIdentity?selectedStoreRef.current.id:"")||saved||settingsData?.selectedStoreId;
         return nextStores.some((store)=>store.id===preferred&&store.active!==false)?preferred:(nextStores[0]?.id||"");
       });
-      setInventoryState((base.inventory||[]).map((item)=>productFromApi(item,storeIds)));
+      setInventoryState(nextInventory);
       setDailySales(base.dailySales||[]);setSalesHistory(base.salesHistory||[]);setSuppliers(base.suppliers||[]);setExpenses(base.expenses||[]);setReturns(base.returns||[]);
       setActiveShifts(base.activeShifts||{});setShiftHistory(base.shiftHistory||[]);setActivityLogs(base.activityLogs||[]);setInventoryTransfers(base.inventoryTransfers||[]);
       setStockMovements(base.stockMovements||[]);setInventoryCounts(base.inventoryCounts||[]);setPaymentsState(base.payments||[]);

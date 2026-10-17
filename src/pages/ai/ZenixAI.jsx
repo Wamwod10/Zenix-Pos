@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {memo,useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {FiX,FiMinus,FiMaximize2,FiMinimize2,FiPlus,FiArrowUp,FiBarChart2,FiPackage,FiTrendingUp,FiArchive,FiClock,FiChevronDown,FiShield} from 'react-icons/fi';
 import {api} from '../../services/apiClient';
@@ -31,6 +31,18 @@ function ActionCard({action,writesEnabled,onAction,now}){
   {(action.uncertain||state==='EXECUTING')&&<button type="button" className="pro-btn" disabled={action.checking} onClick={()=>onAction(action,'status')}>Holatni tekshirish</button>}
  </section>;
 }
+
+// Completed report trees stay unchanged while typing, polling progress, or switching modes.
+// Live action controls remain outside this boundary so expiry and permissions still update.
+const ChatAnswerContent=memo(function ChatAnswerContent({message:m}){
+ return <><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
+     {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
+     {(aiMessageReports(m).length>0||m.insights?.length>0)&&<details className="zenix-ai-history zenix-ai-report-details"><summary>Batafsil ma’lumotlar</summary>
+     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
+     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}{(t.from||t.to)&&<> · {t.from||"—"} — {t.to||"—"}</>}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
+     {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
+     </details>}</>;
+});
 
 function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
  const [progress,setProgress]=useState(null),progressPoll=useRef(null);
@@ -157,13 +169,7 @@ function Chat({scope,onScope,stores,locked,open,mode,onModeChange,onClose}){
    </section>}
    {messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}
    <div className="zenix-ai-messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Suhbat xabarlari">
-    {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
-     {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
-     {(aiMessageReports(m).length>0||m.insights?.length>0)&&<details className="zenix-ai-history zenix-ai-report-details"><summary>Batafsil ma’lumotlar</summary>
-     {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
-     {report.tables?.map((t,i)=><div className="zenix-ai-table" key={i}><table><caption>{t.title}{(t.from||t.to)&&<> · {t.from||"—"} — {t.to||"—"}</>}</caption><thead><tr>{t.columns.map((col,j)=><th key={j}>{col}</th>)}</tr></thead><tbody>{t.rows.map((row,j)=><tr key={j}>{row.map((cell,k)=><td key={k}>{cell??'Ma’lumot yetarli emas'}</td>)}</tr>)}</tbody></table>{!t.rows.length&&<p>Ushbu davrda mos ma’lumot topilmadi.</p>}</div>)}</section>)}
-     {[...aiMessageReports(m).flatMap(report=>report.notes||[]),...(m.insights||[])].map((text,i)=><p className="zenix-ai-note" key={i}>{text}</p>)}
-     </details>}
+    {messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/>
      {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={status?.writesEnabled===true} onAction={runAction} now={now}/>)}
     </div></article>)}
     {busy&&<div className="zenix-ai-thinking" role="status"><ZenixAIIcon/><span>{aiProgressLabel(progress)}</span></div>}<div ref={bottom}/>

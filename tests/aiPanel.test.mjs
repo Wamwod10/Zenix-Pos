@@ -17,6 +17,8 @@ test('shared AI panel preserves conversation across navigation and requires expl
   const status={limit:100,remaining:99,enabled:true,writable:true,writesEnabled:true,planCode:'BUSINESS',suggestions:['today_sales','top_products','low_stock','dormant','profit','expenses','customer_debt','supplier_debt','branches','recommendations'].map((topic,i)=>({topic,question:`Namuna savol ${i+1}`}))};
   const preview={productName:'Olma',warehouseName:'Asosiy ombor',storeName:'Main',quantity:5,unit:'kg',costPrice:10000};
   let actionStatus='PENDING',confirmRelease,confirmFail=false,chatRelease,delayChat=false,failChat=false,failStatus=false,actionGetFail=false,sessionId='session-one',expiryOffset=60000,report=null,loginRole='OWNER',permissionOverrides,settingsRolePermissions={};
+  let reportRowsRead=0;
+  report={facts:[],tables:[{title:'Synthetic report',columns:['Value'],get rows(){reportRowsRead++;return [['1.00']];}}]};
   const posts=[];
   api.get=async path=>{
    if(path==='/api/auth/me')return {user:{id:'owner',organizationId:'org',appRole:'OWNER'}};
@@ -83,6 +85,10 @@ test('shared AI panel preserves conversation across navigation and requires expl
   assert.equal(posts.length,0,'IME composition does not send');
   await act(async()=>container.querySelector('#zenix-ai-question').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true})));
   assert.equal(posts.length,1,'Enter submits exactly once');
+  const readsAfterReply=reportRowsRead;
+  assert.ok(readsAfterReply>0,'report rows were rendered');
+  await type('Performance draft');
+  assert.equal(reportRowsRead,readsAfterReply,'editing the composer does not render unchanged report rows');
   assert.match(container.querySelector('.zenix-ai-action').textContent,/Olma.*Main.*Asosiy ombor.*5.*kg.*10000/s);
   assert.equal(posts.filter(p=>p.path.endsWith('/confirm')).length,0);
   assert.equal(posts[0].body.conversationId,null);
