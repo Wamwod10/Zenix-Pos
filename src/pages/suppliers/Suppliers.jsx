@@ -4,6 +4,8 @@ import {
   FiPlus, FiSearch, FiShoppingBag, FiTruck, FiUsers,
 } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
+import {useAuth} from '../../context/AuthContext';
+import {attemptKey,readAttempt} from '../../utils/checkoutAttempt';
 import { useFeedback } from "../../context/FeedbackContext";
 import { formatPrice } from "../../utils/formatPrice";
 import { invoiceBalance, invoiceStatus, supplierOpenDebt } from "../../utils/supplierLedger";
@@ -42,8 +44,9 @@ const supplierInvoiceColumnDefs=[
 ];
 
 function Suppliers(){
+  const {currentUser}=useAuth();
   const {confirm,undo,notify}=useFeedback();
-  const {suppliers,inventory,hasPermission,effectiveWorkspaceSettings:workspaceSettings,activeShift,commitSupplierPayment,saveSupplier,setSupplierArchived}=useStore();
+  const {suppliers,inventory,currentStoreId,hasPermission,effectiveWorkspaceSettings:workspaceSettings,activeShift,commitSupplierPayment,saveSupplier,setSupplierArchived}=useStore();
   const canWrite=hasPermission("supplierWrite");
   const [search,setSearch]=useState("");
   const [filter,setFilter]=useState("active");
@@ -56,6 +59,10 @@ function Suppliers(){
   const [payNote,setPayNote]=useState("");
   const [payInvoiceId,setPayInvoiceId]=useState("");
   const [payFromRegister,setPayFromRegister]=useState(false);
+  const [pendingPayment,setPendingPayment]=useState(null);
+  const [paymentSaving,setPaymentSaving]=useState(false);
+  const paymentBusy=useRef(false);
+  const pendingFor=id=>readAttempt(window.localStorage,attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,`supplier-payment:${id}`));
   const [errors,setErrors]=useState({});
   const [selectedIds,setSelectedIds]=useState([]);
   const {visible:invoiceColumns,toggle:toggleInvoiceColumn,show:showInvoiceColumn}=usePersistentColumns("zenix_supplier_invoice_columns",supplierInvoiceColumnDefs);
@@ -147,29 +154,34 @@ function Suppliers(){
 
   const openPay=(supplier,invoice=null)=>{
     if(!canWrite)return;
+    const pending=pendingFor(supplier.id)?.payload;setPendingPayment(pending||null);
     const invoiceId=invoice?.id||"";
-    setSelected(supplier);setPayAmount("");setPayNote("");setPayMethod("cash");setPayInvoiceId(invoiceId);setPayFromRegister(false);
+    setSelected(supplier);setPayAmount(pending?String(pending.amount):"");setPayNote(pending?.note||"");setPayMethod(pending?.method||"cash");setPayInvoiceId(pending?.invoiceId||invoiceId);setPayFromRegister(Boolean(pending?.fromRegister));
     payBaselineRef.current=JSON.stringify({payAmount:"",payMethod:"cash",payNote:"",payInvoiceId:invoiceId,payFromRegister:false});
     setModal("pay");
   };
   const closePay=()=>guardPaymentClose(()=>{setModal(null);setPayInvoiceId("");setPayFromRegister(false);payBaselineRef.current=""});
   const payment=async()=>{
-    if(!canWrite||!selected)return;
+    if(!canWrite||!selected||paymentBusy.current)return;
     const targetInvoice=(selected.purchaseHistory||[]).find((row)=>row.id===payInvoiceId);
     const maxAmount=targetInvoice?invoiceBalance(targetInvoice):supplierOpenDebt(selected);
-    const amount=Math.min(Math.max(0,Number(payAmount||0)),maxAmount);
+    const amount=pendingPayment?Number(payAmount):Math.min(Math.max(0,Number(payAmount||0)),maxAmount);
     if(amount<=0)return;
+    paymentBusy.current=true;setPaymentSaving(true);
+    try{
     const result=await commitSupplierPayment({supplierId:selected.id,invoiceId:payInvoiceId,amount,method:payMethod,note:payNote,payFromRegister:payMethod==="cash"&&payFromRegister});
-    if(!result.success){notify({tone:"danger",title:"To‘lov saqlanmadi",message:result.message||"Ma’lumotlarni tekshiring"});return}
+    if(!result.success){setPendingPayment(pendingFor(selected.id)?.payload||null);notify({tone:"danger",title:"To‘lov saqlanmadi",message:result.message||"Ma’lumotlarni tekshiring"});return}
+    setPendingPayment(null);
     payBaselineRef.current="";setModal(null);setPayInvoiceId("");setPayFromRegister(false);
     notify({tone:"success",title:"To‘lov saqlandi",message:`${selected.name} · ${formatPrice(result.amount)}`});
+    }finally{paymentBusy.current=false;setPaymentSaving(false)}
   };
 
 
   const compareRows=useMemo(()=>suppliers.flatMap((supplier)=>(supplier.purchaseHistory||[]).flatMap((row)=>invoiceItems(row).map((item)=>({product:item.product,current:Number(item.unitCost||0),previous:Number(item.previousUnitCost||item.unitCost||0),supplier:supplier.name,dateISO:row.dateISO,date:row.date})))).sort((a,b)=>String(b.dateISO||b.date||"").localeCompare(String(a.dateISO||a.date||""))).slice(0,8),[suppliers]);
   const selectedDebt=selected?supplierOpenDebt(selected):0;
   const selectedInvoice=selected?.purchaseHistory?.find((row)=>row.id===payInvoiceId);
-  const payMax=selectedInvoice?invoiceBalance(selectedInvoice):selectedDebt;
+  const payMax=pendingPayment?Number(pendingPayment.amount):selectedInvoice?invoiceBalance(selectedInvoice):selectedDebt;
 
   return <div className="pro-page suppliers-pro">
     <PageHeader title="Ta’minotchilar" subtitle="Kirimlar, nakladnoylar, ochiq qarz va to‘lovlarni bir joyda boshqaring." actions={canWrite&&<button className="pro-btn primary" onClick={openCreate}><FiPlus/> Ta’minotchi qo‘shish</button>}/>
@@ -188,7 +200,7 @@ function Suppliers(){
           <div className="supplier-head">{canWrite&&<PremiumCheckbox className="supplier-card-select" checked={selectedIds.includes(supplier.id)} onChange={(event)=>toggleSupplierSelection(supplier.id,event.target.checked)}/>}<div className="supplier-avatar"><FiTruck/></div><div className="supplier-identity"><h3>{supplier.name}</h3><span>{supplier.phone}</span></div><StatusBadge tone={supplier.archived?"neutral":debt>0?(overdueState?"danger":"warning"):"success"}>{supplier.archived?"Arxiv":debt>0?(overdueState?"Muddati o‘tgan":"Qarz bor"):"Hisob yopiq"}</StatusBadge></div>
           <div className="supplier-kpis"><span><small>Ochiq qarz</small><strong>{formatPrice(debt)}</strong></span><span><small>Ochiq nakladnoy</small><strong>{invoices.length}</strong></span><span><small>Mahsulotlar</small><strong>{products.length}</strong></span><span><small>Yaqin muddat</small><strong>{invoices.find((row)=>row.dueDate)?.dueDate||supplier.deadline||"—"}</strong></span></div>
           <div className="supplier-contact">{supplier.contact&&<span>Kontakt: <b>{supplier.contact}</b></span>}{supplier.telegram&&<span>Telegram: <b>{supplier.telegram}</b></span>}</div>
-          <div className="supplier-actions"><button onClick={()=>{setSelected(supplier);setModal("detail")}}><FiFileText/> Batafsil</button>{canWrite&&!supplier.archived&&<button onClick={()=>openPay(supplier)} disabled={!debt}><FiCreditCard/> To‘lov</button>}{canWrite&&<><button onClick={()=>openEdit(supplier)}><FiEdit2/> Tahrirlash</button><button onClick={()=>archive(supplier)}><FiArchive/> {supplier.archived?"Tiklash":"Arxiv"}</button></>}</div>
+          <div className="supplier-actions"><button onClick={()=>{setSelected(supplier);setModal("detail")}}><FiFileText/> Batafsil</button>{canWrite&&!supplier.archived&&<button onClick={()=>openPay(supplier)} disabled={!debt&&!pendingFor(supplier.id)}><FiCreditCard/> To‘lov</button>}{canWrite&&<><button onClick={()=>openEdit(supplier)}><FiEdit2/> Tahrirlash</button><button onClick={()=>archive(supplier)}><FiArchive/> {supplier.archived?"Tiklash":"Arxiv"}</button></>}</div>
         </article>
       }):<div className="pro-empty full-grid"><FiTruck/><strong>Ta’minotchi topilmadi</strong><span>Filtr yoki qidiruvni o‘zgartiring.</span></div>}</div>
     </section>
@@ -197,7 +209,7 @@ function Suppliers(){
 
     <Modal open={modal==="edit"} onClose={closeEdit} title={editing?"Ta’minotchini tahrirlash":"Yangi ta’minotchi"} subtitle="Kontakt ma’lumotlari. Qarz esa Ombor → Kirim orqali avtomatik yuritiladi." footer={<><button className="pro-btn secondary" onClick={closeEdit}>Bekor qilish</button><button className="pro-btn primary" onClick={save}>Saqlash</button></>}><div className="pro-form-grid"><label className="pro-field full"><span>Nomi *</span><input data-modal-autofocus value={form.name} onChange={(event)=>setForm({...form,name:event.target.value})}/>{errors.name&&<small className="field-error">{errors.name}</small>}</label><label className="pro-field"><span>Telefon *</span><input value={form.phone} onChange={(event)=>setForm({...form,phone:event.target.value})}/>{errors.phone&&<small className="field-error">{errors.phone}</small>}</label><label className="pro-field"><span>Kontakt shaxs</span><input value={form.contact} onChange={(event)=>setForm({...form,contact:event.target.value})}/></label><label className="pro-field"><span>Telegram</span><input value={form.telegram} onChange={(event)=>setForm({...form,telegram:event.target.value})}/></label><label className="pro-field"><span>Standart to‘lov muddati</span><PremiumDateInput value={form.deadline} onChange={(event)=>setForm({...form,deadline:event.target.value})}/></label><label className="pro-field full"><span>Izoh</span><textarea value={form.notes} onChange={(event)=>setForm({...form,notes:event.target.value})}/></label></div></Modal>
 
-    <Modal open={modal==="pay"} onClose={closePay} title="Ta’minotchiga to‘lov" subtitle={selected?`${selected.name} · ochiq qarz ${formatPrice(selectedDebt)}`:""} size="sm" footer={<><button className="pro-btn secondary" onClick={closePay}>Bekor qilish</button><button className="pro-btn primary" disabled={!payAmount||Number(payAmount)<=0||Number(payAmount)>payMax} onClick={payment}>To‘lovni saqlash</button></>}><div className="pro-form-grid">{selectedInvoice&&<div className="supplier-pay-target full"><FiFileText/><span><small>Nakladnoy</small><strong>{selectedInvoice.invoiceNo||"Raqamsiz nakladnoy"}</strong></span><b>{formatPrice(invoiceBalance(selectedInvoice))}</b></div>}<label className="pro-field full"><span>Summa</span><input data-modal-autofocus type="number" min="0" max={payMax} value={payAmount} onChange={(event)=>setPayAmount(event.target.value)} placeholder={String(payMax)}/><small className="field-hint">Maksimum: {formatPrice(payMax)}</small></label><label className="pro-field full"><span>To‘lov turi</span><PremiumSelect value={payMethod} onChange={(event)=>{setPayMethod(event.target.value);if(event.target.value!=="cash")setPayFromRegister(false)}}><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option></PremiumSelect></label>{payMethod==="cash"&&activeShift&&<PremiumCheckbox className="supplier-register-payment full" checked={payFromRegister} onChange={(event)=>setPayFromRegister(event.target.checked)} title="Joriy kassadan to‘lash" description="Yoqilsa bu summa smenada kassa chiqimi sifatida qayd qilinadi."/>}<label className="pro-field full"><span>Izoh</span><textarea value={payNote} onChange={(event)=>setPayNote(event.target.value)}/></label></div></Modal>
+    <Modal open={modal==="pay"} onClose={closePay} title="Ta’minotchiga to‘lov" subtitle={selected?`${selected.name} · ochiq qarz ${formatPrice(selectedDebt)}`:""} size="sm" footer={<><button className="pro-btn secondary" onClick={closePay}>Bekor qilish</button><button className="pro-btn primary" disabled={paymentSaving||!payAmount||Number(payAmount)<=0||Number(payAmount)>payMax} onClick={payment}>{pendingPayment?"To‘lovni tekshirish":"To‘lovni saqlash"}</button></>}><div className="pro-form-grid">{selectedInvoice&&<div className="supplier-pay-target full"><FiFileText/><span><small>Nakladnoy</small><strong>{selectedInvoice.invoiceNo||"Raqamsiz nakladnoy"}</strong></span><b>{formatPrice(invoiceBalance(selectedInvoice))}</b></div>}<label className="pro-field full"><span>Summa</span><input disabled={paymentSaving||Boolean(pendingPayment)} data-modal-autofocus type="number" min="0" max={payMax} value={payAmount} onChange={(event)=>setPayAmount(event.target.value)} placeholder={String(payMax)}/><small className="field-hint">Maksimum: {formatPrice(payMax)}</small></label><label className="pro-field full"><span>To‘lov turi</span><PremiumSelect disabled={paymentSaving||Boolean(pendingPayment)} value={payMethod} onChange={(event)=>{setPayMethod(event.target.value);if(event.target.value!=="cash")setPayFromRegister(false)}}><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option></PremiumSelect></label>{payMethod==="cash"&&activeShift&&<PremiumCheckbox className="supplier-register-payment full" disabled={paymentSaving||Boolean(pendingPayment)} checked={payFromRegister} onChange={(event)=>setPayFromRegister(event.target.checked)} title="Joriy kassadan to‘lash" description="Yoqilsa bu summa smenada kassa chiqimi sifatida qayd qilinadi."/>}<label className="pro-field full"><span>Izoh</span><textarea disabled={paymentSaving||Boolean(pendingPayment)} value={payNote} onChange={(event)=>setPayNote(event.target.value)}/></label></div></Modal>
 
     <Modal open={modal==="detail"&&!!selected} onClose={()=>{setModal(null);setSelected(null)}} title={selected?.name||"Ta’minotchi"} subtitle="Nakladnoylar, ochiq qarz, mahsulotlar va to‘lovlar." size="xl">
       <div className="supplier-detail-kpis"><div><span>Ochiq qarz</span><strong>{formatPrice(selectedDebt)}</strong></div><div><span>Jami to‘langan</span><strong>{formatPrice(selected?.paid||0)}</strong></div><div><span>Mahsulotlar</span><strong>{selected?supplierProducts(selected).length:0}</strong></div></div>

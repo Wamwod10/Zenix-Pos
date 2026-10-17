@@ -126,13 +126,27 @@ for(const mutation of ["create","edit","payment"]) {
       await select(container,"Mijozlar filtri","VIP");
       const beforeResolve=calls.length;
       assert.equal(container.querySelector('.customer-main strong').textContent,"Current VIP");
-      await act(async()=>pending.resolve({customer:detail.customer,payment:{id:"payment-1"}}));await pause();
+      await act(async()=>pending.resolve({customer:detail.customer,payment:{id:"11111111-1111-4111-8111-111111111111",amount:10}}));await pause();
       assert.ok(calls.length>beforeResolve,"successful mutation must refresh the directory");
       assert.ok(calls.slice(beforeResolve).every(params=>params.filter==="vip"&&params.offset==="0"),"mutation must never fetch its obsolete pre-await query");
       assert.equal(container.querySelector('.customer-main strong')?.textContent,"Current VIP");
     });
   });
 }
+
+test('customer payment keeps its reference after incomplete response and can reconcile a zero balance',async()=>{
+ const detail={customer:{...customer('c-1','Buyer'),balance:10,creditLimit:100,phone:'',email:'',address:''},ledger:[],sales:[],openCredits:[]};
+ await withSession('/src/pages/customers/Customers.jsx',path=>path==='/api/customers/stats'?{}:path.startsWith('/api/customers/c-1?')?detail:{items:[detail.customer],total:1},async({container,dom,api})=>{
+  const sent=[];api.post=async(_path,body)=>{sent.push(body);return sent.length===1?{}:{payment:{id:'11111111-1111-4111-8111-111111111111',amount:10}}};
+  await act(async()=>container.querySelector('.customer-card').click());await inputValue(document.querySelector('.customer-payment input'),'10',dom);
+  await act(async()=>button(document,'To‘lov qabul qilish').click());
+  const key='zenix:customer-payment:v1:org-1:owner-a:store-1:c-1';assert.ok(dom.window.localStorage.getItem(key),'incomplete success retains the journal');
+  detail.customer.balance=0;
+  await act(async()=>document.querySelector('[aria-label="Yopish"]').click());await act(async()=>container.querySelector('.customer-card').click());
+  const retry=button(document,'To‘lov qabul qilish');assert.ok(retry);assert.equal(retry.disabled,false);await act(async()=>retry.click());
+  assert.equal(sent[1].clientReference,sent[0].clientReference);assert.equal(dom.window.localStorage.getItem(key),null);
+ });
+});
 
 test("customer directory reaches records past 60, keeps server order and bounds final/empty ranges",async()=>{
   const calls=[];let empty=false;

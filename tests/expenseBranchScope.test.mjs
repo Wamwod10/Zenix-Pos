@@ -14,14 +14,15 @@ test('expense employee choices and open forms follow the selected branch',async(
   try{
     const [{AuthProvider},{StoreProvider,useStore},{FeedbackProvider},{default:Expenses},{api},{createRoot}]=await Promise.all([
       vite.ssrLoadModule('/src/context/AuthContext.jsx'),vite.ssrLoadModule('/src/context/StoreContext.jsx'),vite.ssrLoadModule('/src/context/FeedbackContext.jsx'),vite.ssrLoadModule('/src/pages/expenses/Expenses.jsx'),vite.ssrLoadModule('/src/services/apiClient.js'),import('react-dom/client')]);
-    let store,saved;
+    let store,saved;const submitted=[],deleted=[];let uploads=0;
     api.get=async path=>{
       if(path==='/api/auth/me')return {user:{id:'owner',name:'Owner',organizationId:'org',appRole:'OWNER'}};
       if(path==='/api/bootstrap')return {stores:[{id:'a',name:'A'},{id:'b',name:'B'}],organization:{id:'org',licenseStatus:'ACTIVE',accessMode:'READ_WRITE'},employees:[{id:'alice',name:'Alice',store_id:'a',app_role:'CASHIER'},{id:'bob',name:'Bob',store_id:'b',app_role:'CASHIER'},{id:'owner',name:'Owner',store_id:'a',app_role:'OWNER'}]};
       if(path==='/api/settings')return {selectedStoreId:'a'};
       return {items:[],users:[],sessions:[],revision:1};
     };
-    api.patch=async()=>({});api.post=async(path,body)=>{if(path==='/api/expenses'){saved=body;return {expense:{id:'expense',...body}}}return {}};
+    api.upload=async()=>{uploads++;return {file:{id:'11111111-1111-4111-8111-111111111111'}}};api.delete=async path=>deleted.push(path);
+    api.patch=async()=>({});api.post=async(path,body)=>{if(path==='/api/expenses'){saved=body;submitted.push(body);return submitted.length===1?{}:{expense:{id:'22222222-2222-4222-8222-222222222222',...body}}}return {}};
     function Probe(){store=useStore();return store.workspaceReady?React.createElement(Expenses):null}
     root=createRoot(document.getElementById('root'));
     await act(async()=>root.render(React.createElement(AuthProvider,null,React.createElement(StoreProvider,null,React.createElement(FeedbackProvider,null,React.createElement(MemoryRouter,null,React.createElement(Probe)))))));
@@ -43,7 +44,11 @@ test('expense employee choices and open forms follow the selected branch',async(
     await enter('Xarajat nomi *','Transport');await enter('Summa *','50000');
     await act(async()=>field('To‘lov turi').querySelector('button').click());
     await act(async()=>[...document.querySelectorAll('[role="option"]')].find(node=>node.textContent==='Karta').click());
+    const receipt=document.querySelector('input[type="file"]');assert.ok(receipt);
+    await act(async()=>{Object.defineProperty(receipt,'files',{configurable:true,value:[new dom.window.File(['fixture'],'receipt.png',{type:'image/png'})]});receipt.dispatchEvent(new dom.window.Event('change',{bubbles:true}))});
     await click('Saqlash');assert.equal(saved.storeId,'b');assert.equal(saved.amount,50000);assert.ok(saved.metadata.dateISO);
+    assert.equal(uploads,1);assert.equal(deleted.length,0,'uncertain expense outcome must preserve its receipt');
+    await click('Saqlash');assert.equal(submitted.length,2);assert.deepEqual(submitted[1],submitted[0]);assert.equal(uploads,1,'retry reuses the original receipt');assert.equal(deleted.length,0);
   }finally{
     if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.frame;
   }

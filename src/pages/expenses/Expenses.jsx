@@ -12,11 +12,13 @@ import Modal from "../../components/Modal";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { useFeedback } from "../../context/FeedbackContext";
+import {attemptKey,readAttempt} from '../../utils/checkoutAttempt';
 import "./expenses.scss";
 
 const categories=["Ijara","Kommunal","Transport","Reklama","Ish haqi","Logistika","Mayda xarajat","Boshqa"];
 const empty={title:"",category:"Mayda xarajat",amount:"",dateISO:"",employee:"",paymentMethod:"cash",note:"",receiptName:"",receiptKey:""};
 function Expenses(){
+  const saveBusy=useRef(false);
   const {currentUser}=useAuth();const {expenses,activeShift,currentStore,currentStoreId,employees,commitExpenseTransaction,hasPermission,effectiveWorkspaceSettings:workspaceSettings}=useStore();const {confirm,notify}=useFeedback();const location=useLocation();const canWrite=hasPermission("expensesWrite",currentUser?.appRole);
   const [search,setSearch]=useState("");const [category,setCategory]=useState("all");const [modal,setModal]=useState(null);const [editing,setEditing]=useState(null);const [form,setForm]=useState({...empty,dateISO:workspaceDateISO(new Date(),workspaceSettings.organization.timezone),employee:currentUser?.name||""});const [error,setError]=useState("");const [receiptFile,setReceiptFile]=useState(null);const [receiptView,setReceiptView]=useState(null);const [receiptUrl,setReceiptUrl]=useState("");const [receiptLoading,setReceiptLoading]=useState(false);const formBaselineRef=useRef("");
   const expenseColumnDefs=[{id:"category",label:"Kategoriya"},{id:"employee",label:"Xodim / Smena"},{id:"payment",label:"To‘lov"},{id:"amount",label:"Summa"}];
@@ -31,14 +33,16 @@ function Expenses(){
   const branchScope=`${currentUser?.organizationId||""}:${currentStoreId||""}`;
   const branchScopeRef=useRef(branchScope);branchScopeRef.current=branchScope;
   useEffect(()=>{setModal(null);setEditing(null);setReceiptFile(null);setReceiptView(null);setError("");setSearch("");setCategory("all")},[branchScope]);
-  const openCreate=()=>{if(!canWrite)return;const next={...empty,dateISO:workspaceDateISO(new Date(),workspaceSettings.organization.timezone),employee:currentUser?.name||"",shiftId:activeShift?.id||"",store:currentStore?.name||"",storeId:currentStoreId};setEditing(null);setReceiptFile(null);setForm(next);formBaselineRef.current=formSnapshot(next);setError("");setModal("edit")};
+  const openCreate=()=>{if(!canWrite)return;const pending=readAttempt(window.localStorage,attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'expense-create'))?.payload;const next={...empty,dateISO:workspaceDateISO(new Date(),workspaceSettings.organization.timezone),employee:currentUser?.name||"",shiftId:activeShift?.id||"",store:currentStore?.name||"",storeId:currentStoreId,...(pending?{...pending,...pending.metadata}:{})};setEditing(null);setReceiptFile(null);setForm(next);formBaselineRef.current=formSnapshot(next);setError("");setModal("edit")};
   useEffect(()=>{if(new URLSearchParams(location.search).get("new")==="1")openCreate()},[location.search]);
   const storeExpenses=useMemo(()=>expenses.filter((expense)=>expense.storeId?String(expense.storeId)===String(currentStoreId):expense.store===currentStore?.name),[expenses,currentStoreId,currentStore?.name]);
   const visible=useMemo(()=>storeExpenses.filter(e=>(!isCashier||String(e.employeeId||"")===String(currentUser?.id||"")||(!e.employeeId&&e.employee===currentUser?.name))&&`${e.title||e.name} ${e.category} ${e.employee}`.toLowerCase().includes(search.toLowerCase())&&(category==="all"||e.category===category)),[storeExpenses,isCashier,currentUser?.id,currentUser?.name,search,category]);
   const todayKey=workspaceDateISO(new Date(),workspaceSettings.organization.timezone);const thisMonth=todayKey.slice(0,7);const todayTotal=storeExpenses.filter(e=>e.dateISO===todayKey).reduce((s,e)=>s+Number(e.amount),0);const monthTotal=storeExpenses.filter(e=>String(e.dateISO||"").startsWith(thisMonth)).reduce((s,e)=>s+Number(e.amount),0);const topCat=Object.entries(storeExpenses.reduce((a,e)=>({...a,[e.category]:(a[e.category]||0)+Number(e.amount)}),{})).sort((a,b)=>b[1]-a[1])[0];
 
   const save=async()=>{
-    if(!canWrite)return;
+    if(!canWrite||saveBusy.current)return;
+    saveBusy.current=true;
+    try{
     if(String(form.storeId)!==String(currentStoreId))return;
     const operationScope=branchScope;
     if(!form.title.trim()){setError("Xarajat nomini kiriting");return}
@@ -57,8 +61,11 @@ function Expenses(){
     const payload={...form,id:editing?.id||crypto.randomUUID(),amount:Number(form.amount),date:formatWorkspaceDate(new Date(`${form.dateISO}T12:00:00Z`),workspaceSettings.organization),shiftId:form.shiftId||activeShift?.id||"",store:form.store||currentStore?.name||"",storeId:form.storeId||currentStoreId,receiptKey,receiptName,receiptType};
     const result=await commitExpenseTransaction({expense:payload,activity:{type:"expense",title:editing?"Xarajat tahrirlandi":"Xarajat qo‘shildi",description:`${payload.title}: ${formatPrice(payload.amount)}`}});
     if(!result?.success){
-      if(uploadedReceiptKey)await deleteLocalFile(uploadedReceiptKey).catch(()=>{});
+      if(uploadedReceiptKey&&result.state==='rejected')await deleteLocalFile(uploadedReceiptKey).catch(()=>{});
       if(branchScopeRef.current!==operationScope)return;
+      if(uploadedReceiptKey&&result.state!=='rejected'){
+        setForm(current=>({...current,receiptKey,receiptName,receiptType}));setReceiptFile(null);
+      }
       setError(result?.message||"Xarajatni saqlab bo‘lmadi. Qayta urinib ko‘ring.");
       return;
     }
@@ -66,6 +73,7 @@ function Expenses(){
     if(branchScopeRef.current!==operationScope)return;
     formBaselineRef.current=formSnapshot(payload);setReceiptFile(null);setModal(null);setEditing(null);
     notify({tone:"success",title:editing?"Xarajat yangilandi":"Xarajat qo‘shildi",message:`${payload.title} · ${formatPrice(payload.amount)}`});
+    }finally{saveBusy.current=false}
   };
   const edit=e=>{if(!canWrite)return;const next={...empty,...e,title:e.title||e.name,amount:String(e.amount)};setEditing(e);setReceiptFile(null);setForm(next);formBaselineRef.current=formSnapshot(next);setError("");setModal("edit")};
   const remove=async(item)=>{if(!canWrite||!item)return;const accepted=await confirm({title:"Xarajatni o‘chirish",message:`${item.title||item.name} · ${formatPrice(item.amount||0)}. Bu moliyaviy yozuv o‘chiriladi.`,confirmLabel:"O‘chirish",cancelLabel:"Bekor qilish",tone:"danger"});if(!accepted)return;const result=await commitExpenseTransaction({expense:item,remove:true,activity:{type:"expense",title:"Xarajat o‘chirildi",description:item.title||item.name}});if(!result?.success){notify({tone:"danger",title:"Xarajat o‘chirilmadi",message:result?.message||"Qayta urinib ko‘ring."});return}if(item.receiptKey)await deleteLocalFile(item.receiptKey).catch(()=>{});notify({tone:"success",title:"Xarajat o‘chirildi",message:item.title||item.name})};
