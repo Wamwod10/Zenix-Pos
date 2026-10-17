@@ -1,4 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import React,{act} from 'react';import {JSDOM} from 'jsdom';import {MemoryRouter} from 'react-router-dom';import {createServer} from 'vite';import {posDraftKey,savePosDraft,readPosDraft} from '../src/utils/posDraft.js';
+import {attemptKey,readAttempt,settleAttempt} from '../src/utils/checkoutAttempt.js';
+import {refundAttemptKey,refundReference,acknowledgeRefund} from '../src/utils/refundAttempt.js';
 test('late checkout cannot erase newly selected branch draft; 1/10/30/100 lines restore',async()=>{
  const dom=new JSDOM('<html><body></body></html>',{url:'http://localhost',pretendToBeVisual:true});
  const old={window:globalThis.window,document:globalThis.document,navigator:globalThis.navigator,act:globalThis.IS_REACT_ACT_ENVIRONMENT,raf:globalThis.requestAnimationFrame};
@@ -39,6 +41,24 @@ test('late checkout cannot erase newly selected branch draft; 1/10/30/100 lines 
    savePosDraft(dom.window.localStorage,keyB,{cart:products.slice(0,count).map(item=>({id:item.id,cartQty:1})),payment:'card'});
    await act(async()=>store.setSelectedStoreId(b));await act(async()=>new Promise(resolve=>setTimeout(resolve,250)));assert.equal(container.querySelectorAll('.cart-item').length,count);
   }
+  for(const status of [408,409,425,429]){
+   const packet={id:`POS-timeout-${status}`,shiftId:b,items:[{id:products[0].id,quantity:1,price:100}],total:100,paymentMethod:'card'};
+   api.post=async()=>{const error=new Error('Uncertain response');error.status=status;throw error};
+   let result;await act(async()=>{result=await store.commitSaleTransaction({sale:packet,storeId:b})});
+   assert.equal(result.state,'unknown');
+   const journal=attemptKey('org',b,'owner','sale');assert.equal(readAttempt(dom.window.localStorage,journal).clientReference,packet.id);
+   settleAttempt(dom.window.localStorage,journal,'confirmed');
+  }
+  const refundKey=refundAttemptKey('org','owner',b,'sale',products[0].id);
+  const ref=refundReference(dom.window.localStorage,refundKey,'1:original:broken');
+  const record={id:ref,productId:products[0].id,quantity:1,amount:100,reason:'broken',refundMethod:'original',refundShiftId:a,dateISO:'2026-10-18'};
+  const sent=[];api.post=async(_path,body)=>{sent.push(structuredClone(body));if(sent.length===1){const e=new Error('timeout');e.status=408;throw e}if(sent.length===2)return {};return {return:{id:b,amount:100}}};
+  await act(async()=>{assert.equal((await store.commitReturnTransaction({saleId:'sale',stockStoreId:b,returnRecord:record})).success,false)});
+  await act(async()=>{assert.equal((await store.commitReturnTransaction({saleId:'sale',stockStoreId:b,returnRecord:{...record,refundShiftId:b,dateISO:'2026-10-19'}})).success,false)});
+  await act(async()=>{assert.equal((await store.commitReturnTransaction({saleId:'sale',stockStoreId:b,returnRecord:{...record,refundShiftId:b,dateISO:'2026-10-19'}})).success,true)});
+  assert.deepEqual(sent[1],sent[0],'refund keeps exact financial intent across midnight and shift change');
+  assert.deepEqual(sent[2],sent[0],'incomplete success retains the original refund payload');
+  acknowledgeRefund(dom.window.localStorage,refundKey);
  }finally{
   if(root)await act(async()=>root.unmount());await vite.close();dom.window.close();globalThis.window=old.window;globalThis.document=old.document;globalThis.IS_REACT_ACT_ENVIRONMENT=old.act;globalThis.requestAnimationFrame=old.raf;Object.defineProperty(globalThis,'navigator',{value:old.navigator,configurable:true});
  }

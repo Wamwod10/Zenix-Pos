@@ -1,5 +1,7 @@
 // Only transaction intent is persisted. Authentication/card credentials never belong here.
 export const attemptKey=(org,branch,user,operation)=>`zenix:attempt:v1:${org}:${branch}:${user}:${operation}`;
+// Proxy timeouts and unclassified conflicts do not prove a financial write failed.
+export const isDefiniteWriteRejection=({status,code}={})=>status>=400&&status<500&&![408,425,429].includes(status)&&code!=='IDEMPOTENCY_CONFLICT'&&(status!==409||Boolean(code&&!['API_ERROR','REQUEST_FAILED'].includes(code)));
 export function readAttempt(storage,key){
  try{const value=JSON.parse(storage.getItem(key)||'null');return value?.v===1&&typeof value.clientReference==='string'&&value.payload&&['pending','unknown'].includes(value.state)?value:null}catch{return null}
 }

@@ -22,7 +22,7 @@ test("branch-locked accounts never fall back to another active store",()=>{
 test("workspace persistence is server-authoritative and surfaces API failures",()=>{
   const store=read("src/context/StoreContext.jsx");
   const apiClient=read("src/services/apiClient.js");
-  assert.match(store,/api\.get\("\/api\/bootstrap"\)/);
+  assert.match(store,/api\.get\("\/api\/bootstrap",\{headers:\{'x-zenix-bootstrap':'core'\}\}\)/);
   assert.match(store,/setPersistenceError\(message\);if\(!silent\)\{setWorkspaceLoadError\(message\);setWorkspaceLoading\(false\);\}/);
   assert.match(store,/const apiFailure=/);
   assert.match(apiClient,/credentials:"include"/);
@@ -82,7 +82,9 @@ test("returns are server-authoritative and cannot cross branches",()=>{
 });
 
 test("serialized receiving validates quantity and global duplicate serials on the backend",()=>{
-  const inventory=read("../backend/src/routes/inventory.js");
+  const route=read("../backend/src/routes/inventory.js");
+  assert.match(route,/receiveInventory\(client/);
+  const inventory=read("../backend/src/services/inventoryReceipt.js");
   assert.match(inventory,/serials\.length!==Number\(line\.quantity\)/);
   assert.match(inventory,/DUPLICATE_SERIAL/);
   assert.match(inventory,/SERIAL_QUANTITY_MISMATCH/);
