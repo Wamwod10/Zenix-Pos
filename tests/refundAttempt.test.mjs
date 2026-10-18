@@ -18,3 +18,39 @@ test('definite rejection releases identity while uncertain responses retain it',
  attempt.rejectRefund(storage,'key',{status:400,code:'VALIDATION_ERROR'});assert.equal(map.has('key'),false);
  assert.ok(attempt.refundReference(storage,'key','corrected'));
 });
+
+test('timeout and generic conflict preserve financial identity for retry',()=>{
+ for(const result of [{status:408},{status:409,code:'REQUEST_FAILED'},{status:425},{status:429}]){
+  const map=new Map(),storage={getItem:key=>map.get(key),setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)};
+  const first=attempt.refundReference(storage,'key','intent');
+  attempt.rejectRefund(storage,'key',result);
+  assert.equal(attempt.refundReference(storage,'key','intent'),first,JSON.stringify(result));
+ }
+});
+
+test('refund retry reuses its exact payload after refresh, midnight or shift change',()=>{
+ const map=new Map(),storage={getItem:key=>map.get(key),setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)};
+ const reference=attempt.refundReference(storage,'key','1:original:broken');
+ const original={clientReference:reference,productId:'product',quantity:1,reason:'broken',refundMethod:'original',refundShiftId:'shift-a',metadata:{dateISO:'2026-10-18'}};
+ assert.deepEqual(attempt.refundPayload(storage,'key',original),original);
+ assert.deepEqual(attempt.refundPayload(storage,'key',{...original,refundShiftId:'shift-b',metadata:{dateISO:'2026-10-19'}}),original);
+ assert.throws(()=>attempt.refundPayload(storage,'key',{...original,clientReference:'different'}));
+});
+
+test('an incomplete success cannot acknowledge a financial refund',()=>{
+ for(const row of [undefined,{}, {id:'client-reference',amount:100},{id:'11111111-1111-4111-8111-111111111111'},{id:'11111111-1111-4111-8111-111111111111',amount:null}])assert.equal(attempt.isConfirmedRefund(row),false);
+ assert.equal(attempt.isConfirmedRefund({id:'11111111-1111-4111-8111-111111111111',amount:'100.00'}),true);
+});
+
+test('shared refund/customer requests retain identity on rejection and ignore stale acknowledgements',async()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');let queue=Promise.resolve();
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{locks:{request:(_key,action)=>{const next=queue.then(action);queue=next.catch(()=>{});return next}}}});
+ try{
+  const map=new Map(),storage={getItem:key=>map.get(key)||null,setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)};
+  const [a,b]=await Promise.all([attempt.prepareRefundReference(storage,'key','intent'),attempt.prepareRefundReference(storage,'key','intent')]);assert.equal(a,b);
+  const [first,second]=await Promise.all([attempt.prepareRefundPayload(storage,'key',{clientReference:a,date:'before'}),attempt.prepareRefundPayload(storage,'key',{clientReference:b,date:'after'})]);assert.deepEqual(first,second);
+  await attempt.settleRefund(storage,'key',a,{status:403});assert.ok(storage.getItem('key'));
+  await attempt.settleRefund(storage,'key',b,null);const newer=await attempt.prepareRefundReference(storage,'key','new intent');
+  await attempt.settleRefund(storage,'key',a,null);assert.equal(JSON.parse(storage.getItem('key')).reference,newer);
+ }finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator}
+});

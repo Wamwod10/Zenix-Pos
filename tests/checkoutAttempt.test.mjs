@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {attemptKey,readAttempt,beginAttempt,settleAttempt,isConfirmedSale,isConfirmedReceipt} from '../src/utils/checkoutAttempt.js';
+import {attemptKey,readAttempt,beginAttempt,settleAttempt,isConfirmedSale,isConfirmedReceipt,isDefiniteWriteRejection} from '../src/utils/checkoutAttempt.js';
 const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}};
+
+test('only definite write rejections can release checkout and receipt identities',()=>{
+ for(const result of [{},{status:200},{status:408},{status:409},{status:409,code:'REQUEST_FAILED'},{status:409,code:'IDEMPOTENCY_CONFLICT'},{status:425},{status:429},{status:500}])assert.equal(isDefiniteWriteRejection(result),false,JSON.stringify(result));
+ for(const result of [{status:400,code:'VALIDATION_ERROR'},{status:401},{status:403},{status:409,code:'INSUFFICIENT_STOCK'}])assert.equal(isDefiniteWriteRejection(result),true,JSON.stringify(result));
+});
 test('uncertain checkout retains immutable packet across restart and cannot start another sale',()=>{
  const s=storage(),key=attemptKey('org','branch','cashier','sale');
  const first=beginAttempt(s,key,{clientReference:'POS-one',payload:{id:'POS-one',items:[{id:'product',quantity:1}]}});

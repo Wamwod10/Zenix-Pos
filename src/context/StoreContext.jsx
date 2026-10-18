@@ -12,7 +12,8 @@ import { api, ApiError } from "../services/apiClient";
 import {mapBootstrapInventory} from '../utils/bootstrapInventory';
 import {productMetadata} from '../utils/productOptions';
 import {workspaceAccessState} from '../utils/license';
-import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt} from '../utils/checkoutAttempt';
+import {attemptKey,readAttempt,beginAttempt,prepareFinancialAttempt,settleFinancialAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt,isDefiniteWriteRejection,isConfirmedFinancialRecord} from '../utils/checkoutAttempt';
+import {refundAttemptKey,prepareRefundPayload,isConfirmedRefund} from '../utils/refundAttempt';
 
 export const StoreContext = createContext(null);
 const DEFAULT_STORE_ID = "dokon-1";
@@ -502,7 +503,7 @@ export const StoreProvider = ({ children }) => {
       const packet=beginAttempt(window.localStorage,journalKey,{clientReference:body.clientReference,payload:body});
       let data;
       try{data=await api.post("/api/inventory/receive",packet.payload)}
-      catch(error){if(!pending&&error?.status&&error.status<500&&error.code!=='IDEMPOTENCY_CONFLICT')settleAttempt(window.localStorage,journalKey,'rejected');else settleAttempt(window.localStorage,journalKey,'unknown');throw error}
+      catch(error){if(!pending&&isDefiniteWriteRejection(error))settleAttempt(window.localStorage,journalKey,'rejected');else settleAttempt(window.localStorage,journalKey,'unknown');throw error}
       if(!isConfirmedReceipt(data))throw new Error('Kirim javobi toliq emas. Natijani tekshiring.');
       settleAttempt(window.localStorage,journalKey,'confirmed');
       scheduleWorkspaceRefresh();
@@ -611,7 +612,7 @@ export const StoreProvider = ({ children }) => {
       const committed={...sale,clientReference:sale.id,id:server.id||sale.id,saleNumber:server.sale_number||server.saleNumber||sale.saleNumber,createdAt:server.created_at||server.createdAt||sale.createdAt};
       return {success:true,sale:committed};
     }catch(error){
-      if(pending||!error?.status||error.status>=500||error.code==='IDEMPOTENCY_CONFLICT'){
+      if(pending||!isDefiniteWriteRejection(error)){
         try{const found=await api.get(`/api/sales/reconciliation?storeId=${encodeURIComponent(storeId)}&clientReference=${encodeURIComponent(sale.id)}`);
           if(found.state==='confirmed'&&isConfirmedSale(found.sale)){scheduleWorkspaceRefresh();return {success:true,sale:{...sale,id:found.sale.id,saleNumber:found.sale.sale_number,createdAt:found.sale.created_at},reconciled:true}}
         }catch{/* Unknown retains the exact intent for a safe retry. */}
@@ -628,16 +629,19 @@ export const StoreProvider = ({ children }) => {
   const commitReturnTransaction = useCallback(async ({ saleId, updatedSale, productUpdates = [], stockStoreId = currentStoreId, returnRecord, cashMovement = null, activity = null } = {}) => {
     if(!saleId||!returnRecord?.productId||number(returnRecord.quantity,0)<=0)return {success:false,message:"Qaytarish ma’lumotlari to‘liq emas"};
     try{
-      const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,{
+      const key=refundAttemptKey(currentUser?.organizationId,currentUser?.id,stockStoreId,saleId,returnRecord.productId);
+      const payload=await prepareRefundPayload(window.localStorage,key,{
         productId:returnRecord.productId,quantity:number(returnRecord.quantity,0),reason:String(returnRecord.reason||"Qaytarish").trim(),refundMethod:returnRecord.refundMethod||"original",
         refundShiftId:returnRecord.refundShiftId||activeShift?.id||null,refundBreakdown:undefined,
         clientReference:String(returnRecord.clientReference||returnRecord.id||""),
         metadata:{businessDateISO:returnRecord.businessDateISO||"",dateISO:returnRecord.dateISO||"",tracking:returnRecord.tracking||null},
       });
+      const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,payload);
+      if(!isConfirmedRefund(data?.return))throw new Error('Qaytarish javobi to‘liq emas. Aynan shu qaytarishni qayta tekshiring.');
       scheduleWorkspaceRefresh();
       return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount)}};
     }catch(error){return apiFailure(error,"Qaytarishni saqlab bo‘lmadi")}
-  },[currentStoreId,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
+  },[currentStoreId,currentUser?.organizationId,currentUser?.id,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitBusinessDay = useCallback(async ({ day, storeId = currentStoreId, storeName = currentStore?.name, activity = null } = {}) => {
     if(!day?.businessDateISO&&!day?.dateISO)return {success:false,message:"Kunlik savdo sanasi topilmadi"};
@@ -668,23 +672,37 @@ export const StoreProvider = ({ children }) => {
 
   const commitSupplierPayment = useCallback(async ({ supplierId, invoiceId = "", amount = 0, method = "cash", note = "", payFromRegister = false } = {}) => {
     if(!supplierId||number(amount,0)<=0)return {success:false,message:"To‘lov ma’lumotlari to‘liq emas"};
+    const journalKey=attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,`supplier-payment:${supplierId}`);
+    let packet;
     try{
-      const data=await api.post(`/api/suppliers/${encodeURIComponent(supplierId)}/payments`,{invoiceId:invoiceId||null,storeId:currentStoreId||null,shiftId:method==="cash"&&payFromRegister?(activeShift?.id||null):null,fromRegister:method==="cash"&&payFromRegister,amount:number(amount,0),method,note:String(note||"")});
+      packet=await prepareFinancialAttempt(window.localStorage,journalKey,{invoiceId:invoiceId||null,storeId:currentStoreId||null,shiftId:method==="cash"&&payFromRegister?(activeShift?.id||null):null,fromRegister:method==="cash"&&payFromRegister,amount:number(amount,0),method,note:String(note||"")});
+      const data=await api.post(`/api/suppliers/${encodeURIComponent(supplierId)}/payments`,packet.payload);
+      if(!isConfirmedFinancialRecord(data?.payment))throw new Error('To‘lov javobi to‘liq emas. Aynan shu to‘lovni qayta tekshiring.');
+      await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,'confirmed');
       scheduleWorkspaceRefresh();return {success:true,payment:data.payment||data,amount:number(amount,0)};
-    }catch(error){return apiFailure(error,"Ta’minotchi to‘lovini saqlab bo‘lmadi")}
-  },[currentStoreId,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
+    }catch(error){if(packet)await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,isDefiniteWriteRejection(error)?'rejected':'unknown');return apiFailure(error,"Ta’minotchi to‘lovini saqlab bo‘lmadi")}
+  },[currentStoreId,currentUser?.organizationId,currentUser?.id,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitExpenseTransaction = useCallback(async ({ expense, remove = false, activity = null } = {}) => {
     if(!expense)return {success:false,message:"Xarajat ma’lumotlari to‘liq emas"};
+    const creating=!remove&&!(expense.id&&expenses.some((item)=>String(item.id)===String(expense.id)));
+    const journalKey=attemptKey(currentUser?.organizationId,expense.storeId||currentStoreId,currentUser?.id,'expense-create');
+    let packet;
     try{
       if(remove){if(!expense.id)return {success:false,message:"Xarajat topilmadi"};await api.delete(`/api/expenses/${encodeURIComponent(expense.id)}`);}
       else{
         const body={storeId:expense.storeId||currentStoreId,shiftId:expense.shiftId||null,title:expense.title||expense.name,category:expense.category||"",amount:number(expense.amount,0),paymentMethod:expense.paymentMethod||"cash",note:expense.note||"",metadata:{receiptKey:expense.receiptKey||"",receiptName:expense.receiptName||"",receiptType:expense.receiptType||"",dateISO:expense.dateISO||""}};
-        if(expense.id&&expenses.some((item)=>String(item.id)===String(expense.id)))await api.patch(`/api/expenses/${encodeURIComponent(expense.id)}`,body);else await api.post("/api/expenses",body);
+        if(!creating)await api.patch(`/api/expenses/${encodeURIComponent(expense.id)}`,body);
+        else{
+          packet=await prepareFinancialAttempt(window.localStorage,journalKey,body);
+          const data=await api.post('/api/expenses',packet.payload);
+          if(!isConfirmedFinancialRecord(data?.expense))throw new Error('Xarajat javobi to‘liq emas. Aynan shu xarajatni qayta tekshiring.');
+          await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,'confirmed');
+        }
       }
       scheduleWorkspaceRefresh();return {success:true,expense};
-    }catch(error){return apiFailure(error,remove?"Xarajatni o‘chirib bo‘lmadi":"Xarajatni saqlab bo‘lmadi")}
-  },[currentStoreId,expenses,hydrateWorkspace,scheduleWorkspaceRefresh]);
+    }catch(error){let state=isDefiniteWriteRejection(error)?'rejected':'unknown';if(packet)state=await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,state);return {...apiFailure(error,remove?"Xarajatni o‘chirib bo‘lmadi":"Xarajatni saqlab bo‘lmadi"),state}}
+  },[currentStoreId,currentUser?.organizationId,currentUser?.id,expenses,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
   const commitShiftOpen = useCallback(async ({ shift, activity = null } = {}) => {
     if(!shift?.storeId)return {success:false,message:"Smena ma’lumotlari to‘liq emas"};

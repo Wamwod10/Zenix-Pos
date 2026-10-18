@@ -1,4 +1,4 @@
-import {refundAttemptKey,refundReference,acknowledgeRefund,rejectRefund} from "../../utils/refundAttempt";
+import {refundAttemptKey,prepareRefundReference,settleRefund} from "../../utils/refundAttempt";
 import { useEffect, useMemo, useState } from "react";
 import { FiCalendar, FiEye, FiFilter, FiPrinter, FiRefreshCw, FiRotateCcw, FiSearch, FiShoppingBag } from "react-icons/fi";
 import { useLocation } from "react-router-dom";
@@ -61,16 +61,16 @@ function History(){
     const product=getStoreProduct(productId,returnStoreId);
     if(!product){setReturnError("Mahsulot katalogda topilmadi. Qoldiqni tiklamasdan qaytarish bajarilmaydi.");return}
     const attemptKey=refundAttemptKey(currentUser.organizationId,currentUser.id,returnStoreId,returnSale.id,productId);
-    let returnId;try{returnId=refundReference(window.localStorage,attemptKey,JSON.stringify([result.quantity,refundMethod,returnReason]));}catch(error){setReturnError(error.message);return;}
+    let returnId;try{returnId=await prepareRefundReference(window.localStorage,attemptKey,JSON.stringify([result.quantity,refundMethod,returnReason]));}catch(error){setReturnError(error.message);return;}
     const restored=restoreTrackedStock(product,returnStoreId,result.quantity,returnItem.tracking,Number(returnItem.returnedQty||0),{saleId:returnSale.id,returnId});
-    if(!restored.success){acknowledgeRefund(window.localStorage,attemptKey);setReturnError(restored.message||"Qoldiqni qaytarib bo‘lmadi.");return}
+    if(!restored.success){await settleRefund(window.localStorage,attemptKey,returnId,{status:400});setReturnError(restored.message||"Qoldiqni qaytarib bo‘lmadi.");return}
     const productUpdates=[restored.product];
     const now=new Date();
     const record={id:returnId,saleId:returnSale.id,storeId:returnSale.storeId||currentStoreId,shiftId:returnSale.shiftId||"",refundShiftId:activeShift?.id||"",productId,productName:returnItem.name,quantity:result.quantity,amount:result.amount,reason:returnReason,refundMethod,refundBreakdown:allocation,dateISO:workspaceDateISO(now,workspaceSettings.organization.timezone),date:formatWorkspaceDate(now,workspaceSettings.organization),time:workspaceTime(now,workspaceSettings.organization)};
     const cashMovement=cashAdjustment&&activeShift?{id:crypto.randomUUID(),type:cashAdjustment.type,amount:cashAdjustment.amount,reason:`Qaytarish: ${returnSale.id}`,time:workspaceTime(now,workspaceSettings.organization),source:"return-adjustment",saleId:returnSale.id}:null;
     const committed=await commitReturnTransaction({saleId:returnSale.id,updatedSale:result.sale,productUpdates,stockStoreId:returnStoreId,returnRecord:record,cashMovement,activity:{type:"return",title:"Qaytarish qilindi",description:`${returnItem.name} · ${result.quantity} dona · ${formatPrice(result.amount)}`}});
-    if(!committed.success){rejectRefund(window.localStorage,attemptKey,committed);setReturnError(committed.message||"Qaytarishni saqlab bo‘lmadi.");return}
-    acknowledgeRefund(window.localStorage,attemptKey);
+    if(!committed.success){await settleRefund(window.localStorage,attemptKey,returnId,committed);setReturnError(committed.message||"Qaytarishni saqlab bo‘lmadi.");return}
+    await settleRefund(window.localStorage,attemptKey,returnId,null);
     report.reload();
     setReturnSale(null);setSelected(null);
   };
