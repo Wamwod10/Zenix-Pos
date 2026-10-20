@@ -2,6 +2,10 @@
 
 Base: freshly fetched main `c5db7c6`. Branch: `phase1/professional-finish`.
 
+Readiness follow-up: `tests/aiBackend.test.mjs` now injects the current agent protocol and submits through the visible question field, asserting HTTP success, real report data and quota. The old hidden-selector/provider mismatch is fixed. Local full combined frontend/browser regression: **404 PASS, 0 FAIL, 0 SKIP**; AI browser subset: **6 PASS**. The backend also rejects foreign/absent AI branches before quota/provider processing. See backend `docs/PHASE1_READINESS.md` for infrastructure evidence, five remaining historical migration-test failures, and the concrete worker-safe rollout.
+
+Live Telegram acceptance was not performed: the existing single group was found, but bot credentials were unavailable and the owner requested completion of the other checks. No new group, production webhook change or production operation occurred. The historical results below describe the initial Phase 1 run and are superseded by this follow-up where different.
+
 - `src/pages/dashboard/Dashboard.jsx`: profitable-product quantities retain the actual sale unit, with the existing legacy `dona` fallback.
 - `src/pages/settings/Settings.jsx`: Telegram saves have a synchronous pending guard and disabled controls while saving, send only the changed setting, show success/error and restore the previous value on failure. The report description distinguishes scheduled interim reports from final day closing.
 - `tests/phase1Ux.test.mjs`: targeted regression guards.

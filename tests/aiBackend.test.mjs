@@ -9,10 +9,16 @@ import {assertSafeTestDatabaseUrl} from '../../backend/scripts/assertTestDatabas
 const url=process.env.AI_UI_TEST_DATABASE_URL;
 test('Chromium → real authenticated Express/PG AI flow, deterministic provider boundary only',{skip:!url,timeout:120000},async t=>{
  assertSafeTestDatabaseUrl(url);assert.equal(process.env.DATABASE_URL,url);assert.equal(process.env.NODE_ENV,'test');
- const [{app},{pool},{createAiRouter},{aiSettings},{errorHandler},{requireTrustedClient},{default:bcrypt}]=await Promise.all([import('../../backend/src/app.js'),import('../../backend/src/db/pool.js'),import('../../backend/src/routes/ai.js'),import('../../backend/src/config/ai.js'),import('../../backend/src/middleware/error.js'),import('../../backend/src/middleware/clientGuard.js'),import('../../backend/node_modules/bcryptjs/index.js')]);
+ const [{app},{pool},{createAiRouter},{aiSettings,tokenCostMicros},{errorHandler},{requireTrustedClient},{default:bcrypt}]=await Promise.all([import('../../backend/src/app.js'),import('../../backend/src/db/pool.js'),import('../../backend/src/routes/ai.js'),import('../../backend/src/config/ai.js'),import('../../backend/src/middleware/error.js'),import('../../backend/src/middleware/clientGuard.js'),import('../../backend/node_modules/bcryptjs/index.js')]);
  let fail=false,calls=0;
  const settings={...aiSettings(),enabled:true,userPerMinute:10,businessPerMinute:30};
- const provider=async(report,{onDispatch})=>{await onDispatch();calls++;if(fail)throw Error('test provider failure');return {selection:{factIds:report.facts.filter(f=>f.value!==null).slice(0,2).map(f=>f.id),insightIds:[]},inputTokens:100,outputTokens:20,cost:18}};
+ const provider=async(_history,{onDispatch,evidence})=>{
+  await onDispatch();calls++;if(fail)throw Error('test provider failure');
+  const usage={inputTokens:100,outputTokens:20,cost:tokenCostMicros(100,20)};
+  if(!evidence.length){const callId=randomUUID(),args={topic:'today_sales',storeId:null};return {...usage,calls:[{callId,name:'get_business_report',args}],items:[{type:'function_call',status:'completed',name:'get_business_report',call_id:callId,arguments:JSON.stringify(args)}],reply:null}}
+  return {...usage,calls:[],items:[],reply:{kind:'results',reply:evidence.map(f=>`{{${f.id}}}`).join('\n')}};
+ };
+ provider.agent=true;
  // Override only the paid boundary in the test server; all auth, quota and SQL are real.
  const serverApp=express();serverApp.use(express.json(),cookieParser());serverApp.use('/api/ai',requireTrustedClient,createAiRouter({settings,provider}));serverApp.use(app);serverApp.use(errorHandler);
  const backend=serverApp.listen(0,'127.0.0.1');await new Promise(r=>backend.once('listening',r));
@@ -33,7 +39,10 @@ test('Chromium → real authenticated Express/PG AI flow, deterministic provider
   await t.test('Start upgrade suggestion and server rejection',async()=>{await page.goto(base+'/ai');await page.getByRole('status').filter({hasText:'Business va Premium'}).waitFor();assert.equal(await page.getByRole('button',{name:'Yuborish',exact:true}).isDisabled(),true);const r=await context.request.post(base+'/api/ai/chat',{headers,data:{requestId:randomUUID(),question:'Bugun qancha savdo bo‘ldi?'}});assert.equal((await r.json()).error.code,'AI_PLAN_REQUIRED');assert.equal(calls,0)});
   await pool.query("UPDATE organizations SET plan_code='BUSINESS' WHERE id=$1",[org]);
   await t.test('real sale amount in chat and persisted monthly usage; responsive light/dark',async()=>{
-   await page.goto(base+'/ai');await page.getByRole('button',{name:'Bugun qancha savdo bo‘ldi?',exact:true}).click();await page.getByRole('button',{name:'Yuborish',exact:true}).click();await page.locator('.zenix-ai-answer').waitFor();assert.match(await page.locator('.zenix-ai-answer').innerText(),/123456.78/);
+   await page.goto(base+'/ai');await page.locator('#zenix-ai-question').fill('Bugun qancha savdo bo‘ldi?');
+   const reply=page.waitForResponse(response=>response.url().endsWith('/api/ai/chat')&&response.request().method()==='POST');
+   await page.getByRole('button',{name:'Yuborish',exact:true}).click();const response=await reply;assert.equal(response.ok(),true,JSON.stringify(await response.json()));
+   await page.locator('.zenix-ai-answer').waitFor();assert.match((await page.locator('.zenix-ai-answer').innerText()).replace(/\s/g,''),/123456\.78/);
    assert.equal((await pool.query('SELECT successes FROM ai_monthly_usage WHERE organization_id=$1',[org])).rows[0].successes,1);
    for(const theme of ['light','dark'])for(const width of [390,768,1440]){await page.setViewportSize({width,height:1000});await page.evaluate(theme=>document.body.classList.toggle('dark-mode',theme==='dark'),theme);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false)}
   });
