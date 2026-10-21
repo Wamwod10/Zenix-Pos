@@ -1,6 +1,8 @@
 import {lineAmount,roundMoney,sumMoney} from '../../utils/posMoney.js';
 export const MAX_CART_LINES=500;
-export const formatProMoney=value=>`${new Intl.NumberFormat('uz-UZ',{maximumFractionDigits:2}).format(Number(value||0)).replaceAll('\u00a0',' ')} so‘m`;
+const moneyFormatter=new Intl.NumberFormat('uz-UZ',{maximumFractionDigits:2});
+export const formatProMoney=value=>`${moneyFormatter.format(Number(value||0)).replaceAll('\u00a0',' ')} so‘m`;
+export const quantityStep=unit=>({kg:.05,kilogramm:.05,'кг':.05,l:.05,litr:.05,litre:.05,liter:.05,g:50,gr:50,gramm:50,gram:50,'г':50,ml:50}[String(unit||'').trim().toLowerCase()]||1);
 export const effectiveDiscount=(itemPct=0,cartPct=0)=>(1-(1-Number(itemPct)/100)*(1-Number(cartPct)/100))*100;
 export const finalUnitPrice=(line,cartPct=0)=>Number(line.sellPrice)*(1-Number(line.discountPercent||0)/100)*(1-Number(cartPct)/100);
 export function allowedCartDiscount(lines,requested,allowed,limit){

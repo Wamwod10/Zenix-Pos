@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHidScanner,decodeWeightBarcode,ean13CheckDigit,validateWeightSchemes} from '../src/pages/posPro/hardware.js';
-import {cartTotals,paymentPlan,addCartProduct,validateQuantity,allowedCartDiscount} from '../src/pages/posPro/model.js';
+import {cartTotals,paymentPlan,addCartProduct,validateQuantity,allowedCartDiscount,quantityStep} from '../src/pages/posPro/model.js';
+import {selectSearchResult} from '../src/pages/posPro/catalogSelection.js';
 import {receiptHtml} from '../src/pages/posPro/receiptFormat.js';
 import {posDraftKey,savePosDraft,readPosDraft} from '../src/utils/posDraft.js';
 const product={id:'p',name:'Olma',sellPrice:12000,unit:'kg',quantity:100};
@@ -54,4 +55,22 @@ test('restored basket discount respects revoked permission and combined discount
  assert.equal(allowedCartDiscount([{discountPercent:10}],20,false,20),0);
  assert.ok(allowedCartDiscount([{discountPercent:10}],20,true,20)<11.112);
  assert.equal(allowedCartDiscount([],10,true,20),10);
+});
+test('canonical server receipt preserves kg/l units, captured payments and cash change',()=>{
+ const html=receiptHtml({sale_number:'S-server',total:'18000.00',created_at:'2026-10-21T05:00:00Z',metadata:{cashTendered:20000,change:2000},payments:[{method:'cash',amount:'8000.00'},{method:'card',amount:'10000.00'}],items:[{name:'Olma',quantity:.75,unitPrice:12000,lineTotal:9000,metadata:{unit:'kg'}},{name:'Sut',quantity:1.5,unitPrice:6000,lineTotal:9000,metadata:{unit:'l'}}]});
+ assert.ok(html.includes('0.75 kg'));assert.ok(html.includes('1.5 l'));assert.match(html,/Naqd: 8[ ,]000/);assert.match(html,/Karta[^<]*10[ ,]000/);assert.match(html,/Berildi: 20[ ,]000/);assert.match(html,/Qaytim: 2[ ,]000/);assert.ok(html.includes('S-server'));
+});
+test('name/SKU selection never guesses among ambiguous or unavailable results',()=>{
+ const first={id:'a',sku:'SKU-1',quantity:10},second={id:'b',sku:'SKU-2',quantity:10};
+ assert.equal(selectSearchResult([first,second],'Mahsulot'),null);
+ assert.equal(selectSearchResult([first,second],'sku-2'),second);
+ assert.equal(selectSearchResult([first,second],'Mahsulot','a'),first);
+ assert.equal(selectSearchResult([first,{...second,sku:'SKU-1'}],'SKU-1'),null);
+ assert.equal(selectSearchResult([{...first,quantity:0}],'SKU-1'),null);
+ assert.equal(selectSearchResult([first],''),null);
+});
+test('quantity buttons use 50g/50ml measured-unit steps and one piece',()=>{
+ for(const unit of ['kg','kilogramm','l','litr'])assert.equal(quantityStep(unit),.05);
+ for(const unit of ['g','gramm','gr','ml'])assert.equal(quantityStep(unit),50);
+ assert.equal(quantityStep('dona'),1);assert.equal(Math.round((.75-quantityStep('kg'))*1000)/1000,.7);
 });

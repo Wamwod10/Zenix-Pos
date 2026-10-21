@@ -5,6 +5,7 @@ import {createPosCatalog} from '../../utils/posCatalog';
 
 export default function useProCatalog(storeId){
  const [view,setView]=useState({products:[],results:[],categories:[],hasMore:false}),[error,setError]=useState(''),[pending,setPending]=useState(false);
+ const [appliedQuery,setAppliedQuery]=useState(null);
  const controller=useRef(null),active=useRef(true),searchVersion=useRef(0);
  useEffect(()=>{
   active.current=true;
@@ -17,11 +18,11 @@ export default function useProCatalog(storeId){
  },[storeId]);
  const search=useCallback(async(query={},append=false)=>{
   const version=++searchVersion.current;setPending(true);setError('');
-  try{return await controller.current.search(query,append)}catch(e){if(active.current&&version===searchVersion.current)setError(e.message);return null}
+  try{const result=await controller.current.search(query,append);if(result&&active.current&&version===searchVersion.current&&!append)setAppliedQuery({search:query.search||'',category:query.category||''});return result}catch(e){if(active.current&&version===searchVersion.current)setError(e.message);return null}
   finally{if(active.current&&version===searchVersion.current)setPending(false)}
  },[]);
  const resolve=useCallback(ids=>controller.current.resolve(ids),[]);
  const barcode=useCallback(code=>controller.current.barcode(code),[]);
  const pin=useCallback(ids=>controller.current.pin(ids),[]);
- return {view,error,pending,search,resolve,barcode,pin};
+ return {view,error,pending,appliedQuery,search,resolve,barcode,pin};
 }

@@ -4,7 +4,7 @@
  &, *{box-sizing:border-box}
  button,input,select,textarea{font:inherit}
  button{min-height:40px;border:1px solid var(--pp-border);background:var(--pp-card);color:var(--pp-ink);border-radius:8px;padding:8px 12px;cursor:pointer;text-align:center}
- button:hover:not(:disabled){border-color:var(--pp-accent);background:color-mix(in srgb,var(--pp-accent) 7%,var(--pp-card))}
+ button:hover:not(:disabled),.pp-product[aria-selected=true]{border-color:var(--pp-accent);background:color-mix(in srgb,var(--pp-accent) 7%,var(--pp-card))}
  button:disabled{opacity:.45;cursor:not-allowed}
  :is(button,input,select,textarea):focus-visible{outline:3px solid #39a58c;outline-offset:2px}
  input,select,textarea{min-height:40px;border:1px solid var(--pp-border);border-radius:7px;background:var(--pp-card);color:var(--pp-ink);padding:8px;min-width:0;max-width:100%}
