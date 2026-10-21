@@ -113,11 +113,12 @@ function SalesRoute(){
 function App(){return <AppErrorBoundary><BrowserRouter><Suspense fallback={<Fallback/>}><Routes>
  <Route path="/reset-password" element={<ResetPassword/>}/><Route path="/login" element={<Login/>}/><Route path="/register" element={<Register/>}/><Route path="/change-password" element={<Protected allowPasswordChange><ChangePassword/></Protected>}/>
  <Route path="/activation" element={<Protected><Access roles={[ROLES.OWNER]}><Billing activation/></Access></Protected>}/>
+ <Route path="/pos-pro" element={<Protected><PermissionAccess permission="moduleSales"><W><PosPro/></W></PermissionAccess></Protected>}/>
  <Route path="/" element={<Protected><MainLayout/></Protected>}>
   <Route index element={<PermissionAccess permission="moduleDashboard"><W><Dashboard/></W></PermissionAccess>}/>
   <Route path="shifts" element={<PermissionAccess permission="moduleShifts"><W><Shifts/></W></PermissionAccess>}/>
   <Route path="sales" element={<PermissionAccess permission="moduleSales"><W><SalesRoute/></W></PermissionAccess>}/>
-  <Route path="pos-pro" element={<PermissionAccess permission="moduleSales"><W><PosPro/></W></PermissionAccess>}/>
+
   <Route path="customers" element={<PermissionAccess permission="moduleSales"><W><Customers/></W></PermissionAccess>}/>
   <Route path="products" element={<PermissionAccess permission="moduleProducts"><W><Products/></W></PermissionAccess>}/>
   <Route path="inventory" element={<PermissionAccess permission="moduleInventory"><W><Inventory/></W></PermissionAccess>}/>

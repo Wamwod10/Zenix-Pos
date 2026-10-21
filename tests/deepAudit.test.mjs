@@ -323,7 +323,8 @@ test('notification center keeps read state useful across recurring conditions',(
 test('topbar keeps v4 shell while adding full date, separate shortcuts and live FX',()=>{
   const layout=read('src/layout/MainLayout.jsx');
   assert.match(layout,/shortcutOpen/);
-  assert.match(layout,/currency/i);
+  assert.match(layout,/useWorkspaceAppearance\(uiPreferences,workspaceSettings\)/);
+  assert.match(read('src/utils/useWorkspaceAppearance.js'),/root\.dataset\.currency=workspaceSettings\.organization\.currency/);
   assert.match(layout,/FiCalendar/);
   assert.match(layout,/Yordam Markazi/);
   assert.match(layout,/inventoryCounts/);

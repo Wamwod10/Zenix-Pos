@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
+import {validateSerialChoice} from './serialSelection';
 import {api} from '../../services/apiClient';
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft,persistedCartIntent} from '../../utils/posDraft';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isDefiniteWriteRejection} from '../../utils/checkoutAttempt';
@@ -35,6 +36,9 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   if(!cart.length){clearPosDraft(localStorage,key);return}
   if(!savePosDraft(localStorage,key,{cart,cartDiscountPct:cartPct,customerId,customer,checkoutReference:reference.current}))setError('Draft saqlanmadi. Qurilma xotirasini tekshiring.');
  },[cart,cartPct,customerId,customer,ready,recovery,holdRecovery,key]);
+ useEffect(()=>{const sync=event=>{if(event.key===journal||event.key===null){const packet=readAttempt(localStorage,journal);setRecovery(packet);if(!packet)setNotice('Boshqa oynadagi savdo holati yangilandi. Joriy draft savdo oldidan qayta tekshiriladi.')}};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync)},[journal]);
+ const previousShift=useRef(activeShift?.id);
+ useEffect(()=>{const id=activeShift?.id;if(previousShift.current===id)return;previousShift.current=id;if(!id||!ready||busyRef.current||recovery||holdRecovery||!current.current.cart.length)return;busyRef.current=true;setBusy(true);const intent=current.current;catalog.resolve(intent.cart.map(p=>p.id)).then(resolved=>{if(!active.current)return;const result=reconcile(intent.cart,resolved.products,intent.cartPct);setCart(result.lines);setCartPct(result.cartPct);setNotice(cartReconciliationMessage(result.changes)||'Smena uchun draft narxi va qoldig‘i qayta tekshirildi.')}).catch(e=>{if(active.current)setError(e.message)}).finally(()=>{busyRef.current=false;if(active.current)setBusy(false)})},[activeShift?.id,ready,recovery,holdRecovery]);
  const locked=busy||Boolean(recovery)||Boolean(holdRecovery)||!ready;
  const add=(p,q=1)=>{if(locked)return;setError('');setCart(items=>{try{return addCartProduct(items,p,q)}catch(e){queueMicrotask(()=>active.current&&setError(e.message));return items}})};
  const quantity=(id,value)=>{if(locked)return;try{const q=validateQuantity(value);const line=cart.find(p=>p.id===id);if(q>Number(line.quantity))throw Error('Qoldiq yetarli emas');setCart(items=>items.map(p=>p.id===id?{...p,cartQty:q}:p))}catch(e){setError(e.message)}};
@@ -78,6 +82,7 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
    const totals=cartTotals(checked.lines,cartPct),plan=paymentPlan({...payment,total:totals.total,customerId,creditAllowed});
    const saleId=reference.current;
    const items=checked.lines.map(p=>{
+    validateSerialChoice(p,storeId);
     const tracking=allocateTrackedStock(p,storeId,p.cartQty,{saleId,soldAt:new Date().toISOString(),selection:p.tracking});
     if(!tracking.success)throw Error(tracking.message);
     return {...p,quantity:p.cartQty,finalPrice:finalUnitPrice(p,cartPct),cartDiscountPercent:cartPct,tracking:tracking.tracking};
@@ -97,8 +102,8 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   try{
    const saved=readAttempt(localStorage,holdJournal);
    const payload=saved?.payload||{name:`POS Pro ${new Date().toLocaleTimeString()}`,cart:persistedCartIntent(cart),customerId,customer,cartDiscountPct:cartPct,storeId,shiftId:activeShift?.id||null,clientReference:reference.current};
-   beginAttempt(localStorage,holdJournal,{clientReference:payload.clientReference,payload});
-   const result=await createSaleHold(payload);if(!result.success){
+   const packet=beginAttempt(localStorage,holdJournal,{clientReference:payload.clientReference,payload});
+   const result=await createSaleHold(packet.payload);if(!result.success){
     // A first, definite rejection made no hold. Uncertain earlier dispatches keep
     // their exact packet until the server can confirm them.
     if(!saved&&isDefiniteWriteRejection(result))settleAttempt(localStorage,holdJournal,'rejected');
@@ -127,5 +132,5 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   }catch(e){if(active.current)setError(e.message);return false}
   finally{busyRef.current=false;if(active.current)setBusy(false)}
  };
- return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,recovery,holdRecovery,held,add,quantity,discount,remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds};
+ return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds};
 }
