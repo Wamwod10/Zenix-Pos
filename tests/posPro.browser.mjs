@@ -10,8 +10,8 @@ const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false});
 const errors=[],results=[],output='../artifacts/phase2';await mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
-async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg'}={}){
- const context=await browser.newContext({viewport:{width,height},serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
+async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName=''}={}){
+ const context=await browser.newContext({viewport:{width,height},hasTouch:touch,serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
  if(cartSize)await page.addInitScript(({key,cart})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({v:1,cart,cartDiscountPct:0,checkoutReference:'PRO-browser-stable'}))},{key:`${posDraftKey(org,'owner',store)}:pro`,cart:Array.from({length:cartSize},(_,i)=>({...product(i),cartQty:1,discountPercent:0}))});
@@ -31,7 +31,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
    else if(barcode){if(barcodeDelay)await new Promise(r=>setTimeout(r,barcodeDelay));if(barcode==='12345678'||barcode==='00123')products=[product(0)];else if(barcode==='99999999')return route.fulfill({status:409,json:{ok:false,error:{code:'AMBIGUOUS_BARCODE'}}})}
    else if(search)products=search==='last'?[product(catalogSize-1)]:Array.from({length:40},(_,i)=>product(i)).filter(p=>p.name.includes(search)||p.sku.includes(search));
    else products=Array.from({length:40},(_,i)=>product(i));
-   data={products:products.map(p=>({...p,unit})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
+   data={products:products.map(p=>({...p,unit,...(longName&&p.id===product(0).id?{name:longName}:{})})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
   }
   if(url.pathname==='/api/sales/pos-pro/summary'){
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
@@ -74,7 +74,7 @@ try{
     };
    });
    for(let i=0;i<7;i++){await p.getByLabel('POS Pro qidiruv').fill(i%2?'Olma':'last');await p.waitForFunction(n=>window.__searchSamples.length>=n,i+1)}
-   results.push({kind:'isolated-search-stages',cartSize,catalogSize:50000,samples:await p.evaluate(()=>window.__searchSamples.slice(1))});await r.context.close();
+   results.push({kind:'isolated-search-stages',cartSize,catalogSize:50000,heap:await p.evaluate(()=>({used:performance.memory?.usedJSHeapSize,total:performance.memory?.totalJSHeapSize,domNodes:document.querySelectorAll('*').length})),samples:await p.evaluate(()=>window.__searchSamples.slice(1))});await r.context.close();
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
@@ -90,6 +90,12 @@ try{
  }
  if(!uxOnly||uxOnly==='popular'){
   const r=await setup(),p=r.page,input=p.getByLabel('POS Pro qidiruv');await input.fill('Olma');await expect(p.locator('.pp-product')).toHaveCount(1);await expect(p.locator('.pp-product')).toBeEnabled();await p.getByRole('button',{name:/Smenada/}).click();await expect(p.locator('.pp-product')).toContainText('Mahsulot 2');await input.press('Enter');await expect(p.locator('.pp-cart-line')).toHaveCount(0);await expect(input).toHaveValue('');await p.locator('.pp-product').click();await expect(p.getByLabel('Mahsulot 2 miqdori',{exact:true})).toHaveValue('1');await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='long'){
+  for(const [width,height]of [[1366,768],[1920,1080],[1024,768],[390,844]]){const r=await setup({width,height,longName:'Long supermarket product name '.repeat(12)}),p=r.page;await p.locator('.pp-product').first().click();await expect(p.locator('.pp-cart-line')).toHaveCount(1);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'long name overflow '+width);await r.context.close()}
+ }
+ if(!uxOnly||uxOnly==='touch'){
+  const r=await setup({width:1024,height:768,touch:true}),p=r.page;await p.locator('.pp-product').first().tap();await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await p.getByRole('button',{name:'Olma miqdorini oshirish',exact:true}).tap();await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('1.05');assert.ok(await p.evaluate(()=>navigator.maxTouchPoints>0));await r.context.close();
  }
  if(!uxOnly||uxOnly==='quantity'){
   for(const [unit,initial,lower]of [['kg','0.75','0.7'],['l','0.75','0.7'],['g','750','700'],['dona','2','1']]){
