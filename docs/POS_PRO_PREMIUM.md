@@ -32,7 +32,7 @@ Independent final code/visual review found no additional confirmed P0/P1/P2. No 
 
 ## Verification and measurements
 
-- Frontend full runner: 408 tests, 406 PASS, 0 FAIL, 2 SKIP (environment-dependent existing checks).
+- Frontend combined runner (`--with-backend`): 408 tests, 406 PASS, 0 FAIL, 2 SKIP (environment-dependent existing checks). Standalone CI subset: 286 PASS, 0 FAIL.
 - Backend full serialized runner: 762 tests, 745 PASS, 0 FAIL, 17 SKIP. Backend working tree equals main b41bd55; no backend files changed.
 - Real Chromium → Express → disposable loopback PostgreSQL: 15 supermarket checkpoints and 11 sales PASS, including inline shift, six units/EAN labels, 100 synthesized HID scans, cash/card/split/credit, Hold/timeout/replay, history, stock/audit/outbox, serial S2 and shift close. Separate normal/recovered kg/l receipt integration PASS. Receipt 58/80mm PDFs regenerated and parsed by the supermarket test.
 - Default Phase2 browser profile, new premium and serial/pending profiles PASS. Premium covers named window/reuse, blocked popup same-tab fallback, direct route, lock handover, actual Fullscreen API/Escape and both themes at 1920×1080, 1600×900, 1366×768, 1024×768 and 390×844.
@@ -51,7 +51,7 @@ Controlled browser search benchmark, same hydrated production-build profile, 160
 
 ## Visual evidence and local use
 
-Local evidence: `../../artifacts/phase3/` contains before-1366.png and `{1920,1600,1366,1024,390}-{light,dark}.png`, build/test logs and benchmark log. Screenshots are fixture-based UI evidence; no production customer data. Premium browser profile regenerates all ten screenshots. Real-API evidence/PDFs are under `../../artifacts/final-qa/`. These artifacts are local rather than application assets.
+Local evidence: `../../artifacts/phase3/` contains before-1366.png, standalone-window.png, fullscreen.png and `{1920,1600,1366,1024,390}-{light,dark}.png`, build/test logs and benchmark log. Screenshots are fixture-based UI evidence; no production customer data. Premium browser profile regenerates screenshots and verifies cancelling a guarded return preserves all five draft lines. Real-API evidence/PDFs are under `../../artifacts/final-qa/`. These artifacts are local rather than application assets.
 
 Use the three PowerShell terminals in [the existing exact localhost guide](POS_PRO_FINAL_QA.md#exact-manual-localhost-instructions-powershell): start the isolated cluster on 55432, seed/run the guarded QA API on 4000 with bot tokens blank, and run this frontend branch with VITE_API_URL=http://127.0.0.1:4000 on 5173. Do not use a Neon URL. Log in with the generated local cashier credentials, click POS Pro in the sidebar, then open shift inline. Popup blocking falls back to the same standalone route. Fullscreen requires a user click. A second cashier window for the same identity/branch waits until the first closes, then use Qayta tekshirish. Ctrl+R refreshes; F5 holds a nonempty cart. Return uses the unsaved-draft guard. Stop API/frontend before stopping the isolated cluster.
 
@@ -60,3 +60,5 @@ SIMULATED: HID/scale labels, bank confirmation, network failures, touchscreen ev
 Changed frontend files: App.jsx; layout/MainLayout.jsx; utils/{launchPosPro,useWorkspaceAppearance}.js; pages/posPro/{PosPro,Cart,Tracking,WorkspaceHeader}.jsx, {useProSession,usePosWindowLease,serialSelection}.js, posPro.scss; tests/{posProWorkspace.test,deepAudit.test,posPro.browser,posProSupermarket.browser}.mjs; design-baseline.json; .github/workflows/verify.yml; this report. Other modules retain their design styles and business services.
 
 Review branch: `phase3/pos-pro-premium-workspace`, base `phase2/pos-pro`. [Compare / open Draft PR](https://github.com/Wamwod10/Zenix-Pos/compare/phase2/pos-pro...phase3/pos-pro-premium-workspace?expand=1). No backend PR required.
+
+GitHub connector refused Draft PR creation with HTTP403 `Resource not accessible by integration`; branch push succeeded, so the requested compare fallback is supplied. [Branch CI runs](https://github.com/Wamwod10/Zenix-Pos/actions?query=branch%3Aphase3%2Fpos-pro-premium-workspace). Vercel read-only deployment listing found no automatic preview for this branch. No new cloud environment or production API test was substituted for isolated localhost review.
