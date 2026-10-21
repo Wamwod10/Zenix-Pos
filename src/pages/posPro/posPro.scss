@@ -78,3 +78,4 @@
 @media(max-width:650px){.pos-pro .pp-cart-actions{grid-template-columns:1fr 1fr;button{flex-direction:row;font-size:12px;min-height:46px}}}
 
 .pos-pro .pp-terminal-heading .pp-customer{margin:0;width:auto;max-width:210px;min-height:40px;padding:8px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pos-pro .pp-totals-row{padding:4px 0}
+@media(max-width:650px){.pos-pro .pp-catalog{height:auto;flex-shrink:0}.pos-pro .pp-products{flex:none;height:240px;min-height:240px}}
