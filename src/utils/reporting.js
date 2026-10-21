@@ -134,7 +134,15 @@ export const saleNetProfit = (sale) => sale?._financialType==='refund'?Number(sa
 export const saleGrossPaymentBreakdown = (sale) => {
   const result={cash:0,card:0,transfer:0};
   if(!sale)return result;
+  // Server payment rows are actual captures; a credit sale's display method
+  // may be cash even when only a deposit (or no payment) was collected.
+  if(Array.isArray(sale.payments))return capturedPayment(sale);
   const gross=Math.max(0,Number(sale.saleTotal??sale.total??0));
+  if(sale.paymentMethod==='credit'){
+    const captured=sale.paymentBreakdown||{};
+    for(const method of Object.keys(result))result[method]=Math.max(0,Number(captured[method]||0));
+    return result;
+  }
   if(sale.paymentMethod!=="split"){
     if(Object.prototype.hasOwnProperty.call(result,sale.paymentMethod))result[sale.paymentMethod]=gross;
     return result;
@@ -197,7 +205,7 @@ export const financialSalesEvents=(sales=[],returns=[])=>{
 };
 const capturedPayment=sale=>{
  const result={cash:0,card:0,transfer:0};
- if(Array.isArray(sale.payments)&&sale.payments.length){for(const payment of sale.payments)if(Object.hasOwn(result,payment.method))result[payment.method]+=Number(payment.amount||0);return result}
+ if(Array.isArray(sale.payments)){for(const payment of sale.payments)if(Object.hasOwn(result,payment.method))result[payment.method]+=Number(payment.amount||0);return result}
  if(sale.paymentBreakdown){for(const method of Object.keys(result))result[method]=Number(sale.paymentBreakdown[method]||0);return result}
  return saleGrossPaymentBreakdown(sale);
 };

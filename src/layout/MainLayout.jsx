@@ -23,7 +23,7 @@ import { api } from "../services/apiClient";
 import "./mainlayout.scss";
 
 const routeIndex = [
-  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],["Mijozlar","Mijoz, nasiya va to‘lovlar","/customers"],
+  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],["⚡ POS Pro","Supermarket kassasi, barcode","/pos-pro"],["Mijozlar","Mijoz, nasiya va to‘lovlar","/customers"],
   ["Savdo tarixi","Cheklar, qaytarish va savdo tarixi","/history"],["Mahsulotlar","Katalog, shtrix-kod va SKU","/products"],["Ombor","Qoldiq, inventarizatsiya va transfer","/inventory"],
   ["Ta’minotchilar","Ta’minotchi, qarz va xarid","/suppliers"],["Xarajatlar","Xarajat va kategoriyalar","/expenses"],["Analitika","Hisobot, foyda, trend","/analytics"],
   ["Sotuvchi tahlili","Sotuvchi va kassir natijalari","/seller-analytics"],["Amallar tarixi","Audit va amallar tarixi","/activity-log"],["Sozlamalar","Interfeys, tashkilot, POS","/settings"],["Tarif va to‘lovlar","Tarif, muddat va to‘lov","/billing"],["Yordam Markazi","Qo‘llanma, ishni boshlash va platformadan foydalanish","/help"],
@@ -136,7 +136,7 @@ function MainLayout(){
 
   const menuItems=isPlatform?[{title:"Platforma administratori",path:"/platform",icon:FiShield}]:[
     {title:"Boshqaruv paneli",path:"/",icon:FiGrid,permission:"moduleDashboard",group:"Asosiy"},{title:"Kassa / Smena",path:"/shifts",icon:FiBriefcase,permission:"moduleShifts",group:"Savdo"},
-    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Mijozlar",path:"/customers",icon:FiUser,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
+    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"⚡ POS Pro",path:"/pos-pro",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Mijozlar",path:"/customers",icon:FiUser,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
     {title:"Mahsulotlar",path:"/products",icon:FiPackage,permission:"moduleProducts",group:"Ombor"},{title:"Ombor",path:"/inventory",icon:FiArchive,permission:"moduleInventory",group:"Ombor"},
     {title:"Ta’minotchilar",path:"/suppliers",icon:FiTruck,permission:"moduleSuppliers",group:"Ombor"},{title:"Xarajatlar",path:"/expenses",icon:FiCreditCard,permission:"moduleExpenses",group:"Tahlil"},
     {title:"Analitika",path:"/analytics",icon:FiBarChart2,permission:"moduleAnalytics",group:"Tahlil"},{title:"Sotuvchi tahlili",path:"/seller-analytics",icon:FiUserCheck,permission:"moduleSellerAnalytics",group:"Tahlil"},

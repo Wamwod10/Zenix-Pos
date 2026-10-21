@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
+import { saleGrossPaymentBreakdown,
   saleNetRevenue, saleNetProfit, saleNetPaymentBreakdown, returnedAmountForSale,
   matchesStore, projectInventoryScope, periodRange, previousPeriodRange,
 } from "../src/utils/reporting.js";
@@ -64,3 +64,15 @@ test("seller analytics includes active cashiers and sales staff before their fir
 });
 
 test('product ranking preserves negative refund-period quantity and revenue',()=>{assert.deepEqual(reporting.netItemContribution({quantity:0.4,finalPrice:100000,_financialSign:-1}),{qty:-0.4,revenue:-40000});assert.deepEqual(reporting.netItemContribution({quantity:2,returnedQty:0.5,finalPrice:100}),{qty:1.5,revenue:150})});
+
+ test("credit deposit contributes captured cash to shift reconciliation without counting debt",()=>{
+ const sale={total:20000,saleTotal:20000,paymentMethod:"credit",creditAmount:15000,paymentBreakdown:{cash:5000,card:0,transfer:0}};
+ assert.deepEqual(saleGrossPaymentBreakdown(sale),{cash:5000,card:0,transfer:0});
+ assert.deepEqual(saleGrossPaymentBreakdown({...sale,paymentBreakdown:{cash:0,card:0,transfer:0},creditAmount:20000}),{cash:0,card:0,transfer:0});
+ });
+
+test("canonical partial or unpaid credit uses captured payment rows regardless of display method",()=>{
+ const sale={total:20000,paymentMethod:"cash",paymentBreakdown:null,payments:[{method:"cash",amount:"5000"}]};
+ assert.deepEqual(saleGrossPaymentBreakdown(sale),{cash:5000,card:0,transfer:0});
+ assert.deepEqual(saleGrossPaymentBreakdown({...sale,payments:[]}),{cash:0,card:0,transfer:0});
+ });
