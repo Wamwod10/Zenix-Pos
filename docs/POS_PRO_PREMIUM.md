@@ -91,7 +91,7 @@ Independent read-only review of visuals/components and the subsequent HID change
 
 ### Follow-up evidence
 
-Frontend combined regression: **410 total, 408 PASS, 0 FAIL, 2 SKIP**. Backend serialized regression: **762 total, 745 PASS, 0 FAIL, 17 SKIP**. No backend files changed. Historical031/032 fixtures still pass. Real browser/API/PostgreSQL supermarket and normal/recovery receipt profiles were rerun; existing Savdo/history and shift reconciliation assertions pass. Final browser/performance evidence is retained under `../../artifacts/phase3-polish/` and `../../artifacts/phase2/search-benchmark-phase3-polish.json`.
+Frontend combined regression: **410 total, 408 PASS, 0 FAIL, 2 SKIP**. Backend serialized regression: **762 total, 745 PASS, 0 FAIL, 17 SKIP**. No backend files changed. Historical031/032 fixtures still pass. Real browser/API/PostgreSQL supermarket and normal/recovery receipt profiles were rerun; existing Savdo/history and shift reconciliation assertions pass. Final browser/performance evidence is retained under `../../artifacts/phase3-polish/` and `../../artifacts/phase2/search-benchmark-phase3-polish-final.json`.
 
 Visual evidence: `phase3-polish/before-1366-light.png`, `before-1920-dark.png`; updated `phase3/{1920,1600,1366,1024,390}-{light,dark}.png`; `phase3-polish/sparse-light.png`, `shortcut-help.png`. Five viewport/two-theme browser assertions include overflow, minimum phone catalog height, visible desktop payment methods and unsaved-return preservation. Existing popup fallback, lock handover, fullscreen and shift opening checks remain active.
 
@@ -101,11 +101,13 @@ Final controlled hydrated search (same production-build fixture, 160ms debounce,
 
 | Cart rows | Initial Phase3 p50/p95 ms | Follow-up p50/p95 ms |
 | --- | ---: | ---: |
-| 100 | 206.9 / 213.9 | 198.1 / 199.2 |
-| 500 | 207.4 / 209.9 | 211.4 / 215.9 |
+| 100 | 206.9 / 213.9 | 201.0 / 204.5 |
+| 500 | 207.4 / 209.9 | 210.1 / 217.6 |
 
-500-row p50 increased4ms (~2%) and p956ms (~3%). No material regression in this small local sample; not a speedup/endurance certification. Broad 100/500-row initial loads were1,001/1,846ms, separate from search. 500-row heap sample29.4MB used,53.5MB allocated,9,742 DOM nodes. Main gzip118,269 bytes and total442,985 bytes pass130,000/470,000 budgets; total increased747 bytes from preceding Phase3. Build, design baseline, import audit and readiness checks pass. Default browser, tracking, polish, premium and scan-clock profiles pass; premium waits for resize layout to settle before asserting desktop scroll bounds and taking screenshots.
+500-row p50 increased2.7ms (~1%) and p957.7ms (~4%). No material regression in this small local sample; not a speedup/endurance certification. Broad 100/500-row initial loads were983/1,877ms, separate from search. 500-row heap sample19.3MB used,50.4MB allocated,9,743 DOM nodes (GC-dependent snapshot). Main gzip118,264 bytes and total443,023 bytes pass130,000/470,000 budgets; total increased785 bytes from preceding Phase3. Build, design baseline, import audit and readiness checks pass. Default browser, tracking, polish, premium and scan-clock profiles pass; premium waits for resize layout to settle before asserting desktop scroll bounds and taking screenshots.
 
 Remaining gates: physical HID cadence, printers/scales/drawer, bank/fiscal providers, native Windows print dialog and staging soak. A driver probe that itself emits slower than45ms is outside the HID heuristic; slow/manual entry remains supported in the barcode field. No production release was performed. The existing localhost instructions use the isolated database and remain the supported review route; cloud preview was not created against the production API.
 
 The initial final recovery-profile run also observed9/10 native driver scans; it was not recorded as PASS. That profile now reuses the same explicit `SIMULATED` emission helper as the synthetic-API browser, and its final real browser → API → PostgreSQL receipt/recovery run passes. The supermarket profile passes15 checkpoints/11 sales after the timestamp fix, including100 burst events and actual SQL stock/audit/outbox checks. The simulator is test-only; production scanner checks were not loosened.
+
+Final display clarification: catalog prices explicitly include `/ kg`, `/ dona`, `/ g`, `/ l` or `/ ml` using the same display-only unit helper, avoiding ambiguity for per-gram/per-millilitre pricing. New browser assertions failed before the labels and pass afterward; no quantity or pricing conversion was introduced.
