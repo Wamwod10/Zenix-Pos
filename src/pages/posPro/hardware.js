@@ -1,7 +1,8 @@
 /** HID is only observed outside editable fields. Barcode input has its own Enter handler. */
 export function createHidScanner(onScan,{maxGap=45,minLength=6}={}){
  let buffer='',last=0;
- return {reset(){buffer='';last=0},key(event,now=performance.now()){
+ // Measure when the browser created the input event, not when a busy UI handles it.
+ return {reset(){buffer='';last=0},key(event,now=Number.isFinite(event.timeStamp)?event.timeStamp:performance.now()){
   if(event.blocked||event.editable||event.repeat||event.ctrlKey||event.altKey||event.metaKey){buffer='';last=0;return false}
   if(now-last>maxGap)buffer='';
   last=now;

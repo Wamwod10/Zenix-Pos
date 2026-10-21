@@ -63,3 +63,49 @@ Changed frontend files: App.jsx; layout/MainLayout.jsx; utils/{launchPosPro,useW
 Review branch: `phase3/pos-pro-premium-workspace`, base `phase2/pos-pro`. [Compare / open Draft PR](https://github.com/Wamwod10/Zenix-Pos/compare/phase2/pos-pro...phase3/pos-pro-premium-workspace?expand=1). No backend PR required.
 
 GitHub connector refused Draft PR creation with HTTP403 `Resource not accessible by integration`; branch push succeeded, so the requested compare fallback is supplied. [Branch CI runs](https://github.com/Wamwod10/Zenix-Pos/actions?query=branch%3Aphase3%2Fpos-pro-premium-workspace). Vercel read-only deployment listing found no automatic preview for this branch. No new cloud environment or production API test was substituted for isolated localhost review.
+
+## Latest follow-up: dense cashier controls and presentation audit
+
+Continued from 7bdb38d on the same Phase3 branch. Changes are limited to POS components, scoped styles, display helpers and tests. Shared checkout, finance, stock, shift, replay, credit and backend code are unchanged.
+
+| Requested improvement | Result |
+| --- | --- |
+| Contrast / checkout hierarchy | Inset contrasting total, strong enabled CTA, explicit disabled reason, differentiated payment keys and customer selector; light/dark platform tokens retained |
+| Dense catalog | Two compact columns at 1366px and wider; bounded one-column tablet fallback; load-more and price check share a compact action row; real pending label/aria-busy |
+| Cart and sparse state | Denser readable lines; 1–2-row carts show a real cart item, quantity/unit/amount and working F3/F2 actions; no invented scan history or recommendations |
+| Operator rail | Hold / Cheklar / Bekor qilish / Chek anchored under the receipt; frees terminal space so all five payment methods remain visible at desktop sizes |
+| Workspace controls | Theme/device/fullscreen grouped, return visually secondary; fullscreen has denser scoped spacing |
+| Keyboard / scan state | Focused barcode readiness, pending scan count and F3 return state; honest physical-device disclaimer remains |
+| Shortcut helper | Collapsed strip opens a keyboard-accessible key grid; the full help line no longer occupies the workspace |
+| Unit / stock audit | API units and selected-branch stock are preserved. Display-only aliases for kg/g/l/ml/dona; grouped fractional quantities; unknown custom units retained; missing units are not guessed by the helper |
+
+The previous visual fixture deliberately assigned `unit:'kg'` and stock1000 to every dummy item. `productFromApi` retains row.unit; no incorrect production unit mapping was reproduced. New visual fixtures use mixed product types, stock, prices and entered quantities. Thus before/after screenshots compare layout, not identical basket financial values. Neither stock nor price was converted to make a screenshot look plausible; presentation only renders API data. Actual kg/g/l/ml/dona checkout/stock behavior remains covered by the disposable PostgreSQL suite.
+
+### Additional confirmed HID defect and regression
+
+P1, reproduced with recorded browser key events: an emission gap41.8ms was delivered to JavaScript49.9ms apart, causing the previous `performance.now()` classifier to reject one valid scan. A separate timed-driver probe generated49.2ms emission gaps, correctly outside the45ms protocol. Focus stayed BODY; this was not a focus steal. Evidence: local `phase3-polish/hid-timing-0.json`, failed browser logs and unit red/green logs.
+
+Fix: `hardware.js` uses finite `event.timeStamp` by default; `PosPro.jsx` forwards the browser timestamp. Explicit test clocks and the45ms threshold are retained. New unit regression rejects queued180ms ordinary typing even when callbacks are processed together. New browser `scan-clock` profile rejects that slow input and accepts ten6ms emitted scans with deliberately50ms-delayed dispatch. Browser HID simulation now uses an explicit emission clock, because Playwright keyboard command roundtrips cannot guarantee device cadence. This is labelled SIMULATED and does not certify an attached scanner. Manual barcode field Enter, modal/editable guards, rapid100-event and existing payment/replay tests remain in place. Initial failures are retained, not counted as PASS.
+
+Independent read-only review of visuals/components and the subsequent HID change found no additional confirmed P0/P1/P2. Its scope was code/screenshots; executed test evidence is recorded separately.
+
+### Follow-up evidence
+
+Frontend combined regression: **410 total, 408 PASS, 0 FAIL, 2 SKIP**. Backend serialized regression: **762 total, 745 PASS, 0 FAIL, 17 SKIP**. No backend files changed. Historical031/032 fixtures still pass. Real browser/API/PostgreSQL supermarket and normal/recovery receipt profiles were rerun; existing Savdo/history and shift reconciliation assertions pass. Final browser/performance evidence is retained under `../../artifacts/phase3-polish/` and `../../artifacts/phase2/search-benchmark-phase3-polish.json`.
+
+Visual evidence: `phase3-polish/before-1366-light.png`, `before-1920-dark.png`; updated `phase3/{1920,1600,1366,1024,390}-{light,dark}.png`; `phase3-polish/sparse-light.png`, `shortcut-help.png`. Five viewport/two-theme browser assertions include overflow, minimum phone catalog height, visible desktop payment methods and unsaved-return preservation. Existing popup fallback, lock handover, fullscreen and shift opening checks remain active.
+
+Follow-up changed files: `src/pages/posPro/{Cart,PosPro,WorkspaceHeader}.jsx`, `{hardware,presentation}.js`, `posPro.scss`; `tests/{posPro.browser,posProPostgres.browser,posProWorkspace.test}.mjs`, `tests/helpers/posHid.mjs`; `design-baseline.json`, `.github/workflows/verify.yml`, this report. The localhost guide and release limits above still apply. Production database, deployments, bots/webhooks and main were not changed.
+
+Final controlled hydrated search (same production-build fixture, 160ms debounce, six measured samples, nearest-rank p95):
+
+| Cart rows | Initial Phase3 p50/p95 ms | Follow-up p50/p95 ms |
+| --- | ---: | ---: |
+| 100 | 206.9 / 213.9 | 198.1 / 199.2 |
+| 500 | 207.4 / 209.9 | 211.4 / 215.9 |
+
+500-row p50 increased4ms (~2%) and p956ms (~3%). No material regression in this small local sample; not a speedup/endurance certification. Broad 100/500-row initial loads were1,001/1,846ms, separate from search. 500-row heap sample29.4MB used,53.5MB allocated,9,742 DOM nodes. Main gzip118,269 bytes and total442,985 bytes pass130,000/470,000 budgets; total increased747 bytes from preceding Phase3. Build, design baseline, import audit and readiness checks pass. Default browser, tracking, polish, premium and scan-clock profiles pass; premium waits for resize layout to settle before asserting desktop scroll bounds and taking screenshots.
+
+Remaining gates: physical HID cadence, printers/scales/drawer, bank/fiscal providers, native Windows print dialog and staging soak. A driver probe that itself emits slower than45ms is outside the HID heuristic; slow/manual entry remains supported in the barcode field. No production release was performed. The existing localhost instructions use the isolated database and remain the supported review route; cloud preview was not created against the production API.
+
+The initial final recovery-profile run also observed9/10 native driver scans; it was not recorded as PASS. That profile now reuses the same explicit `SIMULATED` emission helper as the synthetic-API browser, and its final real browser → API → PostgreSQL receipt/recovery run passes. The supermarket profile passes15 checkpoints/11 sales after the timestamp fix, including100 burst events and actual SQL stock/audit/outbox checks. The simulator is test-only; production scanner checks were not loosened.

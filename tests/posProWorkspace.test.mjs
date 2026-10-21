@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {launchPosPro} from '../src/utils/launchPosPro.js';
 import {validateSerialChoice} from '../src/pages/posPro/serialSelection.js';
+import {displayUnit,formatStock,formatQuantity} from '../src/pages/posPro/presentation.js';
+import {createHidScanner} from '../src/pages/posPro/hardware.js';
+test('HID cadence uses event creation time, not delayed JavaScript dispatch time',()=>{
+ const scans=[],scanner=createHidScanner(code=>scans.push(code));let stamp=100;
+ for(const key of [...'12345678','Enter'])scanner.key({key,timeStamp:stamp+=180});
+ assert.deepEqual(scans,[],'queued slow typing must not become a scanner burst');
+ for(const key of [...'12345678','Enter'])scanner.key({key,timeStamp:stamp+=8});
+ assert.deepEqual(scans,['12345678']);
+});
+test('presentation preserves product units and branch stock without inventing conversions',()=>{
+ for(const [input,expected]of [['kilogramm','kg'],['litr','l'],['gramm','g'],['ml','ml'],['dona','dona'],['quti','quti']])assert.equal(displayUnit(input),expected);
+ assert.equal(displayUnit(''),'birlik');assert.equal(formatQuantity(.75),'0.75');assert.equal(formatStock(1000,'g'),'1 000 g mavjud');assert.equal(formatStock(.75,'kg'),'0.75 kg mavjud');assert.equal(formatStock(12,'dona'),'12 dona mavjud');assert.equal(formatStock(0,'l'),'Qoldiq tugagan');assert.equal(formatStock(undefined,'kg'),'Qoldiq tekshirilmagan');
+});
 test('POS window launch uses a named user-gesture window, severs opener and safely falls back',()=>{
  const navigations=[],calls=[],popup={opener:{},location:{pathname:'blank',replace(path){calls.push(['replace',path]);this.pathname=path}},focus(){calls.push('focus')}};
  const host={screen:{availWidth:1920,availHeight:1080},open(...args){calls.push(args);return popup}};
