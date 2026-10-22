@@ -1,3 +1,5 @@
+import useWorkspaceAppearance from '../utils/useWorkspaceAppearance';
+import {launchPosPro} from '../utils/launchPosPro';
 import {FiLock} from 'react-icons/fi';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -23,7 +25,7 @@ import { api } from "../services/apiClient";
 import "./mainlayout.scss";
 
 const routeIndex = [
-  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],["Mijozlar","Mijoz, nasiya va to‘lovlar","/customers"],
+  ["Boshqaruv paneli","Boshqaruv, bosh sahifa","/"],["Kassa / Smena","Smena ochish, kassa","/shifts"],["Savdo","POS, kassa, sotuv","/sales"],["⚡ POS Pro","Supermarket kassasi, barcode","/pos-pro"],["Mijozlar","Mijoz, nasiya va to‘lovlar","/customers"],
   ["Savdo tarixi","Cheklar, qaytarish va savdo tarixi","/history"],["Mahsulotlar","Katalog, shtrix-kod va SKU","/products"],["Ombor","Qoldiq, inventarizatsiya va transfer","/inventory"],
   ["Ta’minotchilar","Ta’minotchi, qarz va xarid","/suppliers"],["Xarajatlar","Xarajat va kategoriyalar","/expenses"],["Analitika","Hisobot, foyda, trend","/analytics"],
   ["Sotuvchi tahlili","Sotuvchi va kassir natijalari","/seller-analytics"],["Amallar tarixi","Audit va amallar tarixi","/activity-log"],["Sozlamalar","Interfeys, tashkilot, POS","/settings"],["Tarif va to‘lovlar","Tarif, muddat va to‘lov","/billing"],["Yordam Markazi","Qo‘llanma, ishni boshlash va platformadan foydalanish","/help"],
@@ -51,26 +53,6 @@ const GUIDE_COACH = {
 
 const formatRate=(value)=>new Intl.NumberFormat("uz-UZ",{maximumFractionDigits:2}).format(Number(value||0));
 
-const normalizeHex = (value, fallback = "#647687") => {
-  const raw = String(value || "").trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
-  if (/^#[0-9a-fA-F]{3}$/.test(raw)) return `#${raw.slice(1).split("").map((ch) => ch + ch).join("")}`.toLowerCase();
-  return fallback;
-};
-const mixHex = (hex, target, ratio = 0.16) => {
-  const value = normalizeHex(hex);
-  const targetHex = normalizeHex(target, "#000000");
-  const channel = (source, dest) => Math.round(source + (dest - source) * ratio);
-  const parts = [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16));
-  const targetParts = [1, 3, 5].map((start) => parseInt(targetHex.slice(start, start + 2), 16));
-  return `#${parts.map((part, index) => channel(part, targetParts[index]).toString(16).padStart(2, "0")).join("")}`;
-};
-const contrastForHex = (hex) => {
-  const value = normalizeHex(hex);
-  const [r, g, b] = [1, 3, 5].map((start) => parseInt(value.slice(start, start + 2), 16));
-  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return luminance > 0.62 ? "#17191a" : "#ffffff";
-};
 
 function MainLayout(){
   const { currentUser, logout, getActiveSessions } = useAuth();
@@ -136,7 +118,7 @@ function MainLayout(){
 
   const menuItems=isPlatform?[{title:"Platforma administratori",path:"/platform",icon:FiShield}]:[
     {title:"Boshqaruv paneli",path:"/",icon:FiGrid,permission:"moduleDashboard",group:"Asosiy"},{title:"Kassa / Smena",path:"/shifts",icon:FiBriefcase,permission:"moduleShifts",group:"Savdo"},
-    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Mijozlar",path:"/customers",icon:FiUser,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
+    {title:"Savdo",path:"/sales",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"⚡ POS Pro",path:"/pos-pro",icon:FiShoppingCart,permission:"moduleSales",group:"Savdo"},{title:"Mijozlar",path:"/customers",icon:FiUser,permission:"moduleSales",group:"Savdo"},{title:"Savdo tarixi",path:"/history",icon:FiClock,permission:"moduleHistory",group:"Savdo"},
     {title:"Mahsulotlar",path:"/products",icon:FiPackage,permission:"moduleProducts",group:"Ombor"},{title:"Ombor",path:"/inventory",icon:FiArchive,permission:"moduleInventory",group:"Ombor"},
     {title:"Ta’minotchilar",path:"/suppliers",icon:FiTruck,permission:"moduleSuppliers",group:"Ombor"},{title:"Xarajatlar",path:"/expenses",icon:FiCreditCard,permission:"moduleExpenses",group:"Tahlil"},
     {title:"Analitika",path:"/analytics",icon:FiBarChart2,permission:"moduleAnalytics",group:"Tahlil"},{title:"Sotuvchi tahlili",path:"/seller-analytics",icon:FiUserCheck,permission:"moduleSellerAnalytics",group:"Tahlil"},
@@ -155,29 +137,7 @@ function MainLayout(){
   const mobileNavItems=mobilePriority.map((path)=>visibleMenu.find((item)=>item.path===path)).filter(Boolean).slice(0,4);
   const mobileMoreActive=!mobileNavItems.some((item)=>item.path==="/"?location.pathname==="/":location.pathname===item.path||location.pathname.startsWith(`${item.path}/`));
 
-  useEffect(()=>{
-    const root=document.documentElement;
-    const pref=uiPreferences;
-    const accent=normalizeHex(pref.accent,"#647687");
-    root.style.setProperty("--accent",accent);
-    root.style.setProperty("--primary",accent);
-    root.style.setProperty("--primary-dark",mixHex(accent,"#000000",0.17));
-    root.style.setProperty("--primary-contrast",contrastForHex(accent));
-    root.style.setProperty("--sidebar-width",`${pref.sidebarWidth||277}px`);
-    root.dataset.currency=workspaceSettings.organization.currency||"UZS";
-    document.body.dataset.density=pref.density||"comfortable";
-    document.body.dataset.sidebarMode=pref.sidebarMode||"comfortable";
-    document.body.dataset.fontScale=pref.fontScale||"default";
-    document.body.dataset.radius=pref.radius||"medium";
-    document.body.dataset.tableDensity=pref.tableDensity||"comfortable";
-    document.body.dataset.navbarCompact=String(Boolean(pref.navbarCompact));
-    document.body.classList.toggle("no-card-shadow",!pref.cardShadow);
-    document.body.classList.toggle("reduce-motion",Boolean(pref.reducedMotion));
-    const dark=pref.theme==="dark"||(pref.theme==="system"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches);
-    document.body.classList.toggle("dark-mode",dark);
-    const themeMeta=document.querySelector('meta[name="theme-color"]');
-    if(themeMeta)themeMeta.setAttribute("content",dark?"#111315":"#f3f4f4");
-  },[uiPreferences,workspaceSettings.organization.currency]);
+  useWorkspaceAppearance(uiPreferences,workspaceSettings);
 
   useEffect(()=>{
     let interval=null;
@@ -355,7 +315,7 @@ function MainLayout(){
   const headerDate=formatWorkspaceDate(clock,workspaceSettings.organization);
   const headerTime=workspaceTime(clock,workspaceSettings.organization);
   const closeTransientUi=()=>{setSearchOpen(false);setSearch("");setQuickOpen(false);setToolsOpen(false);setShortcutOpen(false);setNotificationsOpen(false);setProfileOpen(false);setStoreOpen(false);setSidebarOpen(false)};
-  const go=(path,options)=>guardNavigation(()=>{navigate(path,options);closeTransientUi()});
+  const go=(path,options)=>guardNavigation(()=>{if(path==='/pos-pro')launchPosPro(navigate);else navigate(path,options);closeTransientUi()});
 
   const beginAddBranch=()=>{
     setStoreOpen(false);

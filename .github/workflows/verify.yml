@@ -22,6 +22,17 @@ jobs:
       - run: npm run audit
       - run: npm run verify:production
       - run: npm run build
+      - name: POS Pro HID, checkout, recovery and responsive browser acceptance
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=premium node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=tracking node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=polish node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=scan-clock node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=pixel node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=pixel-states node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=pixel-accessibility node tests/posPro.browser.mjs
       - name: Synthetic CPU and bundle regression budgets
         run: node scripts/check-performance-budget.mjs --bundle
 

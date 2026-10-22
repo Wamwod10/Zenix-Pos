@@ -9,8 +9,8 @@ export function createPosCatalog({request,normalize,onChange=()=>{},maxEntries=6
  const resolve=ids=>{
   if(stopped)return Promise.reject(new Error('Catalog scope changed'));
   const unique=[...new Set(ids.map(String))].sort();if(!unique.length)return Promise.resolve({products:[],missingIds:[]});
-  if(unique.length>250)return Promise.reject(new Error('Too many cart products'));
-  resolvedPins=[...new Set([...resolvedPins,...unique])].slice(-250);
+  if(unique.length>500)return Promise.reject(new Error('Too many cart products'));
+  resolvedPins=[...new Set([...resolvedPins,...unique])].slice(-500);
   const key=unique.join(',');if(pending.has(key))return pending.get(key);
   const version=++sequence;
   const work=(async()=>{

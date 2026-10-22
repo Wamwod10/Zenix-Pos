@@ -127,7 +127,7 @@ function Dashboard(){
       if(quantity<=0)return;
       const unit=getItemFinalPrice(item);
       const cost=Number(item.costPrice||0);
-      const current=map.get(key)||{id:key,name:item.name||"Mahsulot",qty:0,revenue:0,profit:0};
+      const current=map.get(key)||{id:key,name:item.name||"Mahsulot",unit:item.unit||item.metadata?.unit||"dona",qty:0,revenue:0,profit:0};
       current.qty+=quantity;current.revenue+=quantity*unit;current.profit+=quantity*(unit-cost);map.set(key,current);
     }));
     return [...map.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,5);
@@ -202,7 +202,7 @@ function Dashboard(){
     </div>
 
     <div className="dashboard-insight-grid">
-      <section className="pro-card top-products-card"><div className="pro-card-head"><div><h2>Eng daromadli mahsulotlar</h2><p>Tanlangan davrda eng ko‘p daromad bergan mahsulotlar.</p></div><Link to="/analytics">Batafsil <FiArrowRight/></Link></div>{topProducts.length?<div className="top-product-list">{topProducts.map((item,index)=><div key={item.id}><span className="rank">{String(index+1).padStart(2,"0")}</span><span><strong>{item.name}</strong><small>{item.qty} dona · foyda {formatPrice(item.profit)}</small></span><b>{formatPrice(item.revenue)}</b></div>)}</div>:<div className="dashboard-empty"><FiShoppingBag/> Tanlangan filialda savdo ma’lumoti yo‘q</div>}</section>
+      <section className="pro-card top-products-card"><div className="pro-card-head"><div><h2>Eng daromadli mahsulotlar</h2><p>Tanlangan davrda eng ko‘p daromad bergan mahsulotlar.</p></div><Link to="/analytics">Batafsil <FiArrowRight/></Link></div>{topProducts.length?<div className="top-product-list">{topProducts.map((item,index)=><div key={item.id}><span className="rank">{String(index+1).padStart(2,"0")}</span><span><strong>{item.name}</strong><small>{item.qty} {item.unit} · foyda {formatPrice(item.profit)}</small></span><b>{formatPrice(item.revenue)}</b></div>)}</div>:<div className="dashboard-empty"><FiShoppingBag/> Tanlangan filialda savdo ma’lumoti yo‘q</div>}</section>
 
       <section className="pro-card dashboard-alerts"><div className="pro-card-head"><div><h2>Qoldiq ogohlantirishlari</h2><p>Tez e’tibor talab qiladigan qoldiqlar.</p></div><Link to="/inventory">Ombor <FiArrowRight/></Link></div>{!catalogComplete?<div className="dashboard-empty" role="status"><FiPackage/> {catalogError||"Qoldiq hali yuklanmagan."}<button className="pro-btn secondary" onClick={()=>{void ensureCatalog().catch(()=>{})}}>Qoldiqni yuklash</button></div>:stockAlerts.length?<div className="alert-list">{stockAlerts.map(p=><div key={p.id}><span className={`alert-icon ${p.tone}`}><FiAlertTriangle/></span><span><strong>{p.name}</strong><small>{p.sku} · {p.quantity} {p.unit||"dona"}</small></span><StatusBadge tone={p.tone}>{p.alert}</StatusBadge></div>)}</div>:<div className="dashboard-empty"><FiPackage/> Qoldiq bo‘yicha jiddiy muammo yo‘q</div>}</section>
     </div>
