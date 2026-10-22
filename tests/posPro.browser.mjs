@@ -80,9 +80,40 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(uxOnly==='platform-contract'){
+  const r=await setup({width:1366,height:768,closed:true}),p=r.page,failures=[];
+  const measured=await p.evaluate(()=>{
+   const total=getComputedStyle(document.querySelector('.pp-total')),panel=getComputedStyle(document.querySelector('.pp-terminal'));
+   return {totalText:total.color,panelText:panel.color,totalAccentBorder:parseFloat(total.borderLeftWidth),disabledPaymentOpacity:getComputedStyle(document.querySelector('.pp-payments button')).opacity,shiftHeight:document.querySelector('.pp-shift-gate').getBoundingClientRect().height,paymentClipped:[...document.querySelectorAll('.pp-payments button')].some(el=>el.getBoundingClientRect().bottom>document.querySelector('.pp-terminal-body').getBoundingClientRect().bottom+1),terminalBottom:document.querySelector('.pp-terminal').getBoundingClientRect().bottom,checkoutBottom:document.querySelector('.pp-checkout').getBoundingClientRect().bottom};
+  });
+  if(measured.totalText!==measured.panelText)failures.push('total uses inverted colors instead of platform KPI text');
+  if(measured.totalAccentBorder>1)failures.push('total has a heavy accent border');
+  if(measured.disabledPaymentOpacity!=='1')failures.push('disabled payment labels fade as a whole');
+  if(measured.paymentClipped)failures.push('closed-shift payment method clipped by body');
+  if(measured.shiftHeight>76)failures.push('closed shift notice is too tall');
+  if(measured.checkoutBottom>Math.min(768,measured.terminalBottom))failures.push('closed-shift checkout is outside viewport');
+  await p.setViewportSize({width:390,height:844});
+  await expect.poll(()=>p.locator('.pp-terminal').evaluate(el=>getComputedStyle(el).display)).toBe('flex');
+  const mobile=await p.locator('.pp-terminal').evaluate(el=>{const c=getComputedStyle(el),inner=el.clientWidth-parseFloat(c.paddingLeft)-parseFloat(c.paddingRight);return {inner,total:el.querySelector('.pp-total').getBoundingClientRect().width,cta:el.querySelector('.pp-checkout').getBoundingClientRect().width}});
+  if(Math.abs(mobile.total-mobile.inner)>1||Math.abs(mobile.cta-mobile.inner)>1)failures.push('mobile total and checkout must span settlement width');
+  console.log(JSON.stringify({measured,failures}));await r.context.close();assert.deepEqual(failures,[]);
+ }
+ if(uxOnly==='platform-reference'){
+  const out='../artifacts/pos-pro-4/platform';await mkdir(out,{recursive:true});const tokens=[];
+  const r=await setup({width:1600,height:900,presentation:true}),p=r.page;
+  for(const theme of ['light','dark']){
+   if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
+   for(const [name,path] of [['dashboard','/'],['sales','/sales'],['shifts','/shifts'],['products','/products'],['inventory','/inventory'],['analytics','/analytics'],['settings','/settings']]){
+    await p.goto(base+path);await expect(p.locator('.main h1').first()).toBeVisible();await expect(p.locator('.page-skeleton')).toHaveCount(0);await expect(p.locator('.sidebar')).toBeVisible();await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:`${out}/${name}-${theme}.png`,fullPage:true});
+    tokens.push({page:name,theme,values:await p.evaluate(()=>Object.fromEntries(['--bg','--card-bg','--surface','--soft-surface','--text','--muted','--border','--primary','--primary-dark','--radius-control','--radius-card','--radius-panel','--font-family'].map(k=>[k,getComputedStyle(document.body).getPropertyValue(k).trim()]))) });
+   }
+   await p.goto(base+'/pos-pro');await expect(p.locator('.pp-product').first()).toBeEnabled();
+  }
+  await writeFile(`${out}/tokens.json`,JSON.stringify(tokens,null,2));await r.context.close();
+ }
  if(uxOnly==='pixel-accessibility'){
   const evidence=[];
-  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
+  for(const [width,height] of [[1920,1080],[1600,900],[1440,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
    const r=await setup({width,height,cartSize:20}),p=r.page;
    for(const theme of ['light','dark']){
     if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
@@ -93,7 +124,7 @@ try{
      const color=s=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=s;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v)};
      const over=(a,b)=>a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3]));
      const luminance=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
-     return ['.pp-line-name strong','.pp-line-name small','.pp-totals-row span','.pp-total strong','.pp-checkout','.pp-product strong','.pp-product b','#pp-search-help'].map(selector=>{
+     return ['.pp-line-name strong','.pp-line-name small','.pp-totals-row span','.pp-total strong','.pp-checkout','.pp-product strong','.pp-product b','#pp-search-help','.pp-shift-status','.pp-barcode-label','.pp-payment-heading','.pp-line-discount','.pp-quantity small','.pp-header-actions button'].map(selector=>{
       const el=document.querySelector(selector),ancestors=[];for(let n=el;n;n=n.parentElement)ancestors.unshift(n);let bg=[255,255,255];for(const n of ancestors)bg=over(color(getComputedStyle(n).backgroundColor),bg);
       const fg=over(color(getComputedStyle(el).color),bg),a=luminance(fg),b=luminance(bg);return {selector,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
      });
@@ -103,27 +134,27 @@ try{
    }
    await r.context.close();
   }
-  await writeFile('../artifacts/pos-pro-32/accessibility.json',JSON.stringify(evidence,null,2));
+  await writeFile('../artifacts/pos-pro-4/accessibility.json',JSON.stringify(evidence,null,2));
  }
  if(uxOnly==='pixel-states'){
-  const out='../artifacts/pos-pro-32/after';await mkdir(out,{recursive:true});
-  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
-   const r=await setup({width,height,closed:true}),p=r.page;
-   for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();await p.screenshot({path:`${out}/${width}-${theme}-closed.png`,fullPage:true})}
+  const out='../artifacts/pos-pro-4/after';await mkdir(out,{recursive:true});
+  for(const [width,height] of [[1920,1080],[1600,900],[1440,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
+   const r=await setup({width,height,closed:true,cartSize:2}),p=r.page;
+   for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();if(width>1100)assert.ok(await p.locator('.pp-checkout').evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.pp-terminal').getBoundingClientRect();return r.bottom<=Math.min(innerHeight,panel.bottom)}));await p.screenshot({path:`${out}/${width}-${theme}-closed.png`,fullPage:true})}
    await p.getByRole('button',{name:'Smenani ochish',exact:true}).click();await p.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await p.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();
    await p.locator('.pp-product').first().click();r.holdStatus=503;await p.keyboard.press('F5');await expect(p.locator('.pp-recovery')).toBeVisible();
    for(const theme of ['dark','light']){if(theme==='light')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await p.screenshot({path:`${out}/${width}-${theme}-recovery.png`,fullPage:true})}
    r.holdStatus=0;await p.getByRole('button',{name:'Hold saqlashni qayta tekshirish',exact:true}).click();await expect(p.locator('.pp-cart-line')).toHaveCount(0);assert.equal(r.holds.length,1);await r.context.close();
   }
-  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){const r=await setup({width,height,stress:true,unit:'maxsus qadoq birligi',longName:'Uzoq nomli maxsus qadoqdagi mahsulot'}),p=r.page;
+  for(const [width,height] of [[1920,1080],[1600,900],[1440,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){const r=await setup({width,height,stress:true,unit:'maxsus qadoq birligi',longName:'Uzoq nomli maxsus qadoqdagi mahsulot'}),p=r.page;
   await p.locator('.pp-product').first().click();await p.getByLabel('Uzoq nomli maxsus qadoqdagi mahsulot miqdori',{exact:true}).fill('1000');await p.getByLabel('Uzoq nomli maxsus qadoqdagi mahsulot miqdori',{exact:true}).press('Enter');
   await expect(p.locator('.pp-line-total')).toContainText('12,000,000');for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));assert.ok(await p.locator('.pp-branch').evaluate(el=>el.querySelector('button').getBoundingClientRect().right<=el.getBoundingClientRect().right+1),'long branch selector must fit its track');await p.screenshot({path:`${out}/${width}-${theme}-custom-unit-large-total.png`,fullPage:true})}await r.context.close();}
  }
  if(uxOnly==='pixel'){
-  const phase=process.env.POS_PRO_VISUAL_PHASE||'after',out=`../artifacts/pos-pro-32/${phase}`;
+  const phase=process.env.POS_PRO_VISUAL_PHASE||'after',out=`../artifacts/pos-pro-4/${phase}`;
   await mkdir(out,{recursive:true});const measurements=[],failures=[];
   const check=(ok,message)=>{if(!ok)failures.push(message)};
-  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]])for(const cartSize of [0,1,2,5,20,100,500]){
+  for(const [width,height] of [[1920,1080],[1600,900],[1440,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]])for(const cartSize of [0,1,2,5,20,100,500]){
    const r=await setup({width,height,cartSize,presentation:true,longName:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oila uchun'}),p=r.page;
    await expect(p.locator('.pp-cart-line')).toHaveCount(cartSize);
    const notice=p.getByRole('button',{name:'Tushunarli',exact:true});if(await notice.isVisible())await notice.click();
@@ -134,7 +165,7 @@ try{
      const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};
      const heading=[...document.querySelectorAll('.pp-cart-heading>span')].filter(el=>el.textContent.trim());
      const line=document.querySelector('.pp-cart-line'),controls=line?[line.querySelector('.pp-line-name'),line.querySelector('.pp-quantity input'),line.querySelector('.pp-line-discount input'),line.querySelector('.pp-line-total')].map(rect):[];
-     return {overflow:document.documentElement.scrollWidth>innerWidth+1,heading:heading.map(rect),controls,buttons:[...document.querySelectorAll('.pp-payments button')].map(rect),checkout:rect(document.querySelector('.pp-checkout')),negativeZero:document.querySelector('.pp-totals-row:nth-child(2)').textContent.includes('−0'),catalogColumns:getComputedStyle(document.querySelector('.pp-products')).gridTemplateColumns.split(' ').length,cartOverflow:document.querySelector('.pp-cart-lines').scrollWidth>document.querySelector('.pp-cart-lines').clientWidth+1};
+     return {overflow:document.documentElement.scrollWidth>innerWidth+1,heading:heading.map(rect),controls,buttons:[...document.querySelectorAll('.pp-payments button')].map(rect),checkout:rect(document.querySelector('.pp-checkout')),terminal:rect(document.querySelector('.pp-terminal')),terminalBody:rect(document.querySelector('.pp-terminal-body')),negativeZero:document.querySelector('.pp-totals-row:nth-child(2)').textContent.includes('−0'),catalogColumns:getComputedStyle(document.querySelector('.pp-products')).gridTemplateColumns.split(' ').length,cartOverflow:document.querySelector('.pp-cart-lines').scrollWidth>document.querySelector('.pp-cart-lines').clientWidth+1};
     });
     const key=`${width}-${theme}-${cartSize}`;measurements.push({key,...m});
     check(!m.overflow&&!m.cartOverflow,key+' horizontal overflow');check(!m.negativeZero,key+' negative zero');check(m.catalogColumns===2,key+' catalog columns');
@@ -148,7 +179,7 @@ try{
      for(const i of [1,2])check(Math.abs(m.heading[i].x+m.heading[i].w/2-m.controls[i].x-m.controls[i].w/2)<=1,key+' column center '+i);
      check(Math.abs(m.heading[3].right-m.controls[3].right)<=1,key+' total edge');
     }
-    if(width>1100)check(m.checkout.bottom<=height&&m.buttons.every(b=>b.bottom<=height),key+' payment viewport');
+    if(width>1100)check(m.checkout.bottom<=Math.min(height,m.terminal.bottom)&&m.buttons.every(b=>b.bottom<=Math.min(height,m.terminal.bottom,m.terminalBody.bottom)+1),key+' payment viewport and panel clipping');
     check(m.buttons.every(b=>Math.abs(b.h-m.buttons[0].h)<1),key+' payment heights');
     if(cartSize===1||cartSize===2)check(await p.locator('.pp-sparse').evaluate(el=>el.querySelector('.pp-sparse-context').getBoundingClientRect().top>=el.getBoundingClientRect().top-1),key+' sparse content clipped above scroll origin');
     if([0,2,20].includes(cartSize))await p.screenshot({path:`${out}/${key}.png`,fullPage:true});
@@ -186,7 +217,7 @@ try{
   await second.evaluate(()=>window.open=()=>null);await second.getByRole('link',{name:'⚡ POS Pro',exact:true}).first().click();await expect(second).toHaveURL(/pos-pro/);await expect(second.locator('.pp-product').first()).toBeEnabled();
   await second.getByRole('button',{name:'To‘liq ekran',exact:true}).click();await expect(second.locator('.pp-kiosk')).toHaveCount(1);assert.equal(await second.evaluate(()=>Boolean(document.fullscreenElement)),true);await second.screenshot({path:'../artifacts/phase3/fullscreen.png'});await second.keyboard.press('Escape');await expect(second.locator('.pp-kiosk')).toHaveCount(0);
   for(let i=0;i<5;i++)await second.locator('.pp-product').nth(i).click();await expect(second.locator('.pp-cart-line')).toHaveCount(5);for(const [name,qty]of [['Olma','0.75'],['Tuxum','2'],['Guruch','500'],['Sut','1.5'],['Ichimlik suvi','750']]){const field=second.getByLabel(name+' miqdori',{exact:true});await field.fill(qty);await field.press('Enter')}await second.keyboard.press('F3');await second.locator('.pp-products').evaluate(el=>el.scrollTop=0);
-  for(const [width,height]of [[1920,1080],[1600,900],[1366,768],[1024,768],[680,900],[390,844]]){await second.setViewportSize({width,height});for(const theme of ['light','dark']){await second.evaluate(theme=>{localStorage.setItem('zenix:theme:v1:owner',theme);window.dispatchEvent(new StorageEvent('storage',{key:'zenix:theme:v1:owner'}))},theme);await expect(second.locator('body')).toHaveClass(theme==='dark'?/dark-mode/:/^(?!.*dark-mode)/);assert.ok(await second.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow '+width+theme);if(width===390)assert.ok(await second.locator('.pp-products').evaluate(el=>el.clientHeight>=200),'phone catalog must remain browsable');if(width>=1366){await expect.poll(()=>second.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),{message:'desktop has no outer scroll at '+width+theme}).toBe(true);assert.ok(await second.locator('.pp-pay-credit').evaluate(el=>{const a=el.getBoundingClientRect(),p=el.closest('.pp-terminal-body').getBoundingClientRect();return a.top>=p.top&&a.bottom<=p.bottom}),'all payment methods visible')}await second.screenshot({path:'../artifacts/phase3/'+width+'-'+theme+'.png',fullPage:true})}}
+  for(const [width,height]of [[1920,1080],[1600,900],[1440,900],[1366,768],[1024,768],[680,900],[390,844]]){await second.setViewportSize({width,height});for(const theme of ['light','dark']){await second.evaluate(theme=>{localStorage.setItem('zenix:theme:v1:owner',theme);window.dispatchEvent(new StorageEvent('storage',{key:'zenix:theme:v1:owner'}))},theme);await expect(second.locator('body')).toHaveClass(theme==='dark'?/dark-mode/:/^(?!.*dark-mode)/);assert.ok(await second.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow '+width+theme);if(width===390)assert.ok(await second.locator('.pp-products').evaluate(el=>el.clientHeight>=200),'phone catalog must remain browsable');if(width>=1366){await expect.poll(()=>second.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),{message:'desktop has no outer scroll at '+width+theme}).toBe(true);assert.ok(await second.locator('.pp-pay-credit').evaluate(el=>{const a=el.getBoundingClientRect(),p=el.closest('.pp-terminal-body').getBoundingClientRect();return a.top>=p.top&&a.bottom<=p.bottom}),'all payment methods visible')}await second.screenshot({path:'../artifacts/phase3/'+width+'-'+theme+'.png',fullPage:true})}}
   await second.getByRole('button',{name:'Platformaga qaytish',exact:true}).click();await expect(second.getByRole('dialog')).toBeVisible();await second.keyboard.press('Escape');await expect(second).toHaveURL(/pos-pro/);await expect(second.locator('.pp-cart-line')).toHaveCount(5);
   await r.context.close();
   const closed=await setup({closed:true,cartSize:2}),q=closed.page;await expect(q.locator('.pp-shift-gate')).toContainText('Draft');await expect(q.getByRole('button',{name:'Naqd to‘lov F12',exact:true})).toBeDisabled();await q.getByRole('button',{name:'Smenani ochish',exact:true}).click();await q.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await q.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();await expect(q.locator('.pp-shift-gate')).toHaveCount(0);await expect(q.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await expect(q.locator('.pp-cart-line')).toHaveCount(2);await closed.context.close();

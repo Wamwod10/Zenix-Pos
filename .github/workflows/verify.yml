@@ -33,6 +33,7 @@ jobs:
           POS_PRO_UX_ONLY=pixel node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=pixel-states node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=pixel-accessibility node tests/posPro.browser.mjs
+          POS_PRO_UX_ONLY=platform-contract node tests/posPro.browser.mjs
       - name: Synthetic CPU and bundle regression budgets
         run: node scripts/check-performance-budget.mjs --bundle
 
