@@ -231,6 +231,25 @@ settings change, Neon write or Telegram bot/webhook operation was performed.
 - Contrast sampling is not a complete WCAG audit of every custom user accent,
   state or provider modal. Physical scanners/printers/scales, native Windows
   print dialog, bank/fiscal integrations and staging soak remain external checks.
-- GitHub CI and the branch preview status are checked after push and reported
-  separately; local PASS is not a claim of GitHub CI PASS. If Draft PR creation
-  returns403, the pushed branch compare link is the authorized fallback.
+
+## GitHub delivery and CI result
+
+Implementation commit: [`9e4ed35`](https://github.com/Wamwod10/Zenix-Pos/commit/9e4ed3552a208c25a89020cdb66582012610b2c0), pushed to
+[`design/pos-pro-platform-unification`](https://github.com/Wamwod10/Zenix-Pos/tree/design/pos-pro-platform-unification).
+
+[GitHub Actions run 39841326371](https://github.com/Wamwod10/Zenix-Pos/actions/runs/39841326371)
+completed **SUCCESS** for that implementation commit on 2026-10-22 UTC
+(2026-10-23 Tashkent). It includes frontend tests, protected design baselines,
+source audit, production readiness, build, all POS browser profiles including
+pixel/platform-contract, CPU/bundle budgets and responsive login smoke.
+The later report-only commit does not change the tested implementation.
+
+The automatic Vercel commit status is **success**:
+[branch deployment details](https://vercel.com/shamshods-projects-9be974ef/zenix-pos/AUg2wYdY5cygRUr7DmGoYF2MTZoz).
+This is a status/details link, not a separately verified public staging URL.
+No manual deployment or production promotion was performed.
+
+Draft PR creation was attempted against main. The GitHub connector returned
+**403 Resource not accessible by integration**. No PR was created. Use the
+[authorized compare fallback](https://github.com/Wamwod10/Zenix-Pos/compare/main...design/pos-pro-platform-unification?expand=1)
+to review the pushed branch and open it as a Draft PR.
