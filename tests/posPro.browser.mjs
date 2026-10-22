@@ -11,7 +11,7 @@ const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false});
 const errors=[],results=[],output='../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
-async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false}={}){
+async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
@@ -19,8 +19,8 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
  await context.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());if(url.origin!==base)return route.abort();if(!url.pathname.startsWith('/api/'))return route.continue();
   let data={users:[],sessions:[],revision:'1',holds:[]};
-  if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole:'OWNER',name:'Test kassir'}};
-  if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:shift,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
+  if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole:'OWNER',name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
+  if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:shift,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
   if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20}}};
   if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
   if(url.pathname==='/api/ai/status')data={enabled:false};
@@ -32,7 +32,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
    else if(barcode){if(barcodeDelay)await new Promise(r=>setTimeout(r,barcodeDelay));if(barcode==='12345678'||barcode==='00123')products=[product(0)];else if(barcode==='99999999')return route.fulfill({status:409,json:{ok:false,error:{code:'AMBIGUOUS_BARCODE'}}})}
    else if(search)products=search==='last'?[product(catalogSize-1)]:Array.from({length:40},(_,i)=>product(i)).filter(p=>p.name.includes(search)||p.sku.includes(search));
    else products=Array.from({length:40},(_,i)=>product(i));
-   data={products:products.map(p=>({...p,unit,...(presentation?{name:['Olma','Tuxum','Guruch','Sut','Ichimlik suvi'][Number(p.id.slice(-12))-1]||p.name,unit:['kg','dona','g','l','ml'][(Number(p.id.slice(-12))-1)%5],sellPrice:[12000,1500,18,14000,4][(Number(p.id.slice(-12))-1)%5],stockByStore:{[store]:[18.75,120,5000,24,10000][(Number(p.id.slice(-12))-1)%5]}}:{}),...(longName&&p.id===product(0).id?{name:longName}:{}),...(serial&&p.id===product(0).id?{unit:'dona',serializedUnits:[{id:'s1',serial:'S1',storeId:store,productId:p.id,status:'IN_STOCK'},{id:'s2',serial:'S2',storeId:store,productId:p.id,status:'IN_STOCK'}]}:{})})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
+   data={products:products.map(p=>({...p,unit,...(presentation?{name:['Olma','Tuxum','Guruch','Sut','Ichimlik suvi'][Number(p.id.slice(-12))-1]||p.name,unit:['kg','dona','g','l','ml'][(Number(p.id.slice(-12))-1)%5],sellPrice:[12000,1500,18,14000,4][(Number(p.id.slice(-12))-1)%5],stockByStore:{[store]:[18.75,120,5000,24,10000][(Number(p.id.slice(-12))-1)%5]}}:{}),...(longName&&p.id===product(0).id?{name:longName}:{}),...(stress?{barcode:'12345678901234567890123456789012345678901234567890'}:{}),...(serial&&p.id===product(0).id?{unit:'dona',serializedUnits:[{id:'s1',serial:'S1',storeId:store,productId:p.id,status:'IN_STOCK'},{id:'s2',serial:'S2',storeId:store,productId:p.id,status:'IN_STOCK'}]}:{})})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
   }
   if(url.pathname==='/api/sales/pos-pro/summary'){
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
@@ -80,6 +80,92 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(uxOnly==='pixel-accessibility'){
+  const evidence=[];
+  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
+   const r=await setup({width,height,cartSize:20}),p=r.page;
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
+    await p.keyboard.press('F3');await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused();assert.equal(await p.locator('.pp-barcode').evaluate(el=>getComputedStyle(el).outlineWidth),'2px');
+    assert.ok(await p.locator('.pp-quantity').first().evaluate(el=>{const h=[...el.querySelectorAll('button,input')].map(n=>n.getBoundingClientRect().height);return Math.max(...h)-Math.min(...h)<1}));
+    const contrasts=await p.evaluate(()=>{
+     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=canvas.height=1;
+     const color=s=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=s;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v)};
+     const over=(a,b)=>a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3]));
+     const luminance=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+     return ['.pp-line-name strong','.pp-line-name small','.pp-totals-row span','.pp-total strong','.pp-checkout','.pp-product strong','.pp-product b','#pp-search-help'].map(selector=>{
+      const el=document.querySelector(selector),ancestors=[];for(let n=el;n;n=n.parentElement)ancestors.unshift(n);let bg=[255,255,255];for(const n of ancestors)bg=over(color(getComputedStyle(n).backgroundColor),bg);
+      const fg=over(color(getComputedStyle(el).color),bg),a=luminance(fg),b=luminance(bg);return {selector,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+     });
+    });
+    assert.ok(contrasts.every(c=>c.ratio>=4.5),JSON.stringify({width,theme,contrasts}));evidence.push({width,theme,contrasts});
+    await p.locator('.pp-cart-line').last().scrollIntoViewIfNeeded();assert.ok(await p.locator('.pp-cart-line').last().evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.top>=b.top&&a.bottom<=b.bottom+1}));
+   }
+   await r.context.close();
+  }
+  await writeFile('../artifacts/pos-pro-32/accessibility.json',JSON.stringify(evidence,null,2));
+ }
+ if(uxOnly==='pixel-states'){
+  const out='../artifacts/pos-pro-32/after';await mkdir(out,{recursive:true});
+  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){
+   const r=await setup({width,height,closed:true}),p=r.page;
+   for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();await p.screenshot({path:`${out}/${width}-${theme}-closed.png`,fullPage:true})}
+   await p.getByRole('button',{name:'Smenani ochish',exact:true}).click();await p.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await p.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();
+   await p.locator('.pp-product').first().click();r.holdStatus=503;await p.keyboard.press('F5');await expect(p.locator('.pp-recovery')).toBeVisible();
+   for(const theme of ['dark','light']){if(theme==='light')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await p.screenshot({path:`${out}/${width}-${theme}-recovery.png`,fullPage:true})}
+   r.holdStatus=0;await p.getByRole('button',{name:'Hold saqlashni qayta tekshirish',exact:true}).click();await expect(p.locator('.pp-cart-line')).toHaveCount(0);assert.equal(r.holds.length,1);await r.context.close();
+  }
+  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]]){const r=await setup({width,height,stress:true,unit:'maxsus qadoq birligi',longName:'Uzoq nomli maxsus qadoqdagi mahsulot'}),p=r.page;
+  await p.locator('.pp-product').first().click();await p.getByLabel('Uzoq nomli maxsus qadoqdagi mahsulot miqdori',{exact:true}).fill('1000');await p.getByLabel('Uzoq nomli maxsus qadoqdagi mahsulot miqdori',{exact:true}).press('Enter');
+  await expect(p.locator('.pp-line-total')).toContainText('12,000,000');for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));assert.ok(await p.locator('.pp-branch').evaluate(el=>el.querySelector('button').getBoundingClientRect().right<=el.getBoundingClientRect().right+1),'long branch selector must fit its track');await p.screenshot({path:`${out}/${width}-${theme}-custom-unit-large-total.png`,fullPage:true})}await r.context.close();}
+ }
+ if(uxOnly==='pixel'){
+  const phase=process.env.POS_PRO_VISUAL_PHASE||'after',out=`../artifacts/pos-pro-32/${phase}`;
+  await mkdir(out,{recursive:true});const measurements=[],failures=[];
+  const check=(ok,message)=>{if(!ok)failures.push(message)};
+  for(const [width,height] of [[1920,1080],[1600,900],[1366,768],[1280,800],[1024,768],[680,900],[390,844]])for(const cartSize of [0,1,2,5,20,100,500]){
+   const r=await setup({width,height,cartSize,presentation:true,longName:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oila uchun'}),p=r.page;
+   await expect(p.locator('.pp-cart-line')).toHaveCount(cartSize);
+   const notice=p.getByRole('button',{name:'Tushunarli',exact:true});if(await notice.isVisible())await notice.click();
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
+    await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const m=await p.evaluate(()=>{
+     const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom}};
+     const heading=[...document.querySelectorAll('.pp-cart-heading>span')].filter(el=>el.textContent.trim());
+     const line=document.querySelector('.pp-cart-line'),controls=line?[line.querySelector('.pp-line-name'),line.querySelector('.pp-quantity input'),line.querySelector('.pp-line-discount input'),line.querySelector('.pp-line-total')].map(rect):[];
+     return {overflow:document.documentElement.scrollWidth>innerWidth+1,heading:heading.map(rect),controls,buttons:[...document.querySelectorAll('.pp-payments button')].map(rect),checkout:rect(document.querySelector('.pp-checkout')),negativeZero:document.querySelector('.pp-totals-row:nth-child(2)').textContent.includes('−0'),catalogColumns:getComputedStyle(document.querySelector('.pp-products')).gridTemplateColumns.split(' ').length,cartOverflow:document.querySelector('.pp-cart-lines').scrollWidth>document.querySelector('.pp-cart-lines').clientWidth+1};
+    });
+    const key=`${width}-${theme}-${cartSize}`;measurements.push({key,...m});
+    check(!m.overflow&&!m.cartOverflow,key+' horizontal overflow');check(!m.negativeZero,key+' negative zero');check(m.catalogColumns===2,key+' catalog columns');
+    check(await p.locator('.pp-product').first().evaluate(el=>{
+     const [name,price,meta]=[...el.children].map(n=>n.getBoundingClientRect());return name.bottom<=price.top+1&&price.bottom<=meta.top+1&&meta.bottom<=el.getBoundingClientRect().bottom;
+    }),key+' catalog text overlap');
+    check(await p.locator('.pp-products').evaluate(el=>{
+     const cards=[...el.querySelectorAll('.pp-product')].map(n=>n.getBoundingClientRect());return cards.every((r,i)=>i<2||r.top>=cards[i-2].bottom-1)&&cards.every((r,i)=>i%2||!cards[i+1]||Math.abs(r.height-cards[i+1].height)<1);
+    }),key+' catalog row overlap / heights');
+    if(width>900&&cartSize){
+     for(const i of [1,2])check(Math.abs(m.heading[i].x+m.heading[i].w/2-m.controls[i].x-m.controls[i].w/2)<=1,key+' column center '+i);
+     check(Math.abs(m.heading[3].right-m.controls[3].right)<=1,key+' total edge');
+    }
+    if(width>1100)check(m.checkout.bottom<=height&&m.buttons.every(b=>b.bottom<=height),key+' payment viewport');
+    check(m.buttons.every(b=>Math.abs(b.h-m.buttons[0].h)<1),key+' payment heights');
+    if(cartSize===1||cartSize===2)check(await p.locator('.pp-sparse').evaluate(el=>el.querySelector('.pp-sparse-context').getBoundingClientRect().top>=el.getBoundingClientRect().top-1),key+' sparse content clipped above scroll origin');
+    if([0,2,20].includes(cartSize))await p.screenshot({path:`${out}/${key}.png`,fullPage:true});
+    if(phase==='after'&&cartSize===5){
+     await p.keyboard.press('F7');await expect(p.getByRole('dialog')).toBeVisible();await p.screenshot({path:`${out}/${key}-modal.png`,fullPage:true});await p.keyboard.press('Escape');
+     await p.getByRole('button',{name:'To‘liq ekran',exact:true}).click();await expect.poll(()=>p.evaluate(()=>Boolean(document.fullscreenElement))).toBe(true);await p.screenshot({path:`${out}/${key}-fullscreen.png`,fullPage:true});await p.getByRole('button',{name:'To‘liq ekrandan chiqish',exact:true}).click();await expect.poll(()=>p.evaluate(()=>Boolean(document.fullscreenElement))).toBe(false);
+     await r.context.setOffline(true);await expect(p.locator('.pp-offline')).toBeVisible();await expect(p.locator('.pp-checkout')).toBeDisabled();await p.screenshot({path:`${out}/${key}-offline.png`,fullPage:true});await r.context.setOffline(false);
+    }
+   }
+   await p.locator('.pp-products').evaluate(el=>el.scrollTop=el.scrollHeight);
+   check(await p.locator('.pp-products').evaluate(el=>el.scrollTop+el.clientHeight>=el.scrollHeight-1),`${width}/${cartSize} catalog end`);
+   await r.context.close();
+  }
+  await writeFile(`${out}/measurements.json`,JSON.stringify({measurements,failures},null,2));
+  results.push({kind:'pixel',phase,cases:measurements.length,failures});
+  if(phase!=='before')assert.deepEqual(failures,[]);
+ }
  if(uxOnly==='scan-clock'){
   const r=await setup(),p=r.page;await p.getByRole('heading',{name:'Joriy chek',exact:true}).click();await simulateHid(p,['12345678'],180,0);await expect(p.locator('.pp-cart-line')).toHaveCount(0);await simulateHid(p,Array(10).fill('12345678'),6,50);await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('10');await r.context.close();
  }
@@ -100,10 +186,10 @@ try{
   await second.evaluate(()=>window.open=()=>null);await second.getByRole('link',{name:'⚡ POS Pro',exact:true}).first().click();await expect(second).toHaveURL(/pos-pro/);await expect(second.locator('.pp-product').first()).toBeEnabled();
   await second.getByRole('button',{name:'To‘liq ekran',exact:true}).click();await expect(second.locator('.pp-kiosk')).toHaveCount(1);assert.equal(await second.evaluate(()=>Boolean(document.fullscreenElement)),true);await second.screenshot({path:'../artifacts/phase3/fullscreen.png'});await second.keyboard.press('Escape');await expect(second.locator('.pp-kiosk')).toHaveCount(0);
   for(let i=0;i<5;i++)await second.locator('.pp-product').nth(i).click();await expect(second.locator('.pp-cart-line')).toHaveCount(5);for(const [name,qty]of [['Olma','0.75'],['Tuxum','2'],['Guruch','500'],['Sut','1.5'],['Ichimlik suvi','750']]){const field=second.getByLabel(name+' miqdori',{exact:true});await field.fill(qty);await field.press('Enter')}await second.keyboard.press('F3');await second.locator('.pp-products').evaluate(el=>el.scrollTop=0);
-  for(const [width,height]of [[1920,1080],[1600,900],[1366,768],[1024,768],[390,844]]){await second.setViewportSize({width,height});for(const theme of ['light','dark']){await second.evaluate(theme=>{localStorage.setItem('zenix:theme:v1:owner',theme);window.dispatchEvent(new StorageEvent('storage',{key:'zenix:theme:v1:owner'}))},theme);await expect(second.locator('body')).toHaveClass(theme==='dark'?/dark-mode/:/^(?!.*dark-mode)/);assert.ok(await second.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow '+width+theme);if(width===390)assert.ok(await second.locator('.pp-products').evaluate(el=>el.clientHeight>=200),'phone catalog must remain browsable');if(width>=1366){await expect.poll(()=>second.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),{message:'desktop has no outer scroll at '+width+theme}).toBe(true);assert.ok(await second.locator('.pp-pay-credit').evaluate(el=>{const a=el.getBoundingClientRect(),p=el.closest('.pp-terminal-body').getBoundingClientRect();return a.top>=p.top&&a.bottom<=p.bottom}),'all payment methods visible')}await second.screenshot({path:'../artifacts/phase3/'+width+'-'+theme+'.png',fullPage:true})}}
+  for(const [width,height]of [[1920,1080],[1600,900],[1366,768],[1024,768],[680,900],[390,844]]){await second.setViewportSize({width,height});for(const theme of ['light','dark']){await second.evaluate(theme=>{localStorage.setItem('zenix:theme:v1:owner',theme);window.dispatchEvent(new StorageEvent('storage',{key:'zenix:theme:v1:owner'}))},theme);await expect(second.locator('body')).toHaveClass(theme==='dark'?/dark-mode/:/^(?!.*dark-mode)/);assert.ok(await second.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow '+width+theme);if(width===390)assert.ok(await second.locator('.pp-products').evaluate(el=>el.clientHeight>=200),'phone catalog must remain browsable');if(width>=1366){await expect.poll(()=>second.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),{message:'desktop has no outer scroll at '+width+theme}).toBe(true);assert.ok(await second.locator('.pp-pay-credit').evaluate(el=>{const a=el.getBoundingClientRect(),p=el.closest('.pp-terminal-body').getBoundingClientRect();return a.top>=p.top&&a.bottom<=p.bottom}),'all payment methods visible')}await second.screenshot({path:'../artifacts/phase3/'+width+'-'+theme+'.png',fullPage:true})}}
   await second.getByRole('button',{name:'Platformaga qaytish',exact:true}).click();await expect(second.getByRole('dialog')).toBeVisible();await second.keyboard.press('Escape');await expect(second).toHaveURL(/pos-pro/);await expect(second.locator('.pp-cart-line')).toHaveCount(5);
   await r.context.close();
-  const closed=await setup({closed:true,cartSize:2}),q=closed.page;await expect(q.locator('.pp-shift-gate')).toContainText('Draft');await expect(q.getByRole('button',{name:'Savdoni yakunlash F12',exact:true})).toBeDisabled();await q.getByRole('button',{name:'Smenani ochish',exact:true}).click();await q.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await q.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();await expect(q.locator('.pp-shift-gate')).toHaveCount(0);await expect(q.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await expect(q.locator('.pp-cart-line')).toHaveCount(2);await closed.context.close();
+  const closed=await setup({closed:true,cartSize:2}),q=closed.page;await expect(q.locator('.pp-shift-gate')).toContainText('Draft');await expect(q.getByRole('button',{name:'Naqd to‘lov F12',exact:true})).toBeDisabled();await q.getByRole('button',{name:'Smenani ochish',exact:true}).click();await q.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await q.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();await expect(q.locator('.pp-shift-gate')).toHaveCount(0);await expect(q.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await expect(q.locator('.pp-cart-line')).toHaveCount(2);await closed.context.close();
  }
  if(uxOnly==='workspace'){
   const r=await setup(),p=r.page;await expect(p.locator('.sidebar')).toHaveCount(0);await expect(p.locator('.app-header')).toHaveCount(0);await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused();await expect(p.getByRole('button',{name:'Platformaga qaytish',exact:true})).toBeVisible();await r.context.close();
@@ -122,7 +208,7 @@ try{
   const r=await setup(),p=r.page,input=p.getByLabel('POS Pro qidiruv');await input.fill('Olma');await expect(p.locator('.pp-product')).toHaveCount(1);await expect(p.locator('.pp-product')).toBeEnabled();await p.getByRole('button',{name:/Smenada/}).click();await expect(p.locator('.pp-product')).toContainText('Mahsulot 2');await input.press('Enter');await expect(p.locator('.pp-cart-line')).toHaveCount(0);await expect(input).toHaveValue('');await p.locator('.pp-product').click();await expect(p.getByLabel('Mahsulot 2 miqdori',{exact:true})).toHaveValue('1');await r.context.close();
  }
  if(!uxOnly||uxOnly==='long'){
-  for(const [width,height]of [[1366,768],[1920,1080],[1024,768],[390,844]]){const r=await setup({width,height,longName:'Long supermarket product name '.repeat(12)}),p=r.page;await p.locator('.pp-product').first().click();await expect(p.locator('.pp-cart-line')).toHaveCount(1);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'long name overflow '+width);await r.context.close()}
+  for(const [width,height]of [[1366,768],[1920,1080],[1024,768],[680,900],[390,844]]){const r=await setup({width,height,longName:'Long supermarket product name '.repeat(12)}),p=r.page;await p.locator('.pp-product').first().click();await expect(p.locator('.pp-cart-line')).toHaveCount(1);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'long name overflow '+width);await r.context.close()}
  }
  if(!uxOnly||uxOnly==='touch'){
   const r=await setup({width:1024,height:768,touch:true}),p=r.page;await p.locator('.pp-product').first().tap();await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await p.getByRole('button',{name:'Olma miqdorini oshirish',exact:true}).tap();await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('1.05');assert.ok(await p.evaluate(()=>navigator.maxTouchPoints>0));await r.context.close();
@@ -179,7 +265,7 @@ try{
  await p.getByText('Bank terminali / o‘tkazma muvaffaqiyatini tekshirdim.',{exact:false}).click();await p.getByText('Chek va to‘lov summasini tekshirdim.',{exact:false}).click();s.fail=true;await p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();assert.equal(s.sales.length,2);assert.equal(s.sales[1].request.metadata.externalPaymentConfirmation,'manual-confirmed');
  await p.getByRole('button',{name:'Yangi chek',exact:true}).click();await p.getByRole('button',{name:'To‘liq ekran',exact:true}).click();await expect(p.locator('.pp-kiosk')).toBeVisible();await p.keyboard.press('Escape');await expect(p.locator('.pp-kiosk')).toHaveCount(0);
  await p.screenshot({path:output+'/desktop-1366.png',fullPage:true});await s.context.close();
- for(const [width,height] of [[1920,1080],[1024,768],[390,844]]){
+ for(const [width,height] of [[1920,1080],[1024,768],[680,900],[390,844]]){
   const r=await setup({width,height,oldBackend:width===390});await r.page.locator('.pp-product').first().click();assert.ok(await r.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`horizontal overflow at ${width}`);await r.page.screenshot({path:`${output}/layout-${width}.png`,fullPage:true});await r.context.close();
  }
  for(const cartSize of [100,500]){
@@ -188,7 +274,7 @@ try{
   await r.page.reload();await expect(r.page.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
   const t=performance.now();await r.page.getByLabel('POS Pro qidiruv').fill('last');await expect(r.page.locator('.pp-product').first()).toContainText('49999');results.push({kind:'50k-tail-search',cartSize,ms:performance.now()-t,renderedProducts:await r.page.locator('.pp-product').count()});await r.context.close();
  }
- const closed=await setup({closed:true});await closed.page.locator('.pp-product').first().click();await expect(closed.page.getByRole('button',{name:'Savdoni yakunlash F12'})).toBeDisabled();await closed.context.close();
+ const closed=await setup({closed:true});await closed.page.locator('.pp-product').first().click();await expect(closed.page.getByRole('button',{name:'Naqd to‘lov F12'})).toBeDisabled();await closed.context.close();
  }
  }
  }

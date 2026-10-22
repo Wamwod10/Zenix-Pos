@@ -1,4 +1,7 @@
 // Display aliases only: never convert quantities, prices or authoritative stock.
+import {roundMoney} from '../../utils/posMoney.js';
+import {formatProMoney} from './model.js';
+export const formatDiscount=value=>{const amount=roundMoney(value);return `${amount>0?'−':''}${formatProMoney(amount===0?0:amount)}`};
 const units={kg:'kg',kilogram:'kg',kilogramm:'kg','кг':'kg',g:'g',gr:'g',gram:'g',gramm:'g','г':'g',l:'l',litr:'l',liter:'l',litre:'l',ml:'ml',dona:'dona',ta:'dona',pcs:'dona',piece:'dona','шт':'dona'};
 const quantityFormatter=new Intl.NumberFormat('en-US',{maximumFractionDigits:3});
 export const displayUnit=unit=>{const text=String(unit||'').trim();return units[text.toLowerCase()]||text||'birlik'};

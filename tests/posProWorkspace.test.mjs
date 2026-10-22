@@ -2,8 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {launchPosPro} from '../src/utils/launchPosPro.js';
 import {validateSerialChoice} from '../src/pages/posPro/serialSelection.js';
-import {displayUnit,formatStock,formatQuantity} from '../src/pages/posPro/presentation.js';
+import {displayUnit,formatStock,formatQuantity,formatDiscount} from '../src/pages/posPro/presentation.js';
 import {createHidScanner} from '../src/pages/posPro/hardware.js';
+test('display discount never prefixes zero with a minus and preserves positive money',()=>{
+ for(const value of [0,-0,.001])assert.equal(formatDiscount(value),'0 so‘m');
+ assert.equal(formatDiscount(1250),'−1 250 so‘m');
+});
 test('HID cadence uses event creation time, not delayed JavaScript dispatch time',()=>{
  const scans=[],scanner=createHidScanner(code=>scans.push(code));let stamp=100;
  for(const key of [...'12345678','Enter'])scanner.key({key,timeStamp:stamp+=180});

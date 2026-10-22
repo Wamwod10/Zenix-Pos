@@ -1,0 +1,534 @@
+[
+  {
+    "width": 1920,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 1920,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 1600,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 1600,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 1366,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 1366,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 680,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 680,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "light",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 5.738758745464781
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.236096886473222
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 5.738758745464781
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "contrasts": [
+      {
+        "selector": ".pp-line-name strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-line-name small",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-totals-row span",
+        "ratio": 8.014977783498843
+      },
+      {
+        "selector": ".pp-total strong",
+        "ratio": 11.84155881850551
+      },
+      {
+        "selector": ".pp-checkout",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product strong",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": ".pp-product b",
+        "ratio": 15.262851895849792
+      },
+      {
+        "selector": "#pp-search-help",
+        "ratio": 8.014977783498843
+      }
+    ]
+  }
+]

@@ -22,5 +22,5 @@
   "src/styles/saas.scss": "fe0aaf995c6da1ee0e6a74fe766cb9e0308fb9bf97d50295e197032574a136f3",
   "src/pages/register/registerOtp.scss": "3ea44a5f2110f8e4030cd0a8058bbf45470da22d93f5ff01728b7310a9f94e9d",
   "src/pages/ai/zenixAi.scss": "46efeef76279de91823655622a37123102a344076d3aef3404926e821a301087",
-  "src/pages/posPro/posPro.scss": "82f7407a2ab7f4c15a1e66826b08c78649372a67643c4dd06ae461c758de48b3"
+  "src/pages/posPro/posPro.scss": "e18fee0f8f10e0332c004c75122c17bfb4cfdf99a79aa9ae6bbedadf97a71754"
 }
