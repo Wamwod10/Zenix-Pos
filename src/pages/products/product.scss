@@ -550,6 +550,7 @@ body.dark-mode .import-safety-note {
 
 /* Premium catalog density: visual cards for browsing, compact table for large inventories. */
 .product-toolbar-actions {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 10px;

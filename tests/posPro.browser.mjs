@@ -142,7 +142,14 @@ try{
    const r=await setup({width,height,closed:true,cartSize:2}),p=r.page;
    for(const theme of ['light','dark']){if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();if(width>1100)assert.ok(await p.locator('.pp-checkout').evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.pp-terminal').getBoundingClientRect();return r.bottom<=Math.min(innerHeight,panel.bottom)}));await p.screenshot({path:`${out}/${width}-${theme}-closed.png`,fullPage:true})}
    await p.getByRole('button',{name:'Smenani ochish',exact:true}).click();await p.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('10000');await p.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();
-   await p.locator('.pp-product').first().click();r.holdStatus=503;await p.keyboard.press('F5');await expect(p.locator('.pp-recovery')).toBeVisible();
+   // Shift opening starts asynchronous draft reconciliation. Do not dispatch
+   // product/Hold shortcuts against the preceding closed-shift render.
+   await expect(p.getByRole('dialog')).toHaveCount(0);
+   await expect(p.locator('.pp-shift-status')).toHaveText('Smena ochiq');
+   await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();
+   await p.locator('.pp-product').first().click();
+   await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+   r.holdStatus=503;await p.keyboard.press('F5');await expect(p.locator('.pp-recovery')).toBeVisible();
    for(const theme of ['dark','light']){if(theme==='light')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await expect(p.locator('.pp-checkout')).toBeDisabled();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await p.screenshot({path:`${out}/${width}-${theme}-recovery.png`,fullPage:true})}
    r.holdStatus=0;await p.getByRole('button',{name:'Hold saqlashni qayta tekshirish',exact:true}).click();await expect(p.locator('.pp-cart-line')).toHaveCount(0);assert.equal(r.holds.length,1);await r.context.close();
   }

@@ -74,6 +74,11 @@ body.dark-mode .menu-item.active .menu-icon{background:var(--accent-soft);color:
 .menu-item{position:relative}
 
 /* Mobile app shell — desktop reference design stays untouched. */
+@media(min-width:1281px){
+  .header-right>.store-pop{min-width:132px}
+  .header-right>.profile-pop{min-width:128px}
+  .header-right>.profile-pop .profile-trigger{max-width:min(190px,100%)}
+}
 .mobile-header-context,.mobile-search-trigger,.mobile-bottom-nav{display:none}
 .layout,.sidebar{min-height:100dvh}
 .sidebar{height:100dvh}

@@ -1,19 +1,19 @@
 {
   "src/components/WarehouseSelector.scss": "15da0160e558883da37c027f5a7aee01b9b157cc8e2653f938ff8d0d993d65eb",
   "src/index.css": "0cecb31b8b95770d44c6e5e80872f57bcea937bf3220723ee90d2c723b37cd0d",
-  "src/layout/mainlayout.scss": "154b7704524cf7c51e227a239a9868fa9112cc66dfc1c70890c63d3c52921410",
+  "src/layout/mainlayout.scss": "98d5e71b0242fc14ea19250922ffc67df1125e0e6078ecc9cf6ebb4fc7773409",
   "src/pages/activityLog/activityLog.scss": "d7689c53863c1ff2974d6d18e68724eb95b4837fb67aa5fe7b75ef2d77e74549",
   "src/pages/analytics/analytics.scss": "a30afd33e53cb36dcf715f64d76179da175ffd7d294b929eca8f2ace8d2908b5",
   "src/pages/customers/customers.scss": "98364794079b55de73733df0bf17ccc5db5149e73993610cc82bfdc60b2dbaa3",
-  "src/pages/dashboard/dashboard.scss": "821db6e74f7f79ef9516653009ef2abab03082831c8ec91a1c5c891883bb14ef",
+  "src/pages/dashboard/dashboard.scss": "3e8123889b348242c7bb554da73a98962792a4ba393d5e1da67ce500396af660",
   "src/pages/expenses/expenses.scss": "dc641197299d604b3085f1b3a18a112887fb07070cd282e5d0d040e039781a3f",
   "src/pages/help/helpCenter.scss": "e5baccd3bc50c930b26f1de010cdfbf928d6296f81b26d16aaf6ee0f689921ae",
   "src/pages/history/history.scss": "fdd3e30c8c856fa744f7c3b0ac03fe7e323eaac669cf2fbe5f7a1c8c6309a591",
   "src/pages/inventory/inventory.scss": "1580a05895e644e2afa006b63d76fe17581bc0ea7962487c28c7a78e214b7bce",
-  "src/pages/login/login.scss": "86cc571dc675307e08d5a52c51643c991650265ccf4ad26b80ac441a4b76445a",
-  "src/pages/products/product.scss": "32414f3be29a5d8bd8ad881bb5147e1d9543a43c7d569cded382749d46b43ce5",
+  "src/pages/login/login.scss": "f9957e37c1f7a781ccd9ed5019b83f39312171599e1e59818f2d85ecdfd194e3",
+  "src/pages/products/product.scss": "23f0006fb7a57a95b7b313e40967301b648c3f279cd558845963c08e9f009649",
   "src/pages/profile/profile.scss": "df23c4cbfeca995c03a858a5ad4fdbfbfcb6fcbcbcbb10261b87b778d932b59a",
-  "src/pages/sales/sales.scss": "26766ff7869313d611aff6e93a1e429f99fc03b5141bdb277f2c28a6bcb5f984",
+  "src/pages/sales/sales.scss": "e93fdbd4f9bf3c885a4f1b36277bfafd11c665f5b87e889689f237491f4e485e",
   "src/pages/sellerAnalytics/sellerAnalytics.scss": "d86fc513d4041f33fd7981a50caa7cc1a185a02eeffd7cbe0a60234bfe307ca1",
   "src/pages/shifts/shifts.scss": "db7d7b9ba4c43cfe0ac3a0ce439365718f696ef918d58aeff736bb26a554267c",
   "src/pages/suppliers/supplier.scss": "560a3f1a4de53f5b5007c025f4514ccf0e92311e18fbce362e12c0789fbde8bd",
@@ -22,5 +22,5 @@
   "src/styles/saas.scss": "fe0aaf995c6da1ee0e6a74fe766cb9e0308fb9bf97d50295e197032574a136f3",
   "src/pages/register/registerOtp.scss": "3ea44a5f2110f8e4030cd0a8058bbf45470da22d93f5ff01728b7310a9f94e9d",
   "src/pages/ai/zenixAi.scss": "46efeef76279de91823655622a37123102a344076d3aef3404926e821a301087",
-  "src/pages/posPro/posPro.scss": "81438b7453488693e65c749a86f243e87219d2dd28ae0dcb6d175ba7d0b5b4f0"
+  "src/pages/posPro/posPro.scss": "2988f24200851d3c6c09970775505e4e53e37a9331946c221743905ecc4e5ee0"
 }

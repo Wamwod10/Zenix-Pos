@@ -53,7 +53,7 @@
   .pp-panel {min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--pp-border);border-radius:var(--radius-card);background:var(--pp-card);box-shadow:var(--shadow-soft)}
   .pp-panel-head {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;min-height:56px;padding:14px 16px;h2{display:flex;align-items:center;gap:8px}>span{font-size:12px;color:var(--pp-muted);line-height:1.4;text-align:right}}
   // Discovery uses the platform's segmented controls and quiet product surfaces.
-  .pp-catalog {padding:0 14px 14px;gap:10px;>.pp-panel-head{margin:0 -14px;gap:8px}>:not(.pp-products){flex-shrink:0}}
+  .pp-catalog {padding:0 14px 14px;gap:8px;>.pp-panel-head{margin:0 -14px;gap:8px}>:not(.pp-products){flex-shrink:0}}
   .pp-scan-status {max-width:150px;font-size:11px!important;&[data-state=ready]{color:var(--pp-muted)}&[data-state=busy]{color:var(--pp-ink);font-weight:600}}
   .pp-field {display:grid;gap:6px;margin:0;font-size:13px;line-height:1.5}
   .pp-field>span,.pp-barcode-label {font-size:12px;font-weight:500;color:var(--pp-muted)}
@@ -138,6 +138,7 @@
   .pos-pro .pp-top {flex-wrap:wrap}
   .pos-pro .pp-workspace {flex:auto;grid-template-columns:260px minmax(0,1fr)}
   .pos-pro .pp-catalog,.pos-pro .pp-cart {height:68dvh;min-height:500px}
+  .pos-pro .pp-catalog {min-height:700px}
   .pos-pro .pp-cart-actions button {flex-direction:column}
   .pos-pro .pp-terminal {grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 24px;overflow:visible}
   .pos-pro .pp-terminal-heading {grid-column:1/-1}
@@ -147,7 +148,7 @@
   .pos-pro .pp-live {grid-column:1/-1}
 }
 @media(max-width:900px) {
-  .pos-pro .pp-top {padding:12px;gap:12px}
+  .pos-pro .pp-top {padding:8px 12px;gap:8px}
   .pos-pro .pp-brand {margin-right:auto}
   .pos-pro .pp-branch {order:3;min-width:140px;flex:1 1 45%;max-width:none}
   .pos-pro .pp-cashier {order:4;flex:1 1 40%;max-width:none}
@@ -160,7 +161,8 @@
   .pos-pro .pp-workspace {display:flex;flex-direction:column}
   .pos-pro .pp-catalog {height:auto;min-height:0}
   .pos-pro .pp-products {flex:none;height:320px;min-height:320px}
-  .pos-pro .pp-cart {height:600px;min-height:0}
+  .pos-pro .pp-cart {height:clamp(320px,50dvh,420px);min-height:0}
+  .pos-pro .pp-cart .pp-empty {min-height:160px;padding:16px}
   .pos-pro .pp-cart-heading,.pos-pro .pp-line-index {display:none}
   .pos-pro .pp-cart-line {grid-template-columns:138px 54px minmax(0,1fr) 36px;gap:8px;padding:14px 12px}
   .pos-pro .pp-line-name {grid-column:1/4;grid-row:1}

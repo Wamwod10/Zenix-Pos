@@ -1,0 +1,93 @@
+{
+  "note": "Full-page pixel differences include intended vertical reflow and live header clocks. Not an exact screenshot equality assertion.",
+  "cases": [
+    {
+      "name": "390-pos-pro-light.png",
+      "width": 390,
+      "height": 2196,
+      "beforeHeight": 2196,
+      "afterHeight": 1984,
+      "changedPixels": 67221
+    },
+    {
+      "name": "390-pos-pro-dark.png",
+      "width": 390,
+      "height": 2196,
+      "beforeHeight": 2196,
+      "afterHeight": 1984,
+      "changedPixels": 154402
+    },
+    {
+      "name": "390-dashboard-light.png",
+      "width": 390,
+      "height": 3928,
+      "beforeHeight": 3928,
+      "afterHeight": 3470,
+      "changedPixels": 67146
+    },
+    {
+      "name": "390-dashboard-dark.png",
+      "width": 390,
+      "height": 3928,
+      "beforeHeight": 3928,
+      "afterHeight": 3470,
+      "changedPixels": 251176
+    },
+    {
+      "name": "1366-dashboard-light.png",
+      "width": 1366,
+      "height": 1992,
+      "beforeHeight": 1992,
+      "afterHeight": 1720,
+      "changedPixels": 83235
+    },
+    {
+      "name": "1366-pos-pro-light.png",
+      "width": 1366,
+      "height": 768,
+      "beforeHeight": 768,
+      "afterHeight": 768,
+      "changedPixels": 17255
+    },
+    {
+      "name": "320-products-light.png",
+      "width": 320,
+      "height": 23131,
+      "beforeHeight": 23069,
+      "afterHeight": 23131,
+      "changedPixels": 368207
+    },
+    {
+      "name": "768-sales-light.png",
+      "width": 768,
+      "height": 1709,
+      "beforeHeight": 1709,
+      "afterHeight": 1709,
+      "changedPixels": 25529
+    },
+    {
+      "name": "390-customer-dropdown.png",
+      "width": 390,
+      "height": 1275,
+      "beforeHeight": 1275,
+      "afterHeight": 1275,
+      "changedPixels": 1377
+    },
+    {
+      "name": "320-login-light.png",
+      "width": 320,
+      "height": 700,
+      "beforeHeight": 700,
+      "afterHeight": 700,
+      "changedPixels": 4955
+    },
+    {
+      "name": "820-sales-light.png",
+      "width": 820,
+      "height": 1691,
+      "beforeHeight": 1691,
+      "afterHeight": 1691,
+      "changedPixels": 569
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-24",
+  "base": "3994e8e5775fe74e5127bc27f62c025535e2022e",
+  "branch": "fix/platform-visual-responsive-audit",
+  "syntheticOnly": true,
+  "originalFindings": {
+    "total": 26,
+    "fixed": 13,
+    "notReproduced": 7,
+    "intended": 2,
+    "partial": 4
+  },
+  "newFixedFindings": 1,
+  "acceptance": {
+    "widths": [
+      320,
+      360,
+      375,
+      390,
+      430,
+      600,
+      680,
+      700,
+      760,
+      768,
+      820,
+      900,
+      980,
+      1024,
+      1280,
+      1366,
+      1440,
+      1600,
+      1920
+    ],
+    "modules": [
+      "/",
+      "/sales",
+      "/pos-pro",
+      "/shifts",
+      "/products",
+      "/inventory",
+      "/suppliers",
+      "/customers",
+      "/history",
+      "/expenses",
+      "/analytics",
+      "/seller-analytics",
+      "/activity-log",
+      "/settings",
+      "/billing",
+      "/profile",
+      "/help",
+      "/login",
+      "/register",
+      "/reset-password",
+      "/platform",
+      "/?ai=open"
+    ],
+    "cases": 251,
+    "interactions": 146,
+    "failures": 0,
+    "uncontainedOverflow": 0,
+    "launcherCollisions": 0
+  },
+  "headerSupplements": [
+    {
+      "name": "header-final",
+      "cases": 23,
+      "failures": 0
+    },
+    {
+      "name": "long-header-verified",
+      "cases": 6,
+      "failures": 0
+    }
+  ],
+  "tests": {
+    "frontend": {
+      "passed": 290,
+      "failed": 0,
+      "skipped": 0
+    },
+    "posModes": [
+      "default",
+      "pixel",
+      "pixel-accessibility",
+      "pixel-states",
+      "premium",
+      "tracking",
+      "polish",
+      "scan-clock",
+      "platform-contract"
+    ],
+    "aiScreenshots": 28,
+    "salesCartRows": 60,
+    "populatedSalesRows": 120,
+    "build": "PASS",
+    "design": "PASS",
+    "staticAudit": "PASS",
+    "readiness": "PASS",
+    "budget": "PASS"
+  },
+  "notVerified": [
+    "physical Android/iOS",
+    "Firefox/WebKit",
+    "native 200% browser zoom",
+    "OS font scaling",
+    "all billing evidence modal states",
+    "every tooltip/export/context-menu/error permutation",
+    "whole-platform WCAG/custom accents",
+    "Linux CI until reported"
+  ]
+}

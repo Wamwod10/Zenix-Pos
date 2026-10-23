@@ -1,0 +1,32 @@
+[
+  {
+    "file": "src/layout/mainlayout.scss",
+    "previous": "154b7704524cf7c51e227a239a9868fa9112cc66dfc1c70890c63d3c52921410",
+    "next": "98d5e71b0242fc14ea19250922ffc67df1125e0e6078ecc9cf6ebb4fc7773409"
+  },
+  {
+    "file": "src/pages/dashboard/dashboard.scss",
+    "previous": "821db6e74f7f79ef9516653009ef2abab03082831c8ec91a1c5c891883bb14ef",
+    "next": "3e8123889b348242c7bb554da73a98962792a4ba393d5e1da67ce500396af660"
+  },
+  {
+    "file": "src/pages/login/login.scss",
+    "previous": "86cc571dc675307e08d5a52c51643c991650265ccf4ad26b80ac441a4b76445a",
+    "next": "f9957e37c1f7a781ccd9ed5019b83f39312171599e1e59818f2d85ecdfd194e3"
+  },
+  {
+    "file": "src/pages/products/product.scss",
+    "previous": "32414f3be29a5d8bd8ad881bb5147e1d9543a43c7d569cded382749d46b43ce5",
+    "next": "23f0006fb7a57a95b7b313e40967301b648c3f279cd558845963c08e9f009649"
+  },
+  {
+    "file": "src/pages/sales/sales.scss",
+    "previous": "26766ff7869313d611aff6e93a1e429f99fc03b5141bdb277f2c28a6bcb5f984",
+    "next": "e93fdbd4f9bf3c885a4f1b36277bfafd11c665f5b87e889689f237491f4e485e"
+  },
+  {
+    "file": "src/pages/posPro/posPro.scss",
+    "previous": "81438b7453488693e65c749a86f243e87219d2dd28ae0dcb6d175ba7d0b5b4f0",
+    "next": "2988f24200851d3c6c09970775505e4e53e37a9331946c221743905ecc4e5ee0"
+  }
+]
