@@ -537,3 +537,9 @@
   .supplier-actions{grid-template-columns:1fr 1fr}
   .supplier-actions button{min-height:44px;height:44px}
 }
+
+.supplier-list-view .supplier-actions { flex-wrap: wrap; padding: 0; border: 0; min-width: 180px; }
+
+.supplier-list-view .supplier-actions { grid-template-columns: repeat(2, minmax(80px, 1fr)); gap: 2px; }
+.supplier-list-view .supplier-actions button { padding: 4px; border: 0; white-space: nowrap; }
+.supplier-list-select .premium-check-copy { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

@@ -1,0 +1,1 @@
+export const modulePage=(items,page=1,pageSize=20)=>{const totalPages=Math.max(1,Math.ceil(items.length/pageSize));const current=Math.max(1,Math.min(totalPages,page));return {page:current,totalPages,items:items.slice((current-1)*pageSize,current*pageSize)}};

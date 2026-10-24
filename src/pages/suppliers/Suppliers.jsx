@@ -16,6 +16,9 @@ import useUnsavedGuard from "../../utils/useUnsavedGuard";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { buildFieldChanges } from "../../utils/auditChanges";
 import { formatUzPhone, isValidUzPhone, sameUzPhone } from "../../utils/phone";
+import ModuleViewSwitcher, { ModulePagination } from "../../components/ModuleViewSwitcher";
+import useModuleView from "../../utils/useModuleView";
+import useModulePage from "../../utils/useModulePage";
 import "./supplier.scss";
 
 const supplierAuditFields=[
@@ -48,6 +51,7 @@ function Suppliers(){
   const {confirm,undo,notify}=useFeedback();
   const {suppliers,inventory,currentStoreId,hasPermission,effectiveWorkspaceSettings:workspaceSettings,activeShift,commitSupplierPayment,saveSupplier,setSupplierArchived}=useStore();
   const canWrite=hasPermission("supplierWrite");
+  const [moduleView,setModuleView]=useModuleView("suppliers");
   const [search,setSearch]=useState("");
   const [filter,setFilter]=useState("active");
   const [modal,setModal]=useState(null);
@@ -93,6 +97,7 @@ function Suppliers(){
     return matches&&(filter==="all"||(filter==="active"&&!supplier.archived)||(filter==="archived"&&supplier.archived)||(filter==="debt"&&!supplier.archived&&debt>0)||(filter==="overdue"&&!supplier.archived&&overdueState));
   }),[suppliers,search,filter,todayISO]);
 
+  const directoryPage=useModulePage(filtered,JSON.stringify([search,filter,currentStoreId,currentUser?.organizationId,currentUser?.id]));
   const openCreate=()=>{if(!canWrite)return;const next={...empty};setEditing(null);setForm(next);editBaselineRef.current=JSON.stringify(next);setErrors({});setModal("edit")};
   const openEdit=(supplier)=>{if(!canWrite)return;const next={...empty,...supplier};setEditing(supplier);setForm(next);editBaselineRef.current=JSON.stringify(next);setErrors({});setModal("edit")};
   const closeEdit=()=>guardEditClose(()=>{setModal(null);setEditing(null);setErrors({})});
@@ -183,6 +188,8 @@ function Suppliers(){
   const selectedInvoice=selected?.purchaseHistory?.find((row)=>row.id===payInvoiceId);
   const payMax=pendingPayment?Number(pendingPayment.amount):selectedInvoice?invoiceBalance(selectedInvoice):selectedDebt;
 
+  const supplierActions=(supplier,debt)=>(<div className="supplier-actions"><button onClick={()=>{setSelected(supplier);setModal("detail")}}><FiFileText/> Batafsil</button>{canWrite&&!supplier.archived&&<button onClick={()=>openPay(supplier)} disabled={!debt&&!pendingFor(supplier.id)}><FiCreditCard/> To‘lov</button>}{canWrite&&<><button onClick={()=>openEdit(supplier)}><FiEdit2/> Tahrirlash</button><button onClick={()=>archive(supplier)}><FiArchive/> {supplier.archived?"Tiklash":"Arxiv"}</button></>}</div>);
+
   return <div className="pro-page suppliers-pro">
     <PageHeader title="Ta’minotchilar" subtitle="Kirimlar, nakladnoylar, ochiq qarz va to‘lovlarni bir joyda boshqaring." actions={canWrite&&<button className="pro-btn primary" onClick={openCreate}><FiPlus/> Ta’minotchi qo‘shish</button>}/>
     <div className="pro-stat-grid">
@@ -193,16 +200,17 @@ function Suppliers(){
     </div>
 
     <section className="pro-card">
-      <div className="pro-toolbar supplier-toolbar"><div className="pro-search"><FiSearch/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Nomi, telefon yoki kontakt..."/></div><PremiumSelect className="pro-select" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="active">Faol</option><option value="debt">Qarzi bor</option><option value="overdue">Muddati o‘tgan</option><option value="archived">Arxiv</option><option value="all">Barchasi</option></PremiumSelect>{canWrite&&<button type="button" className="pro-btn secondary compact-action" onClick={toggleFilteredSelection}>{allFilteredSelected?"Tanlovni bekor qilish":"Ko‘rinayotganlarni tanlash"}</button>}</div>{canWrite&&selectedSuppliers.length>0&&<div className="supplier-bulk-bar"><span><strong>{selectedSuppliers.length} ta</strong> tanlandi</span><div><button type="button" className="pro-btn secondary compact-action" onClick={()=>bulkArchive(false)}>Tiklash</button><button type="button" className="pro-btn secondary compact-action supplier-bulk-danger" onClick={()=>bulkArchive(true)}>Arxivlash</button><button type="button" className="pro-btn ghost compact-action" onClick={()=>setSelectedIds([])}>Bekor qilish</button></div></div>}
-      <div className="supplier-table-grid">{filtered.length?filtered.map((supplier)=>{
+      <div className="pro-toolbar supplier-toolbar"><div className="pro-search"><FiSearch/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Nomi, telefon yoki kontakt..."/></div><PremiumSelect className="pro-select" value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="active">Faol</option><option value="debt">Qarzi bor</option><option value="overdue">Muddati o‘tgan</option><option value="archived">Arxiv</option><option value="all">Barchasi</option></PremiumSelect><ModuleViewSwitcher view={moduleView} onChange={setModuleView} label="Ko‘rinish"/>{canWrite&&<button type="button" className="pro-btn secondary compact-action" onClick={toggleFilteredSelection}>{allFilteredSelected?"Tanlovni bekor qilish":"Filtrdagi barchasini tanlash"}</button>}</div>{canWrite&&selectedSuppliers.length>0&&<div className="supplier-bulk-bar"><span><strong>{selectedSuppliers.length} ta</strong> tanlandi</span><div><button type="button" className="pro-btn secondary compact-action" onClick={()=>bulkArchive(false)}>Tiklash</button><button type="button" className="pro-btn secondary compact-action supplier-bulk-danger" onClick={()=>bulkArchive(true)}>Arxivlash</button><button type="button" className="pro-btn ghost compact-action" onClick={()=>setSelectedIds([])}>Bekor qilish</button></div></div>}
+      {moduleView==="list"?<div className="pro-table-wrap mobile-card-wrap supplier-list-view"><table className="pro-table mobile-card-table"><thead><tr>{canWrite&&<th>Tanlash</th>}<th>Ta’minotchi</th><th>Ochiq qarz</th><th>Ochiq nakladnoy</th><th>Mahsulotlar</th><th>Yaqin muddat</th><th>Kontakt</th><th>Holat</th><th>Amallar</th></tr></thead><tbody>{filtered.length?directoryPage.items.map(supplier=>{const debt=supplierOpenDebt(supplier);const invoices=openInvoices(supplier);const overdueState=invoices.some(row=>isPast(row.dueDate,todayISO))||(debt>0&&isPast(supplier.deadline,todayISO));return <tr key={supplier.id}>{canWrite&&<td data-label="Tanlash"><PremiumCheckbox className="supplier-list-select" title={supplier.name} checked={selectedIds.includes(supplier.id)} onChange={event=>toggleSupplierSelection(supplier.id,event.target.checked)}/></td>}<td data-label="Ta’minotchi"><strong>{supplier.name}</strong><small>{supplier.phone}</small>{supplier.archived&&<StatusBadge tone="neutral">Arxiv</StatusBadge>}</td><td data-label="Ochiq qarz">{formatPrice(debt)}</td><td data-label="Ochiq nakladnoy">{invoices.length}</td><td data-label="Mahsulotlar">{supplierProducts(supplier).length}</td><td data-label="Yaqin muddat">{invoices.find(row=>row.dueDate)?.dueDate||supplier.deadline||"—"}</td><td data-label="Kontakt">{supplier.contact||"—"}{supplier.telegram&&<small>{supplier.telegram}</small>}</td><td data-label="Holat"><StatusBadge tone={supplier.archived?"neutral":debt>0?(overdueState?"danger":"warning"):"success"}>{supplier.archived?"Arxiv":debt>0?(overdueState?"Muddati o‘tgan":"Qarz bor"):"Hisob yopiq"}</StatusBadge></td><td data-label="Amallar">{supplierActions(supplier,debt)}</td></tr>}):<tr><td colSpan={canWrite?9:8}><div className="pro-empty"><FiTruck/><strong>Ta’minotchi topilmadi</strong></div></td></tr>}</tbody></table></div>:<div className="supplier-table-grid">{filtered.length?directoryPage.items.map((supplier)=>{
         const products=supplierProducts(supplier);const debt=supplierOpenDebt(supplier);const invoices=openInvoices(supplier);const overdueState=invoices.some((row)=>isPast(row.dueDate,todayISO))||(debt>0&&isPast(supplier.deadline,todayISO));
         return <article className="supplier-card-pro" key={supplier.id}>
           <div className="supplier-head">{canWrite&&<PremiumCheckbox className="supplier-card-select" checked={selectedIds.includes(supplier.id)} onChange={(event)=>toggleSupplierSelection(supplier.id,event.target.checked)}/>}<div className="supplier-avatar"><FiTruck/></div><div className="supplier-identity"><h3>{supplier.name}</h3><span>{supplier.phone}</span></div><StatusBadge tone={supplier.archived?"neutral":debt>0?(overdueState?"danger":"warning"):"success"}>{supplier.archived?"Arxiv":debt>0?(overdueState?"Muddati o‘tgan":"Qarz bor"):"Hisob yopiq"}</StatusBadge></div>
           <div className="supplier-kpis"><span><small>Ochiq qarz</small><strong>{formatPrice(debt)}</strong></span><span><small>Ochiq nakladnoy</small><strong>{invoices.length}</strong></span><span><small>Mahsulotlar</small><strong>{products.length}</strong></span><span><small>Yaqin muddat</small><strong>{invoices.find((row)=>row.dueDate)?.dueDate||supplier.deadline||"—"}</strong></span></div>
           <div className="supplier-contact">{supplier.contact&&<span>Kontakt: <b>{supplier.contact}</b></span>}{supplier.telegram&&<span>Telegram: <b>{supplier.telegram}</b></span>}</div>
-          <div className="supplier-actions"><button onClick={()=>{setSelected(supplier);setModal("detail")}}><FiFileText/> Batafsil</button>{canWrite&&!supplier.archived&&<button onClick={()=>openPay(supplier)} disabled={!debt&&!pendingFor(supplier.id)}><FiCreditCard/> To‘lov</button>}{canWrite&&<><button onClick={()=>openEdit(supplier)}><FiEdit2/> Tahrirlash</button><button onClick={()=>archive(supplier)}><FiArchive/> {supplier.archived?"Tiklash":"Arxiv"}</button></>}</div>
+          {supplierActions(supplier,debt)}
         </article>
-      }):<div className="pro-empty full-grid"><FiTruck/><strong>Ta’minotchi topilmadi</strong><span>Filtr yoki qidiruvni o‘zgartiring.</span></div>}</div>
+      }):<div className="pro-empty full-grid"><FiTruck/><strong>Ta’minotchi topilmadi</strong><span>Filtr yoki qidiruvni o‘zgartiring.</span></div>}</div>}
+      <ModulePagination page={directoryPage.page} totalPages={directoryPage.totalPages} total={filtered.length} onChange={directoryPage.setPage}/>
     </section>
 
     {compareRows.length>0&&<section className="pro-card supplier-price-compare"><div className="pro-card-head"><div><h2>Xarid narxi o‘zgarishi</h2><p>Oxirgi tannarx oldingi kirimga nisbatan qanday o‘zgarganini ko‘ring.</p></div></div><div className="pro-table-wrap mobile-card-wrap"><table className="pro-table mobile-card-table"><thead><tr><th>Mahsulot</th><th>Ta’minotchi</th><th>Oldingi narx</th><th>Oxirgi narx</th><th>O‘zgarish</th></tr></thead><tbody>{compareRows.map((row,index)=>{const change=row.current-row.previous;return <tr key={`${row.product}-${index}`}><td data-label="Mahsulot"><strong>{row.product}</strong></td><td data-label="Ta’minotchi">{row.supplier}</td><td data-label="Oldingi narx">{formatPrice(row.previous)}</td><td data-label="Oxirgi narx">{formatPrice(row.current)}</td><td data-label="O‘zgarish"><StatusBadge tone={change<=0?"success":"warning"}>{change>0?"+":""}{row.previous?Math.round(change/row.previous*100):0}%</StatusBadge></td></tr>})}</tbody></table></div></section>}

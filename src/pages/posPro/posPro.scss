@@ -1,3 +1,4 @@
+@use './touchPos';
 // The platform owns colors, appearance preferences and shared modal shells.
 .pos-pro-shell {
   --pp-bg:var(--bg); --pp-card:var(--card-bg); --pp-ink:var(--text);
@@ -48,7 +49,7 @@
   .pp-shift-open::before {background:var(--success)} .pp-shift-closed::before {background:var(--warning)}
   .pp-connection {display:flex;align-items:center;gap:12px;font-size:12px;color:var(--pp-muted);>span{display:inline-flex;align-items:center;gap:5px}svg{width:13px;height:13px}time{font-variant-numeric:tabular-nums;white-space:nowrap}}
   .pp-online {color:var(--pp-muted)} .pp-offline {color:var(--pp-ink);svg{color:var(--warning)}}
-  .pp-header-actions {margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;button{min-height:40px;padding:9px 10px;font-size:12px;background:transparent;border-color:transparent}button:first-child{width:40px;padding:0}.pp-return{color:var(--pp-muted)}}
+  .pp-header-actions {margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;>button{min-height:40px;padding:9px 10px;font-size:12px;background:transparent;border-color:transparent}>button:first-of-type{width:40px;padding:0}.pp-return{color:var(--pp-muted)}}
   .pp-workspace {flex:1;min-width:0;min-height:0;display:grid;grid-template-columns:clamp(300px,24vw,384px) minmax(0,1fr) clamp(304px,23vw,352px);gap:12px}
   .pp-panel {min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--pp-border);border-radius:var(--radius-card);background:var(--pp-card);box-shadow:var(--shadow-soft)}
   .pp-panel-head {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;min-height:56px;padding:14px 16px;h2{display:flex;align-items:center;gap:8px}>span{font-size:12px;color:var(--pp-muted);line-height:1.4;text-align:right}}
@@ -124,8 +125,8 @@
 }
 @media(max-width:1450px) {
   .pos-pro .pp-top {gap:14px}
-  .pos-pro .pp-header-actions button:not(.pp-return)>span {display:none}
-  .pos-pro .pp-header-actions button:not(.pp-return) {width:40px;padding:0}
+  .pos-pro .pp-header-actions>button:not(.pp-return)>span {display:none}
+  .pos-pro .pp-header-actions>button:not(.pp-return) {width:40px;padding:0}
 }
 @media(max-width:1200px) and (min-width:1101px) {
   .pos-pro .pp-workspace {grid-template-columns:270px minmax(0,1fr) 292px}
@@ -154,8 +155,8 @@
   .pos-pro .pp-cashier {order:4;flex:1 1 40%;max-width:none}
   .pos-pro .pp-session-state {margin-left:auto}
   .pos-pro .pp-header-actions {order:5;width:100%;margin:0;justify-content:space-between}
-  .pos-pro .pp-header-actions button:not(.pp-return)>span {display:inline}
-  .pos-pro .pp-header-actions button:not(.pp-return) {width:auto;padding:8px}
+  .pos-pro .pp-header-actions>button:not(.pp-return)>span {display:inline}
+  .pos-pro .pp-header-actions>button:not(.pp-return) {width:auto;padding:8px}
   .pos-pro .pp-header-actions .pp-return {width:40px;padding:0}
   .pos-pro .pp-header-actions .pp-return>span {display:none}
   .pos-pro .pp-workspace {display:flex;flex-direction:column}

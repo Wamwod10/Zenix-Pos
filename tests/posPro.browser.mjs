@@ -80,6 +80,43 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(!uxOnly||uxOnly==='touch-mode'){
+  const out='../artifacts/touch-pos';await mkdir(out,{recursive:true});
+  for(const [width,height]of [[1024,768],[1366,768],[1920,1080],[390,844],[320,700]]){
+   const r=await setup({width,height,touch:true}),p=r.page;
+   await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click();
+   await expect(p.locator('.pp-touch')).toBeVisible();await p.locator('.pp-product').first().tap();
+   await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();
+   const console=p.locator('.pp-touch-console');
+   await console.getByLabel('Raqam 2',{exact:true}).tap();await console.getByLabel('Qiymatni qo‘llash',{exact:true}).tap();
+   await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+   await console.getByRole('button',{name:'Chegirma',exact:true}).tap();await console.getByLabel('Raqam 1',{exact:true}).tap();await console.getByLabel('Raqam 0',{exact:true}).tap();await console.getByLabel('Qiymatni qo‘llash',{exact:true}).tap();
+   await expect(p.getByLabel('Olma chegirma',{exact:true})).toHaveValue('10');
+   await console.getByRole('button',{name:'Narx',exact:true}).tap();for(const digit of ['1','0','2','0','0'])await console.getByLabel(`Raqam ${digit}`,{exact:true}).tap();await console.getByLabel('Qiymatni qo‘llash',{exact:true}).tap();
+   await expect(p.getByLabel('Olma chegirma',{exact:true})).toHaveValue('15');
+   await p.reload();await expect(p.locator('.pp-product').first()).toBeEnabled();await expect(p.locator('.pp-touch')).toBeVisible();await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();
+   await p.evaluate(()=>scrollTo(0,0));
+   const geometry=await p.evaluate(()=>{const rect=s=>{const r=document.querySelector(s).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,height:r.height}};return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,console:rect('.pp-touch-console'),keypad:rect('.pp-touch-keypad'),checkout:rect('.pp-checkout'),catalog:rect('.pp-products'),cart:rect('.pp-cart')}});
+   results.push({kind:'touch-mode-geometry',...geometry});assert.ok(geometry.scrollWidth<=width+1,'touch horizontal overflow '+width);
+   assert.ok(await p.locator('.pp-payments button').evaluateAll(buttons=>buttons.every(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})), 'payment controls outside viewport '+width);
+   if(width>900){assert.ok(geometry.catalog.height>=120,'catalog clipped '+width);assert.ok(geometry.keypad.bottom<=height,'keypad clipped '+width);assert.ok(geometry.checkout.bottom<=height,'checkout clipped '+width)}
+   await p.screenshot({path:`${out}/${width}-light.png`,fullPage:true});await p.getByLabel('Mavzu',{exact:true}).click();await p.screenshot({path:`${out}/${width}-dark.png`,fullPage:true});
+   await p.locator('.pp-checkout').click();await expect(p.getByRole('dialog')).toBeVisible();await p.keyboard.press('Escape');
+   await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Classic POS Pro',exact:true}).click();await expect(p.locator('.pp-touch-console')).toHaveCount(0);await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+   if(width===1366){
+    await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click();
+    for(const method of ['cash','card','transfer','split','credit']){const button=p.locator(`.pp-pay-${method}`);if(await button.count()){await button.click();await expect(p.getByRole('dialog')).toBeVisible();await p.keyboard.press('Escape')}}
+    await p.keyboard.press('F5');await expect(p.locator('.pp-cart-line')).toHaveCount(0);await p.keyboard.press('F6');await p.locator('.pp-holds button').first().click();await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+    await p.locator('.pp-checkout').click();await p.getByLabel('Mijoz bergan naqd',{exact:true}).fill('30000');await p.getByRole('checkbox').check();await p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();assert.equal(r.posts,1);assert.equal(r.sales[0].request.payments[0].amount,20400);assert.equal(r.sales[0].request.metadata.source,'pos-pro');
+   }
+   await r.context.close();
+  }
+  for(const closed of [false,true]){
+   const r=await setup({width:1024,height:768,cartSize:closed?1:500,closed,touch:true}),p=r.page;await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click();await expect(p.locator('.pp-cart-line')).toHaveCount(closed?1:500);await p.locator('.pp-cart-line').last().scrollIntoViewIfNeeded();
+   if(closed){await expect(p.locator('.pp-checkout')).toBeDisabled()}else{await p.locator('.pp-cart-line').last().click();await p.locator('.pp-touch-console').getByLabel('Raqam 2',{exact:true}).tap();await p.locator('.pp-touch-console').getByLabel('Qiymatni qo‘llash',{exact:true}).tap();await expect(p.getByLabel('Mahsulot 499 miqdori',{exact:true})).toHaveValue('2')}
+   await p.screenshot({path:`${out}/1024-${closed?'closed':'500-lines'}.png`,fullPage:true});await r.context.close();
+  }
+ }
  if(uxOnly==='platform-contract'){
   const r=await setup({width:1366,height:768,closed:true}),p=r.page,failures=[];
   const measured=await p.evaluate(()=>{

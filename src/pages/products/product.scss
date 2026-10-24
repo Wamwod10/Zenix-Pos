@@ -1245,7 +1245,8 @@ body.dark-mode .product-media-preview {
   .product-table.mobile-card-table td[data-label="Mahsulot"]::before{display:none!important}
   .product-table.mobile-card-table .product-table-name{width:100%;justify-content:flex-start!important;text-align:left!important;gap:10px!important}
   .product-table.mobile-card-table .product-table-name>span:last-child{align-items:flex-start!important;text-align:left!important}
-  .product-table.mobile-card-table .pro-row-actions{display:flex!important;grid-template-columns:none!important;justify-content:flex-start!important;gap:6px!important;flex-wrap:wrap}
-  .product-table.mobile-card-table .pro-icon-btn{width:40px!important;height:40px!important}
+  .product-table.mobile-card-table td[data-label="Amallar"]{width:100%;grid-template-columns:minmax(0,1fr)!important}
+  .product-table.mobile-card-table .pro-row-actions{display:flex!important;grid-template-columns:none!important;justify-content:flex-start!important;gap:6px!important;flex-wrap:nowrap;justify-self:stretch;width:100%}
+  .product-table.mobile-card-table .pro-icon-btn{width:40px!important;height:40px!important;min-width:40px}
   .product-toolbar{gap:8px!important}.product-toolbar .pro-search{flex:1 1 100%!important}
 }
