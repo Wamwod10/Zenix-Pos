@@ -80,6 +80,21 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(uxOnly==='control-alignment'){
+  const out='../artifacts/pos-pro-control-alignment';await mkdir(out,{recursive:true});
+  for(const touch of [false,true])for(const width of [1366,1024,390,320]){
+   const r=await setup({width,height:768,cartSize:1,touch}),p=r.page;
+   if(touch){await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click()}
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByLabel('Mavzu',{exact:true}).click();
+    const line=p.locator('.pp-cart-line').first();await line.scrollIntoViewIfNeeded();await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const m=await line.evaluate(el=>{const field=s=>{const e=el.querySelector(s),r=e.getBoundingClientRect(),c=getComputedStyle(e);return {top:r.top,height:r.height,font:c.fontSize}};return {quantity:field('.pp-quantity input'),discount:field('.pp-line-discount input')}});
+    await line.screenshot({path:`${out}/${process.env.POS_CONTROL_PHASE||'after'}-${touch?'touch':'classic'}-${width}-${theme}.png`});results.push({kind:'control-alignment',touch,width,theme,...m});
+    if(process.env.POS_CONTROL_PHASE!=='before'){assert.ok(Math.abs(m.quantity.top-m.discount.top)<1,JSON.stringify(m));assert.equal(m.quantity.height,m.discount.height);assert.equal(m.quantity.font,m.discount.font)}
+   }
+   await r.context.close();
+  }
+ }
  if(uxOnly==='deep-targeted'){
   const evidence=[];
   for(const width of [1024,1366]){
