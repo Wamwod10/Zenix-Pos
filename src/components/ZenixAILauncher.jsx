@@ -21,7 +21,7 @@ export default function ZenixAILauncher({open,hidden,onOpen}){
   const measure=()=>{
    const style=window.getComputedStyle(button),safeBottom=parseFloat(style.marginBottom)||0;
    const edge=(parseFloat(style.getPropertyValue('--zenix-ai-edge'))||24)+safeBottom;
-   const obstacles=[...document.querySelectorAll('.checkout-primary,.pos-mobile-cart-bar,.mobile-nav,.mobile-bottom-nav,.guide-coach,.pro-btn.primary,.payment-grid button,button[type="submit"],[data-floating-control]')]
+   const obstacles=[...document.querySelectorAll('.pos-checkout input,.pos-checkout select,.pos-customer-results,.checkout-primary,.pos-mobile-cart-bar,.mobile-nav,.mobile-bottom-nav,.guide-coach,.pro-btn.primary,.payment-grid button,button[type="submit"],[data-floating-control]')]
     .filter(node=>node!==button&&!node.closest('#zenix-ai-panel')).map(node=>node.getBoundingClientRect());
    const placement=launcherPlacement({width:window.innerWidth,height:window.innerHeight,right:parseFloat(style.right)||24,edge,size:button.offsetWidth||48,obstacles});
    button.style.setProperty('--zenix-ai-bottom-gap',`${placement.bottom-safeBottom}px`);

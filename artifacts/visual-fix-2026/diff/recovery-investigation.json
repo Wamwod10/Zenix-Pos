@@ -1,0 +1,8 @@
+{
+  "historicalRun": 39846167596,
+  "localFailure": "expect(.pp-recovery).toBeVisible at tests/posPro.browser.mjs:145",
+  "snapshotTotal": 24000,
+  "expectedTotalAfterProduct": 36000,
+  "fix": "Assert shift/cart readiness and product addition before F5; keep recovery visibility assertion and 5000ms timeout",
+  "financialLogicChanged": false
+}
