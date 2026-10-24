@@ -2,14 +2,14 @@
 import {chromium,expect} from '@playwright/test';
 import {preview} from 'vite';
 import assert from 'node:assert/strict';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {posDraftKey} from '../src/utils/posDraft.js';
 import {simulateHid} from './helpers/posHid.mjs';
 import {ean13CheckDigit} from '../src/pages/posPro/hardware.js';
 const server=await preview({preview:{host:'127.0.0.1',port:0},logLevel:'error'}),base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-222222222222',shift='33333333-3333-4333-8333-333333333333';
-const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false});
-const errors=[],results=[],output='../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
+const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false,...((process.env.POS_PRO_UX_ONLY||'').startsWith('deep-')?{name:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun '+i,unit:['kg','l','dona'][i%3],sellPrice:i%2?1250000000:1250000,stockBatches:[{id:'batch-'+i,storeId:store,batchNo:'FEFO-2027-001',remaining:1000,quantity:1000,expiryDate:'2027-01-01',status:'IN_STOCK'}]}:{})});
+const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
 async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
@@ -80,6 +80,76 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(uxOnly==='deep-targeted'){
+  const evidence=[];
+  for(const width of [1024,1366]){
+   const closed=width===1366,r=await setup({width,height:768,cartSize:6,touch:true,closed,stress:true}),p=r.page;
+   await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click();await expect(p.locator('.pp-cart-line')).toHaveCount(6);
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const geometry=await p.evaluate(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,height:r.height}};return {viewport:{width:innerWidth,height:innerHeight},body:rect(document.querySelector('.pp-terminal-body')),terminal:rect(document.querySelector('.pp-terminal')),cta:rect(document.querySelector('.pp-checkout')),keypad:rect(document.querySelector('.pp-touch-keypad')),payments:[...document.querySelectorAll('.pp-payments button')].map(rect)}});
+    evidence.push({width,closed,theme,...geometry});await p.screenshot({path:`${output}/touch-${width}-${theme}-6-${closed?'closed':'open'}.png`,fullPage:true});
+    for(const control of [geometry.cta,geometry.keypad])assert.ok(control.top>=0&&control.bottom<=768+1,`Touch${width} ${theme} keypad/CTA clipped`);
+    assert.ok(geometry.payments.every(r=>r.top>=geometry.body.top-1&&r.bottom<=Math.min(768,geometry.body.bottom)+1),`Touch${width} ${theme} payment clipping`);
+    if(closed)await expect(p.locator('.pp-checkout')).toBeDisabled();else await expect(p.locator('.pp-checkout')).toBeEnabled();
+   }
+   await r.context.close();
+  }
+  await writeFile(output+'/targeted-measurements.json',JSON.stringify(evidence,null,2));results.push({kind:'deep-targeted',states:evidence.length,passed:true});
+ }
+ if(uxOnly==='focus-diagnostic'){
+  const evidence=[];
+  const sample=page=>page.locator('.pp-barcode').evaluate(el=>{const s=getComputedStyle(el),rules=[];const scan=(list,sheet)=>{for(const r of list){if(r.selectorText){try{if(el.matches(r.selectorText)&&r.style.cssText.includes('outline'))rules.push({selector:r.selectorText,css:r.style.cssText,sheet})}catch{}}if(r.cssRules)scan(r.cssRules,sheet)}};for(const sheet of document.styleSheets){try{scan(sheet.cssRules,sheet.href)}catch{}}return {outline:s.outline,outlineStyle:s.outlineStyle,outlineWidth:s.outlineWidth,offset:s.outlineOffset,primary:s.getPropertyValue('--primary'),active:document.activeElement.outerHTML,within:el.matches(':focus-within'),rules,inline:el.style.cssText,sheets:[...document.styleSheets].map(s=>s.href)}});
+  for(const touch of [false,true])for(const width of [320,1366,1920]){
+   const r=await setup({width,height:width===320?700:768,cartSize:20,touch,stress:true,longName:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun'}),p=r.page;
+   if(touch){await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click()}
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
+    for(const method of ['focus','F3']){
+     if(method==='focus')await p.getByLabel('Barcode',{exact:true}).focus();else{await p.getByLabel('Barcode',{exact:true}).blur();await p.keyboard.press('F3');await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused()}
+     const immediate=await sample(p);await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));const settled=await sample(p);
+     let afterScreenshot=null;if(method==='F3'){await p.screenshot();afterScreenshot=await sample(p);await p.locator('.pp-cart-line').last().scrollIntoViewIfNeeded();await p.locator('.pp-product').last().scrollIntoViewIfNeeded()}
+     evidence.push({touch,width,theme,method,immediate,settled,afterScreenshot});
+    }
+   }
+   await r.context.close();
+  }
+  await mkdir('../artifacts/pos-pro-deep',{recursive:true});await writeFile('../artifacts/pos-pro-deep/focus-diagnostic.json',JSON.stringify(evidence,null,2));results.push({kind:'focus-diagnostic',samples:evidence.length,unexpected:evidence.filter(x=>x.immediate.outlineWidth!=='2px'||x.settled.outlineWidth!=='2px')});
+ }
+ if(uxOnly==='deep-visual'){
+  const measurements=[],failures=[],after=process.env.POS_DEEP_PHASE==='after',before=after?JSON.parse(await readFile('../artifacts/pos-pro-deep/before/measurements.json','utf8')):[],dimensions=[[1024,768],[1366,768],[1600,900],[1920,1080],[320,700],[360,800],[390,844],[430,932],[768,1024],[820,1180]];
+  const check=(ok,message)=>{if(after&&!ok)failures.push(message)};
+  const paymentBounds=page=>page.evaluate(()=>{const panel=document.querySelector('.pp-terminal-body').getBoundingClientRect(),terminal=document.querySelector('.pp-terminal').getBoundingClientRect(),cta=document.querySelector('.pp-checkout').getBoundingClientRect();return [...document.querySelectorAll('.pp-payments button')].every(e=>{const r=e.getBoundingClientRect();return r.top>=panel.top-1&&r.bottom<=Math.min(innerHeight,panel.bottom)+1})&&cta.top>=terminal.top-1&&cta.bottom<=Math.min(innerHeight,terminal.bottom)+1});
+  for(const touch of [false,true])for(let i=0;i<dimensions.length;i++){
+   const [width,height]=dimensions[i],cartSize=[0,1,6,20,100,500][i%6],r=await setup({width,height,cartSize,touch,stress:true,longName:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun'}),p=r.page;
+   if(touch){await p.getByLabel('POS Pro rejimi',{exact:true}).click();await p.getByRole('option',{name:'Touch POS',exact:true}).click()}
+   await expect(p.locator('.pp-cart-line')).toHaveCount(cartSize);
+   const notice=p.getByRole('button',{name:'Tushunarli',exact:true});if(await notice.isVisible())await notice.click();
+   for(const theme of ['light','dark']){
+    if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
+    await p.evaluate(()=>{document.querySelectorAll('.pp-cart-lines,.pp-products,.pp-terminal-body').forEach(e=>e.scrollTop=0);scrollTo(0,0)});
+    await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await p.getByLabel('Barcode',{exact:true}).focus();await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const m=await p.evaluate(()=>{const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};const style=e=>{if(!e)return null;const s=getComputedStyle(e);return {color:s.color,fontSize:s.fontSize,outline:s.outline,outlineOffset:s.outlineOffset,boxShadow:s.boxShadow}};const barcode=document.querySelector('input[aria-label="Barcode"]');return {overflow:document.documentElement.scrollWidth>innerWidth+1,barcodeFocus:style(barcode),barcodeFormFocus:style(barcode.closest('form')),geometry:Object.fromEntries(['.pp-cart-heading','.pp-line-name','.pp-quantity input','.pp-line-discount input','.pp-line-total','.pp-checkout','.pp-terminal-body'].map(s=>[s,rect(document.querySelector(s))])),payments:[...document.querySelectorAll('.pp-payments button')].map(rect),controls:[...document.querySelectorAll('.pp-cart-line button,.pp-header-actions button')].map(e=>({label:e.getAttribute('aria-label')||e.textContent,...rect(e)})),metadata:['.pp-line-name small','.pp-product small','.pp-footer'].map(s=>({selector:s,...style(document.querySelector(s))}))}});
+    await p.getByLabel('POS Pro qidiruv').focus();m.searchFocus=await p.getByLabel('POS Pro qidiruv').evaluate(e=>{const s=getComputedStyle(e);return {outline:s.outline,offset:s.outlineOffset,shadow:s.boxShadow}});
+    await p.getByLabel('Barcode',{exact:true}).focus();await p.evaluate(()=>{document.querySelectorAll('.pp-cart-lines,.pp-products,.pp-terminal-body').forEach(e=>e.scrollTop=0);scrollTo(0,0)});
+    const key=`${touch?'touch':'classic'}-${width}-${theme}-${cartSize}`;await p.screenshot({path:`${output}/${key}.png`,fullPage:true});
+    check(!m.overflow,key+' horizontal overflow');check(m.controls.filter(c=>c.label.endsWith('olib tashlash')).every(c=>c.width>=44&&c.height>=44),key+' remove target under44');
+    if(!touch&&width>1100)check(await paymentBounds(p),key+' payment/CTA panel clipping');
+    if(touch&&[1024,1366].includes(width))check(await p.evaluate(()=>['.pp-touch-keypad','.pp-checkout'].every(s=>{const r=document.querySelector(s).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})),key+' keypad/CTA outside viewport');
+    if(width===320&&cartSize){const prior=before.find(x=>x.key===key);if(prior)check(m.geometry['.pp-line-total'].height<prior.geometry['.pp-line-total'].height,key+' amount height not improved')}
+    for(const [name,selector]of [['cart','.pp-cart-line'],['catalog','.pp-product']]){const last=p.locator(selector).last();if(await last.count()){await last.evaluate(e=>{const panel=e.closest('.pp-cart-lines,.pp-products');panel.scrollTop=panel.scrollHeight});await last.scrollIntoViewIfNeeded();await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));m[name+'Last']=await last.evaluate(e=>{const r=e.getBoundingClientRect(),parent=e.closest('.pp-cart-lines,.pp-products').getBoundingClientRect();return {top:r.top,bottom:r.bottom,parentTop:parent.top,parentBottom:parent.bottom,height:r.height,parentHeight:parent.height,tallerThanPanel:r.height>parent.height,fullyVisible:r.top>=Math.max(0,parent.top)-1&&r.bottom<=Math.min(innerHeight,parent.bottom)+1}});if(name==='cart')check(m.cartLast.fullyVisible,key+' final cart row unreachable')}}
+    measurements.push({key,width,height,cartSize,...m});
+   }
+   await r.context.close();
+  }
+  const closed=await setup({closed:true,cartSize:6,width:1366,height:768,stress:true});await expect(closed.page.locator('.pp-checkout')).toBeDisabled();await closed.page.screenshot({path:`${output}/classic-1366-light-6-closed.png`,fullPage:true});await closed.page.getByRole('button',{name:'Mavzu',exact:true}).click();await closed.page.screenshot({path:`${output}/classic-1366-dark-6-closed.png`,fullPage:true});await closed.context.close();
+  if(after){
+   const r=await setup({closed:true,cartSize:6,width:1366,height:768,stress:true}),p=r.page;check(await paymentBounds(p),'closed1366 billion payment/CTA clipping');await p.getByRole('button',{name:'Smenani ochish',exact:true}).click();await expect(p.getByRole('dialog')).toBeVisible();await p.screenshot({path:`${output}/shift-open-modal.png`,fullPage:true});await p.keyboard.press('Escape');await p.getByRole('button',{name:'Qurilmalar',exact:true}).click();await expect(p.getByRole('dialog')).toBeVisible();await p.screenshot({path:`${output}/devices-modal.png`,fullPage:true});await p.keyboard.press('Escape');await r.context.close();
+   const active=await setup({cartSize:1}),q=active.page;await q.getByLabel('Barcode',{exact:true}).blur();await q.keyboard.press('F7');await expect(q.getByRole('dialog')).toBeVisible();await q.screenshot({path:`${output}/cash-modal.png`,fullPage:true});await q.keyboard.press('Escape');await q.keyboard.press('F6');await expect(q.getByRole('dialog')).toBeVisible();await q.screenshot({path:`${output}/holds-modal.png`,fullPage:true});await active.context.close();
+  }
+  await writeFile(output+'/measurements.json',JSON.stringify(measurements,null,2));results.push({kind:'deep-visual',states:measurements.length,overflow:measurements.filter(m=>m.overflow).map(m=>m.key),shiftClosedGuard:true,failures});assert.deepEqual(failures,[]);
+ }
  if(!uxOnly||uxOnly==='touch-mode'){
   const out='../artifacts/touch-pos';await mkdir(out,{recursive:true});
   for(const [width,height]of [[1024,768],[1366,768],[1920,1080],[390,844],[320,700]]){
@@ -154,7 +224,7 @@ try{
    const r=await setup({width,height,cartSize:20}),p=r.page;
    for(const theme of ['light','dark']){
     if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
-    await p.keyboard.press('F3');await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused();assert.equal(await p.locator('.pp-barcode').evaluate(el=>getComputedStyle(el).outlineWidth),'2px');
+    await p.keyboard.press('F3');await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused();await expect.poll(()=>p.locator('.pp-barcode').evaluate(el=>getComputedStyle(el).outlineWidth)).toBe('2px');
     assert.ok(await p.locator('.pp-quantity').first().evaluate(el=>{const h=[...el.querySelectorAll('button,input')].map(n=>n.getBoundingClientRect().height);return Math.max(...h)-Math.min(...h)<1}));
     const contrasts=await p.evaluate(()=>{
      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=canvas.height=1;
