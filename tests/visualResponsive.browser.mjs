@@ -26,8 +26,10 @@ try{
     if(['/login','/register','/reset-password'].includes(currentRoute))return route.fulfill({status:401,json:{ok:false,error:{code:'UNAUTHORIZED'}}});
     data={user:{id:'owner',organizationId:org,appRole:currentRoute==='/platform'?'PLATFORM_ADMIN':'OWNER',name:process.env.VISUAL_STRESS?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
    }
-   if(url.pathname==='/api/bootstrap')data={catalogComplete:true,stores:[{id:store,name:process.env.VISUAL_STRESS?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:Array.from({length:process.env.VISUAL_SALES_CART?100:40},(_,i)=>product(i)),suppliers:[{id:'supplier',name:'Uzun nomli sintetik ta’minotchi korxonasi',balance:1234567890}],employees:[],activeShifts:{[store]:{id:'shift',storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:3}};
-   if(url.pathname==='/api/bootstrap/catalog')data={products:Array.from({length:process.env.VISUAL_SALES_CART?100:40},(_,i)=>product(i)),categories:['Oziq-ovqat'],hasMore:false,missingIds:[]};
+   if(url.pathname==='/api/bootstrap')data={catalogComplete:true,stores:[{id:store,name:process.env.VISUAL_STRESS?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:Array.from({length:process.env.VISUAL_MODULE_VIEWS?45:process.env.VISUAL_SALES_CART?100:40},(_,i)=>product(i)),suppliers:[{id:'supplier',name:'Uzun nomli sintetik ta’minotchi korxonasi',balance:1234567890}],employees:[],activeShifts:{[store]:{id:'shift',storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:3}};
+   if(process.env.VISUAL_MODULE_VIEWS&&url.pathname==='/api/bootstrap')data.suppliers=Array.from({length:45},(_,i)=>({id:'supplier-'+i,name:'Partner '+String(i).padStart(2,'0'),phone:'+998901234567',balance:0,purchaseHistory:[]}));
+   if(process.env.VISUAL_MODULE_VIEWS&&url.pathname==='/api/warehouses')data={warehouses:[{id:'warehouse',store_id:store,name:'Main warehouse',is_default:true}],balances:Array.from({length:45},(_,i)=>({warehouse_id:'warehouse',product_id:product(i).id,quantity:1000}))};
+   if(url.pathname==='/api/bootstrap/catalog')data={products:Array.from({length:process.env.VISUAL_MODULE_VIEWS?45:process.env.VISUAL_SALES_CART?100:40},(_,i)=>product(i)),categories:['Oziq-ovqat'],hasMore:false,missingIds:[]};
    if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'}}};
    if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
    if(url.pathname==='/api/finance'&&process.env.VISUAL_STRESS){const dateISO=new Date().toISOString().slice(0,10);data={sales:Array.from({length:120},(_,i)=>({id:'sale-'+i,storeId:store,dateISO,businessDateISO:dateISO,time:'12:00',sellerId:'owner',sellerName:'Juda uzoq ismli sintetik sotuvchi',total:1234567890+i,paidAmount:1234567890+i,paymentMethod:'cash',payment:'cash',items:[{productId:product(0).id,name:product(0).name,quantity:1,price:1234567890+i,costPrice:5000,returnedQty:0}]})),returns:[],expenses:[{id:'expense',storeId:store,dateISO,amount:123456789,category:'Sintetik xarajat'}],pagination:{hasMore:false,offset:0,limit:500}}}
@@ -63,11 +65,33 @@ try{
       const hit=l?document.elementFromPoint(l.x+l.width/2,l.y+l.height/2)?.closest('button')===launcher:null;
       const zeroTicks=[...document.querySelectorAll('.dashboard-chart svg text')].filter(el=>el.textContent==='0k').length;
       const headerOverflow=[...document.querySelectorAll('.header button')].filter(visible).map(el=>rect(el)).filter(r=>r.x< -1||r.right>innerWidth+1);
+      const productActions=[...document.querySelectorAll('.product-table .pro-row-actions')].map(el=>{const buttons=[...el.querySelectorAll('button')].map(rect);return {clientWidth:el.clientWidth,scrollWidth:el.scrollWidth,widths:buttons.map(b=>b.width),parentWidth:el.parentElement.clientWidth,oneRow:buttons.every(b=>Math.abs(b.y-buttons[0].y)<1),fits:el.scrollWidth<=el.clientWidth+1,count:buttons.length}});
       const headerText=[...document.querySelectorAll('.header-store strong,.profile-copy strong')].filter(visible).map(el=>({text:el.textContent,width:el.clientWidth,scrollWidth:el.scrollWidth}));
-      return {outside,axis,zeroTicks,headerText,headerOverflow,collisions,launcherHit:hit,header:rect(document.querySelector('.pp-top')),checkout:rect(document.querySelector('.pp-checkout')),pulse:rect(document.querySelector('.zenix-pulse')),cart:rect(document.querySelector('.pp-cart')),catalog:rect(document.querySelector('.pp-catalog'))};
+      return {outside,axis,zeroTicks,headerText,headerOverflow,productActions,collisions,launcherHit:hit,header:rect(document.querySelector('.pp-top')),checkout:rect(document.querySelector('.pp-checkout')),pulse:rect(document.querySelector('.zenix-pulse')),cart:rect(document.querySelector('.pp-cart')),catalog:rect(document.querySelector('.pp-catalog'))};
      });
      results.push({width,height,route,theme,url:new URL(page.url()).pathname,...measurement});
+     if(route==='/products'&&width<=760&&!process.env.VISUAL_GEOMETRY_ONLY)await page.locator('.product-table tbody tr').first().screenshot({path:`${out}/${width}-product-actions-${theme}.png`});
      if(process.env.VISUAL_CAPTURE_ALL||[320,390,768,1366].includes(width))if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-${route==='/'?'dashboard':route==='/?ai=open'?'ai':route.slice(1)}-${theme}.png`,fullPage:true});
+    }
+    if(process.env.VISUAL_MODULE_VIEWS&&['/inventory','/suppliers'].includes(route)){
+     const cards=page.locator(route==='/inventory'?'.inventory-card-pro':'.supplier-card-pro');
+     const list=page.locator('section.pro-card > .pro-table-wrap').first();
+     const pager=page.locator('.platform-pagination').first();
+     const grid=page.locator('.module-view-switch button').first(),table=page.locator('.module-view-switch button').last();
+     await grid.click();await expect(cards).toHaveCount(20);
+     await pager.getByRole('button',{name:'Keyingi'}).click();await expect(cards).toHaveCount(20);await expect(pager).toContainText('2/3');
+     await table.click();await expect(list.locator('tbody > tr')).toHaveCount(20);await expect(pager).toContainText('2/3');
+     for(const theme of ['light','dark']){await page.evaluate(theme=>document.body.classList.toggle('dark-mode',theme==='dark'),theme);await page.screenshot({path:out+'/'+width+'-'+route.slice(1)+'-list-'+theme+'.png',fullPage:true});}
+     if(route==='/inventory'){await list.getByRole('button',{name:'Kirim',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await list.getByRole('button',{name:'Tuzatish',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');}
+     else{await list.getByRole('button',{name:'Batafsil',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await list.getByRole('button',{name:'Tahrirlash',exact:true}).first().click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');}
+     await pager.getByRole('button',{name:'Keyingi'}).click();await expect(list.locator('tbody > tr')).toHaveCount(5);await expect(pager.getByRole('button',{name:'Keyingi'})).toBeDisabled();
+     const search=page.locator('.pro-search input').first();await search.fill(route==='/inventory'?'Mahsulot 44':'Partner 44');await expect(list.locator('tbody > tr')).toHaveCount(1);await expect(pager).toHaveCount(0);
+     await search.fill('');await expect(list.locator('tbody > tr')).toHaveCount(20);await expect(page.locator('.platform-pagination').first()).toContainText('1/3');
+     await page.reload();await expect(page.locator('.module-view-switch button').last()).toHaveAttribute('aria-pressed','true');await expect(page.locator('section.pro-card > .pro-table-wrap').first().locator('tbody > tr')).toHaveCount(20);
+     await page.locator('.module-view-switch button').first().click();await expect(cards).toHaveCount(20);
+     if(route==='/inventory')await cards.first().getByRole('button',{name:'Kirim',exact:true}).click();else await cards.first().getByRole('button',{name:'Batafsil',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
+     for(const theme of ['light','dark']){await page.evaluate(theme=>document.body.classList.toggle('dark-mode',theme==='dark'),theme);await page.screenshot({path:out+'/'+width+'-'+route.slice(1)+'-grid-'+theme+'.png',fullPage:true});}
+     interactions.push({width,route,name:'module views, 45-record pagination, actions, search and reload persistence',status:'PASS'});
     }
     if(process.env.VISUAL_INTERACTIONS){
      const check=async(name,fn)=>{try{const evidence=await fn();interactions.push({width,route,name,status:'PASS',evidence})}catch(e){interactions.push({width,route,name,status:'FAIL',error:e.message})}};
@@ -103,6 +127,7 @@ if(process.env.VISUAL_STRICT){
   assert.equal(r.collisions.length,0,`${r.width} ${r.route}: launcher collision`);
   assert.deepEqual(r.outside.filter(e=>!e.scrollContainer),[],`${r.width} ${r.route}: uncontained child overflow`);
   if(r.route==='/')assert.equal(r.zeroTicks,0,'repeated 0k labels');
+  if(r.route==='/products'&&r.width<=760)assert.ok(r.productActions.length>0&&r.productActions.every(a=>a.oneRow&&a.fits),'product actions must fit one row');
   if(r.width>=1366&&!process.env.VISUAL_STRESS)assert.ok(r.headerText.every(t=>t.scrollWidth<=t.width+1),'short topbar names should fit');
   if(r.route==='/pos-pro'&&r.width<=900){assert.ok(r.cart.height<=421,'bounded mobile cart');assert.ok(r.header.height<190,'compact mobile header')}
   if(['/products','/pos-pro','/login','/register','/reset-password'].includes(r.route))assert.deepEqual(r.outside,[],`${r.width} ${r.route}: child overflow`);

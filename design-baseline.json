@@ -11,16 +11,18 @@
   "src/pages/history/history.scss": "fdd3e30c8c856fa744f7c3b0ac03fe7e323eaac669cf2fbe5f7a1c8c6309a591",
   "src/pages/inventory/inventory.scss": "1580a05895e644e2afa006b63d76fe17581bc0ea7962487c28c7a78e214b7bce",
   "src/pages/login/login.scss": "f9957e37c1f7a781ccd9ed5019b83f39312171599e1e59818f2d85ecdfd194e3",
-  "src/pages/products/product.scss": "23f0006fb7a57a95b7b313e40967301b648c3f279cd558845963c08e9f009649",
+  "src/pages/products/product.scss": "4ca3e15852a175fe0b0069a20767bd2ddf558c146943abe2e0835572c4f15764",
   "src/pages/profile/profile.scss": "df23c4cbfeca995c03a858a5ad4fdbfbfcb6fcbcbcbb10261b87b778d932b59a",
   "src/pages/sales/sales.scss": "e93fdbd4f9bf3c885a4f1b36277bfafd11c665f5b87e889689f237491f4e485e",
   "src/pages/sellerAnalytics/sellerAnalytics.scss": "d86fc513d4041f33fd7981a50caa7cc1a185a02eeffd7cbe0a60234bfe307ca1",
   "src/pages/shifts/shifts.scss": "db7d7b9ba4c43cfe0ac3a0ce439365718f696ef918d58aeff736bb26a554267c",
-  "src/pages/suppliers/supplier.scss": "560a3f1a4de53f5b5007c025f4514ccf0e92311e18fbce362e12c0789fbde8bd",
+  "src/pages/suppliers/supplier.scss": "0af461b95a06c24b5801bcc7a7bea7073239b73d5e523846bd43a83b469080a1",
   "src/styles/media/_breakpoints.scss": "c4ad9c1d03eec352ae10b4f10551031437f7d410c49e6b62c283c97b803127ab",
   "src/styles/media/responsive.scss": "a5e956277b1ed6dee0217a6e520a0d7b5e6efe54467ddac100e3af3f08838211",
   "src/styles/saas.scss": "fe0aaf995c6da1ee0e6a74fe766cb9e0308fb9bf97d50295e197032574a136f3",
   "src/pages/register/registerOtp.scss": "3ea44a5f2110f8e4030cd0a8058bbf45470da22d93f5ff01728b7310a9f94e9d",
   "src/pages/ai/zenixAi.scss": "46efeef76279de91823655622a37123102a344076d3aef3404926e821a301087",
-  "src/pages/posPro/posPro.scss": "2988f24200851d3c6c09970775505e4e53e37a9331946c221743905ecc4e5ee0"
+  "src/pages/posPro/posPro.scss": "9e6520c3ebd53eea9ae7052667a92f19eaea6e57072a72476e7243e1dbd15f16",
+  "src/pages/posPro/touchPos.scss": "e188f2117f8875c3fa0362a5efd3ae6546c56174eafb37a6212bd9255ec92cff",
+  "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748"
 }
