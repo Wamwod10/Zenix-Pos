@@ -243,7 +243,7 @@ function Products(){
         nextImageKey="";nextImageName="";
       }
       if(imageFile){
-        nextImageKey=await saveLocalFile(imageFile);
+        nextImageKey=await saveLocalFile(imageFile,'product');
         nextImageName=imageFile.name||"Mahsulot rasmi";
       }
     }catch{
@@ -262,7 +262,7 @@ function Products(){
       ...(editing?{}:{quantity:0,stock:0,costPrice:0,stockByStore:{}}),
     };
     const changes=editing?buildFieldChanges(editing,payload,productAuditFields):[];
-    const result=await saveProduct({id:editing?.id||null,payload:{...payload,costPrice:editing?.costPrice||0}});
+    const result=await saveProduct({id:editing?.id||null,payload:{...payload,costPrice:editing?.referenceCostPrice??editing?.costPrice??0}});
     if(!result.success){
       if(imageFile&&nextImageKey&&nextImageKey!==form.imageKey)deleteLocalFile(nextImageKey).catch(()=>{});
       setSaving(false);setErrors((current)=>({...current,form:result.message}));notify({tone:"danger",title:"Mahsulot saqlanmadi",message:result.message});return;

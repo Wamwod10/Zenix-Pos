@@ -1,8 +1,8 @@
 import { api } from "./apiClient";
 
 // Backward-compatible service names. Files are stored by the Zenix POS backend.
-export const saveLocalFile=async(file)=>{
-  const result=await api.upload("/api/files",file);
+export const saveLocalFile=async(file,purpose)=>{
+  const result=await api.upload("/api/files",file,{purpose});
   return result?.file?.id||"";
 };
 

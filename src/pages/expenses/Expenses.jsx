@@ -53,7 +53,7 @@ function Expenses(){
     let uploadedReceiptKey="";
     try{
       if(receiptFile){
-        uploadedReceiptKey=await saveLocalFile(receiptFile);
+        uploadedReceiptKey=await saveLocalFile(receiptFile,'expense');
         receiptKey=uploadedReceiptKey;receiptName=receiptFile.name;receiptType=receiptFile.type;
       }else if(editing?.receiptKey&&!receiptKey){receiptName="";receiptType=""}
     }catch{setError("Chek faylini saqlab bo‘lmadi. Qayta urinib ko‘ring.");return}

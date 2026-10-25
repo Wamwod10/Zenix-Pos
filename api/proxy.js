@@ -3,7 +3,7 @@ const HOP_BY_HOP_HEADERS=new Set([
 ]);
 const FORWARDED_REQUEST_HEADERS=new Set([
   "accept","accept-language","authorization","content-type","cookie","if-match","if-none-match","user-agent",
-  "x-file-name","x-telegram-bot-api-secret-token","x-zenix-client"
+  "x-file-name","x-file-purpose","x-telegram-bot-api-secret-token","x-zenix-client"
 ]);
 
 // Accept only a configured HTTPS origin (or loopback HTTP for development).
