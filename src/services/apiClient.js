@@ -30,6 +30,8 @@ const FRIENDLY_ERRORS={
   DOWNGRADE_REQUIRED:'Pastroq tarif uchun avval downgrade rejalashtiring.',
   TRIAL_NOT_ACTIVE:'Trial muddati tugagan. Tarifni to‘lov orqali faollashtiring.',
   REGISTER_INACTIVE:'Tanlangan POS kassa faol emas. Faol kassani tanlang yoki uni faollashtiring.',
+  SHIFT_ALREADY_OPEN:'Bu filialda smena allaqachon ochiq. Holatni yangilab, joriy filialdagi ochiq smenani tekshiring.',
+  EMPLOYEE_SHIFT_ALREADY_OPEN:'Boshqa filialdagi smenangiz ochiq. O‘sha filialga o‘tib, smenani yakunlang; keyin bu filialda qayta urining.',
   REGISTER_HAS_OPEN_SHIFT:'POS kassada ochiq smena bor. Kassani faolsizlantirishdan oldin smenani yoping.',
   TRIAL_ALREADY_USED:"Bu telefon raqami bilan bepul sinov avval ishlatilgan. Pullik tarifni tanlang yoki mavjud akkauntingizga kiring.",
   USERNAME_EXISTS:"Bu kirish nomi allaqachon band. Boshqa kirish nomi tanlang yoki mavjud akkauntingizga kiring.",

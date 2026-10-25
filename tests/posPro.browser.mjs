@@ -11,7 +11,7 @@ const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false,...((process.env.POS_PRO_UX_ONLY||'').startsWith('deep-')?{name:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun '+i,unit:['kg','l','dona'][i%3],sellPrice:i%2?1250000000:1250000,stockBatches:[{id:'batch-'+i,storeId:store,batchNo:'FEFO-2027-001',remaining:1000,quantity:1000,expiryDate:'2027-01-01',status:'IN_STOCK'}]}:{})});
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
-async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false}={}){
+async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER'}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
@@ -19,8 +19,9 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
  await context.route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());if(url.origin!==base)return route.abort();if(!url.pathname.startsWith('/api/'))return route.continue();
   let data={users:[],sessions:[],revision:'1',holds:[]};
-  if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole:'OWNER',name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
+  if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole,storeId:store,name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
   if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:shift,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
+  if(url.pathname==='/api/bootstrap'&&otherShiftCashier){const otherStore='77777777-7777-4777-8777-777777777777';data.stores.push({id:otherStore,name:'2-Filial',active:true});data.activeShifts[otherStore]={id:shift,storeId:otherStore,storeName:'2-Filial',cashierId:otherShiftCashier,cashierAccountId:otherShiftCashier,status:'open',openedAtISO:'2026-10-11T09:10:43.000Z',openedAt:'14:10',openingCash:0,cashMovements:[]}}
   if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20}}};
   if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
   if(url.pathname==='/api/ai/status')data={enabled:false};
@@ -38,7 +39,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
    data={shift:closed?null:{id:shift},count:sales.length,total:sales.reduce((s,p)=>s+Number(p.total),0),cash:0,card:0,recent:[],popular:[{product_id:product(2).id}]};
   }
-  if(url.pathname==='/api/shifts/open'&&req.method()==='POST'){closed=false;data={shift:{id:shift,store_id:store,cashier_id:'owner',opening_cash:req.postDataJSON().openingCash,status:'open',opened_at:new Date().toISOString(),metadata:{}}}}
+  if(url.pathname==='/api/shifts/open'&&req.method()==='POST'){if(shiftConflict)return route.fulfill({status:409,json:{ok:false,error:{code:shiftConflict,message:'internal-private-detail'}}});closed=false;data={shift:{id:shift,store_id:store,cashier_id:'owner',opening_cash:req.postDataJSON().openingCash,status:'open',opened_at:new Date().toISOString(),metadata:{}}}}
   if(url.pathname==='/api/customers')data={items:[{id:'55555555-5555-4555-8555-555555555555',name:'Ali',phone:'+998901234567'}]};
   if(url.pathname==='/api/sales/holds'){
    if(req.method()==='POST'){if(holdStatus)return route.fulfill({status:holdStatus,json:{ok:false,error:{code:'HOLD_PRODUCT_UNAVAILABLE'}}});const body=req.postDataJSON();let hold=holds.find(p=>p.clientReference===body.clientReference);if(!hold){hold={...body,id:'hold-'+holds.length};holds.push(hold)}data={hold}}
@@ -80,6 +81,29 @@ try{
   }
  }else{
  const uxOnly=process.env.POS_PRO_UX_ONLY;
+ if(uxOnly==='shift-conflicts'){
+  const out='../artifacts/shift-conflicts';await mkdir(out,{recursive:true});
+  for(const otherShiftCashier of ['owner','different-cashier']){
+   const r=await setup({closed:true,otherShiftCashier,cartSize:otherShiftCashier==='owner'?1:0}),p=r.page;let writes=0;p.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.startsWith('/api/shifts/'))writes++});
+   if(otherShiftCashier==='owner'){
+    await expect(p.getByLabel('Olma miqdori',{exact:true})).toBeEnabled();await expect(p.locator('.pp-shift-gate')).toContainText('2-Filialdagi smenangiz ochiq');await expect(p.getByRole('button',{name:'Smenani ochish',exact:true})).toHaveCount(0);await p.screenshot({path:`${out}/preflight-warning.png`,fullPage:true});
+    await p.getByRole('button',{name:'Ochiq smenaga o‘tish',exact:true}).click();await p.getByRole('button',{name:'Davom etish',exact:true}).click();await expect(p).toHaveURL(/\/pos-pro$/);await expect(p.locator('.pp-cart-line')).toHaveCount(1);
+    await p.getByRole('button',{name:'Ochiq smenaga o‘tish',exact:true}).click();await p.getByRole('button',{name:'O‘zgarishsiz chiqish',exact:true}).click();await expect(p).toHaveURL(/\/shifts$/);await expect(p.locator('.pro-page')).toContainText('2-Filial');
+    assert.equal(await p.evaluate(key=>JSON.parse(localStorage.getItem(key)).cart.length,`${posDraftKey(org,'owner',store)}:pro`),1);
+   }
+   else await expect(p.getByRole('button',{name:'Smenani ochish',exact:true})).toBeEnabled();
+   assert.equal(writes,0);await p.screenshot({path:`${out}/preflight-${otherShiftCashier}.png`,fullPage:true});await r.context.close();
+  }
+  {
+   const r=await setup({closed:true,otherShiftCashier:'owner',appRole:'CASHIER'}),p=r.page;let writes=0;p.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.startsWith('/api/shifts/'))writes++});
+   await expect(p.locator('.pp-shift-gate')).toContainText('Administratorga murojaat qiling');await expect(p.getByRole('button',{name:'Ochiq smenaga o‘tish',exact:true})).toHaveCount(0);await expect(p.getByRole('button',{name:'Smenani ochish',exact:true})).toBeDisabled();assert.equal(writes,0);await r.context.close();
+  }
+  for(const [shiftConflict,text] of [['SHIFT_ALREADY_OPEN','joriy filialdagi ochiq smenani'],['EMPLOYEE_SHIFT_ALREADY_OPEN','Boshqa filialdagi smenangiz']]){
+   const r=await setup({closed:true,shiftConflict}),p=r.page;let attempts=0;p.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/shifts/open')attempts++});
+   await p.getByRole('button',{name:'Smenani ochish',exact:true}).click();await p.getByLabel('Boshlang‘ich naqd',{exact:true}).fill('0');await p.getByRole('dialog').getByRole('button',{name:'Smenani ochish',exact:true}).click();
+   await expect(p.getByRole('dialog').getByRole('alert')).toContainText(text);await expect(p.locator('.pp-checkout')).toBeDisabled();assert.equal(attempts,1);assert.equal(r.posts,0);await expect(p.getByRole('dialog')).not.toContainText('internal-private-detail');await p.screenshot({path:`${out}/${shiftConflict}.png`,fullPage:true});await r.context.close();
+  }
+ }
  if(uxOnly==='control-alignment'){
   const out='../artifacts/pos-pro-control-alignment';await mkdir(out,{recursive:true});
   for(const touch of [false,true])for(const width of [1366,1024,390,320]){
