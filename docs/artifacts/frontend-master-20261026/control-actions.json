@@ -1,0 +1,1781 @@
+{
+  "synthetic": true,
+  "productionBundle": true,
+  "viewport": {
+    "width": 1366,
+    "height": 900
+  },
+  "notes": [
+    "All local /api requests fulfilled with synthetic fixtures; all external origins blocked; service workers blocked.",
+    "Timing starts before Playwright action and includes automation overhead. First mutation may be focus/attribute/skeleton; usableObserved waits for the named control state, not physical paint. Single observations are not percentiles.",
+    "Search/dropdown smoke checks on empty fixtures do not verify result filtering. Customer query assertion verifies query dispatch only.",
+    "Reports maps to existing seller analytics route; no separate reports route asserted. Branches and Staff are Settings tabs.",
+    "Delete and financial checkout/refund/payment persistence are not covered. No live service, production database, OpenAI or backend performance exercised.",
+    "Synthetic customer writes return success without persistence; this establishes UI transition and request path, not data integrity."
+  ],
+  "modules": [
+    {
+      "module": "Dashboard",
+      "route": "/",
+      "heading": "Boshqaruv paneli\n\nTest · biznes holati va asosiy ko‘rsatkichlar\n\n7 kun\nTest\nZenix Pulse\n\nBiznesning asosiy ko‘rsatkichlari me’yorda\n\nHammasi joyida\nHozircha kri"
+    },
+    {
+      "module": "POS",
+      "route": "/sales",
+      "heading": "Savdo\n\nTest ·\nSmena ochiq\n\nF2\nQidiruv\nEnter\nQo‘shish\nF4\nTo‘lov\nF6\nSavatni ushlab turish\nSkanerlash\nBarchasi\nMahsulot topilmadi\nShtrix-kod yoki nom bilan qayta q"
+    },
+    {
+      "module": "Products",
+      "route": "/products",
+      "heading": "Mahsulotlar\n\nKatalogni ko‘ring va boshqaring. Yangi tovar kelganda qoldiq Ombor → Kirim orqali qo‘shiladi.\n\nPDF eksport\nShtrix-kod\nKatalog yozuvi\nOmborga kirim\n"
+    },
+    {
+      "module": "Inventory",
+      "route": "/inventory",
+      "heading": "Ombor\n\nTovar keldi — shu yerda kirim qiling. Mahsulot yangi bo‘lsa Zenix POS uni avtomatik katalogga ham yaratadi.\n\nInventarizatsiya\nTezkor kirim\nKirim\nOmbor\nOm"
+    },
+    {
+      "module": "Sales",
+      "route": "/history",
+      "heading": "Savdo tarixi\n\nCheklar, to‘lovlar, kassirlar va qaytarishlarni bitta joydan boshqaring.\n\nUstunlar\nFiltrlarni tozalash\nSavdolar\n0\nFiltr natijasi\nSof savdo\n0 so‘m\n"
+    },
+    {
+      "module": "Customers",
+      "route": "/customers",
+      "heading": "Mijozlar\n\nCRM, xaridlar, nasiya va mijoz moliyasini bitta joyda boshqaring\n\nMijoz qo‘shish\nJami mijozlar\n1\nJoriy qarz\n0 so‘m\nMuddati o‘tgan\n0 so‘m\n60+ kun\n0 so‘"
+    },
+    {
+      "module": "Suppliers",
+      "route": "/suppliers",
+      "heading": "Ta’minotchilar\n\nKirimlar, nakladnoylar, ochiq qarz va to‘lovlarni bir joyda boshqaring.\n\nTa’minotchi qo‘shish\nFaol ta’minotchilar\n0\nHamkorlar\nOchiq qarz\n0 so‘m\n"
+    },
+    {
+      "module": "Expenses",
+      "route": "/expenses",
+      "heading": "Xarajatlar\n\nOperatsion xarajatlarni kategoriya, xodim, filial va smena bilan nazorat qiling.\n\nXarajat qo‘shish\nBugungi xarajat\n0 so‘m\nTest\nBu oy\n0 so‘m\nSof foyd"
+    },
+    {
+      "module": "Analytics",
+      "route": "/analytics",
+      "heading": "Analitika\n\nSof savdo, foyda, xarajat, qoldiq va qaytarishlarni bir xil hisoblash qoidasi bilan kuzating.\n\nCSV eksport\nBugun\n7 kun\n30 kun\nBu oy\nIxtiyoriy\nTest\nBa"
+    },
+    {
+      "module": "Reports",
+      "route": "/seller-analytics",
+      "heading": "Sotuvchi tahlili\n\nSotuvchilar natijalarini bir xil davr va filial kesimida taqqoslang.\n\n30 kun\nTest\nSof savdo\n0 so‘m\n0 ta tranzaksiya\nYalpi foyda\n0 so‘m\n30 kun "
+    },
+    {
+      "module": "Settings",
+      "route": "/settings",
+      "heading": "Sozlamalar\n\nTashkilot, xodimlar, POS, ombor va platforma qoidalarini boshqaring.\n\nSaqlandi\nTarif va to‘lovlar\nTashkilot\nFiliallar\nXodimlar\nRuxsatlar\nChek\nPOS\nOm"
+    },
+    {
+      "module": "Billing",
+      "route": "/billing",
+      "heading": "Tarif va to‘lovlar\n\nJoriy tarif, filial limiti va to‘lovlar tarixi.\n\nFaol\nResurslardan foydalanish\nFiliallar\n1 / 3\nBUSINESS tarif\nFaol\n\n2099-01-01 gacha amal qi"
+    }
+  ],
+  "operations": [
+    {
+      "module": "Dashboard",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 36.5,
+      "usableObservedMs": 47.400000005960464,
+      "before": "7 kun",
+      "after": "Bugun",
+      "options": [
+        "Bugun",
+        "7 kun",
+        "30 kun",
+        "Barcha davr"
+      ]
+    },
+    {
+      "module": "POS",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Mahsulot nomi, SKU yoki shtrix-kod...",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Products",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Nomi, SKU, shtrix-kod, brend yoki kategoriya...",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Products",
+      "control": "column menu open, toggle and restore",
+      "status": "passed",
+      "firstDOMMutationMs": 30.30000000447035,
+      "usableObservedMs": 39.20000000298023,
+      "restored": true
+    },
+    {
+      "module": "Products",
+      "control": "open modal: Katalog yozuvi",
+      "status": "passed",
+      "firstDOMMutationMs": 64.69999999552965,
+      "usableObservedMs": 77.5
+    },
+    {
+      "module": "Products",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 45.100000001490116,
+      "usableObservedMs": 63.20000000298023,
+      "message": "Mahsulot nomini kiriting"
+    },
+    {
+      "module": "Products",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "Inventory",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 27.799999997019768,
+      "usableObservedMs": 42.19999999552965,
+      "before": "Barcha kategoriyalar",
+      "after": "Barcha kategoriyalar",
+      "options": [
+        "Barcha kategoriyalar"
+      ]
+    },
+    {
+      "module": "Inventory",
+      "control": "open modal: Kirim",
+      "status": "passed",
+      "firstDOMMutationMs": 45.600000001490116,
+      "usableObservedMs": 75.10000000149012
+    },
+    {
+      "module": "Inventory",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 83.89999999850988,
+      "usableObservedMs": 93.39999999850988,
+      "message": "Yangi mahsulot uchun nomini kiriting."
+    },
+    {
+      "module": "Inventory",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "Sales",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 30.600000001490116,
+      "usableObservedMs": 45.600000001490116,
+      "before": "Barcha sotuvchilar",
+      "after": "Barcha sotuvchilar",
+      "options": [
+        "Barcha sotuvchilar"
+      ]
+    },
+    {
+      "module": "Sales",
+      "control": "column menu open, toggle and restore",
+      "status": "passed",
+      "firstDOMMutationMs": 27,
+      "usableObservedMs": 33.79999999701977,
+      "restored": true
+    },
+    {
+      "module": "Customers",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Ism, telefon yoki email bo‘yicha qidirish",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Customers",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 28.799999997019768,
+      "usableObservedMs": 34.399999998509884,
+      "before": "Barcha mijozlar",
+      "after": "Qarzdorlar",
+      "options": [
+        "Barcha mijozlar",
+        "Qarzdorlar",
+        "Muddati o‘tgan qarzlar",
+        "VIP",
+        "Oddiy mijozlar",
+        "Faol",
+        "Nofaol"
+      ]
+    },
+    {
+      "module": "Customers",
+      "control": "open modal: Mijoz qo‘shish",
+      "status": "passed",
+      "firstDOMMutationMs": 34.399999998509884,
+      "usableObservedMs": 41.79999999701977
+    },
+    {
+      "module": "Customers",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 51,
+      "usableObservedMs": 56.399999998509884,
+      "message": "Mijoz ismini kamida 2 ta belgi bilan kiriting."
+    },
+    {
+      "module": "Customers",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "Suppliers",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Nomi, telefon yoki kontakt...",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Suppliers",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 33.5,
+      "usableObservedMs": 47.5,
+      "before": "Faol",
+      "after": "Qarzi bor",
+      "options": [
+        "Faol",
+        "Qarzi bor",
+        "Muddati o‘tgan",
+        "Arxiv",
+        "Barchasi"
+      ]
+    },
+    {
+      "module": "Suppliers",
+      "control": "open modal: Ta’minotchi qo‘shish",
+      "status": "passed",
+      "firstDOMMutationMs": 38.5,
+      "usableObservedMs": 46
+    },
+    {
+      "module": "Suppliers",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 50,
+      "usableObservedMs": 56,
+      "message": "Nomini kiriting"
+    },
+    {
+      "module": "Suppliers",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "Expenses",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 24.399999998509884,
+      "usableObservedMs": 36.69999999552965,
+      "before": "Barcha kategoriyalar",
+      "after": "Ijara",
+      "options": [
+        "Barcha kategoriyalar",
+        "Ijara",
+        "Kommunal",
+        "Transport",
+        "Reklama",
+        "Ish haqi",
+        "Logistika",
+        "Mayda xarajat",
+        "Boshqa"
+      ]
+    },
+    {
+      "module": "Expenses",
+      "control": "column menu open, toggle and restore",
+      "status": "passed",
+      "firstDOMMutationMs": 43.100000001490116,
+      "usableObservedMs": 48.70000000298023,
+      "restored": true
+    },
+    {
+      "module": "Expenses",
+      "control": "open modal: Xarajat qo‘shish",
+      "status": "passed",
+      "firstDOMMutationMs": 43.20000000298023,
+      "usableObservedMs": 54.100000001490116
+    },
+    {
+      "module": "Expenses",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 92.5,
+      "usableObservedMs": 99.09999999403954,
+      "message": "Xarajat nomini kiriting"
+    },
+    {
+      "module": "Expenses",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "Analytics",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 26.799999997019768,
+      "usableObservedMs": 40.899999998509884,
+      "before": "Test",
+      "after": "Barcha filiallar",
+      "options": [
+        "Barcha filiallar",
+        "Test"
+      ]
+    },
+    {
+      "module": "Reports",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Sotuvchi qidirish...",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Reports",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 41.900000005960464,
+      "usableObservedMs": 48.600000001490116,
+      "before": "30 kun",
+      "after": "7 kun",
+      "options": [
+        "7 kun",
+        "30 kun",
+        "Bu oy",
+        "Barcha davr"
+      ]
+    },
+    {
+      "module": "Reports",
+      "control": "column menu open, toggle and restore",
+      "status": "passed",
+      "firstDOMMutationMs": 5.299999997019768,
+      "usableObservedMs": 50,
+      "restored": true
+    },
+    {
+      "module": "Settings",
+      "control": "search input and reset",
+      "status": "passed",
+      "input": "Sozlamani qidiring...",
+      "scope": "input state only; empty dataset cannot establish result correctness"
+    },
+    {
+      "module": "Settings",
+      "control": "dropdown open, choose alternate option",
+      "status": "passed",
+      "firstDOMMutationMs": 32.5,
+      "usableObservedMs": 37.79999999701977,
+      "before": "Universal savdo",
+      "after": "Oziq-ovqat",
+      "options": [
+        "Universal savdo",
+        "Oziq-ovqat",
+        "Kiyim",
+        "Elektronika",
+        "Kosmetika"
+      ]
+    },
+    {
+      "module": "Billing",
+      "control": "column menu open, toggle and restore",
+      "status": "passed",
+      "firstDOMMutationMs": 34.5,
+      "usableObservedMs": 43.100000001490116,
+      "restored": true
+    },
+    {
+      "module": "Customers",
+      "control": "search sends scoped directory query",
+      "status": "passed",
+      "requestObserved": true,
+      "fixtureDoesNotFilter": true
+    },
+    {
+      "module": "Customers",
+      "control": "create pending and server error retains form",
+      "status": "passed",
+      "firstDOMMutationMs": 98.79999999701977,
+      "usableObservedMs": 107.79999999701977,
+      "mockDelayMs": 700,
+      "errorVisible": true,
+      "draftRetained": true
+    },
+    {
+      "module": "Customers",
+      "control": "create successful retry closes dialog",
+      "status": "passed",
+      "response": "synthetic success",
+      "persistenceVerified": false
+    },
+    {
+      "module": "Customers",
+      "control": "detail, edit, pending save and completion",
+      "status": "passed",
+      "firstDOMMutationMs": 83.10000000149012,
+      "usableObservedMs": 93.30000000447035,
+      "mockDelayMs": 700,
+      "patchObserved": true,
+      "persistenceVerified": false
+    },
+    {
+      "module": "Branches",
+      "control": "Filiallar settings tab",
+      "status": "passed",
+      "firstDOMMutationMs": 45.70000000298023,
+      "usableObservedMs": 83.5
+    },
+    {
+      "module": "Staff",
+      "control": "Xodimlar settings tab",
+      "status": "passed",
+      "firstDOMMutationMs": 62.399999998509884,
+      "usableObservedMs": 75.19999999552965
+    },
+    {
+      "module": "Staff",
+      "control": "open modal: + Xodim qo‘shish",
+      "status": "passed",
+      "firstDOMMutationMs": 47.399999998509884,
+      "usableObservedMs": 71.10000000149012
+    },
+    {
+      "module": "Staff",
+      "control": "empty save validation",
+      "status": "passed",
+      "firstDOMMutationMs": 87.5,
+      "usableObservedMs": 96.69999999552965,
+      "message": "Ism, telefon, filial, kamida 3 belgili login va 8 belgili vaqtinchalik parol kiriting."
+    },
+    {
+      "module": "Staff",
+      "control": "modal close",
+      "status": "passed",
+      "closed": true
+    },
+    {
+      "module": "AI",
+      "control": "open, send pending, answer, close",
+      "status": "passed",
+      "open": {
+        "firstDOMMutationMs": 33.899999998509884,
+        "usableObservedMs": 101.69999999552965
+      },
+      "pending": {
+        "firstDOMMutationMs": 13.599999994039536,
+        "usableObservedMs": 22
+      },
+      "mockDelayMs": 700,
+      "answerObserved": true
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sales/holds",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-10-13&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-10-20&to=2026-10-26&limit=1",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-10-25&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-10-26&to=2026-10-26&limit=1",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sales/holds",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&limit=100&offset=0",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/tags",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=&filter=all&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=&filter=debtors&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-08-28&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-09-27&to=2026-10-26&limit=1",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?from=2026-08-28&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?from=2026-09-27&to=2026-10-26&limit=1",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-09-27&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/finance",
+      "query": "?storeId=11111111-1111-4111-8111-111111111111&from=2026-10-20&to=2026-10-26&limit=500",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/plans",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/subscription",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/limits",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/draft",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/tags",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=&filter=all&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=needle&filter=all&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/tags",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=&filter=all&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "POST",
+      "path": "/api/customers",
+      "query": "",
+      "mode": "failure"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "failure"
+    },
+    {
+      "method": "POST",
+      "path": "/api/customers",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "query": "?q=&filter=all&sort=name&direction=asc&limit=60&offset=0&tags=",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/customer-a",
+      "query": "?ledgerLimit=50&salesLimit=50",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/customers/customer-a",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/customer-a",
+      "query": "?ledgerLimit=50&salesLimit=50",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/status",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/chat",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "query": "",
+      "mode": "success"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/status",
+      "query": "",
+      "mode": "success"
+    }
+  ],
+  "runtimeErrors": [],
+  "blocked": [],
+  "summary": {
+    "passed": 45,
+    "failed": 0,
+    "gaps": 0
+  }
+}

@@ -76,10 +76,10 @@ function SellerAnalytics() {
 
     <section className="seller-filterbar pro-card">
       {!isCashier && <div className="pro-search"><FiSearch/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Sotuvchi qidirish..."/></div>}
-      <PremiumSelect className="pro-select" value={period} onChange={(event) => setPeriod(event.target.value)}>
+      <PremiumSelect aria-label="Davr" className="pro-select" value={period} onChange={(event) => setPeriod(event.target.value)}>
         <option value="7">7 kun</option><option value="30">30 kun</option><option value="month">Bu oy</option><option value="all">Barcha davr</option>
       </PremiumSelect>
-      {!isCashier && <PremiumSelect className="pro-select" value={store} onChange={(event) => setStore(event.target.value)}>
+      {!isCashier && <PremiumSelect aria-label="Filial" className="pro-select" value={store} onChange={(event) => setStore(event.target.value)}>
         <option value="all">Barcha filiallar</option>{stores.filter((item) => item.active !== false).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </PremiumSelect>}
     </section>
@@ -116,7 +116,7 @@ function SellerAnalytics() {
         ["Qaytarish", `${formatPrice(selected.returnAmount)} · ${selected.returnRate.toFixed(1)}%`], ["Chegirma", formatPrice(selected.discount)], ["Smenalar", selected.shifts],
       ].map(([key,value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}</div>
       <div className="seller-payment-mix"><h3>To‘lovlar</h3>{selected && [["Naqd",selected.cash],["Karta",selected.card],["O‘tkazma",selected.transfer]].map(([key,value]) => <div key={key}><span>{key}</span><div><i style={{width:`${selected.sales ? Math.round(value / selected.sales * 100) : 0}%`}}/></div><b>{formatPrice(value)}</b></div>)}</div>
-      <h3 className="detail-subtitle">Eng ko‘p sotilgan mahsulotlar</h3><div className="rank-list">{selected && Object.entries(selected.products).sort((a,b) => b[1] - a[1]).slice(0,6).map(([name,qty],index) => <div key={name}><b>{index + 1}</b><span><strong>{name}</strong><small>{qty} dona</small></span></div>)}</div>
+      <h3 className="detail-subtitle">Eng ko‘p sotilgan mahsulotlar</h3><div className="rank-list seller-product-ranking">{selected && Object.entries(selected.products).sort((a,b) => b[1].quantity - a[1].quantity).slice(0,6).map(([key,product],index) => <div key={key}><b>{index + 1}</b><span><strong>{product.name}</strong><small>{product.quantity} {product.unit}</small></span></div>)}</div>
     </Modal>
   </div>;
 }

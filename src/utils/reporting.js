@@ -98,7 +98,12 @@ export const buildSellerAnalyticsRows = ({
     (sale.items||[]).forEach((item) => {
       const qty=getNetSoldQty(item);
       row.discount+=getItemDiscountPerUnit(item)*qty;
-      if(qty>0)row.products[item.name]=(row.products[item.name]||0)+qty;
+      if(qty>0){
+        const unit=item.unit||"dona";
+        const key=JSON.stringify([item.productId||item.id||`name:${item.name||""}`,unit]);
+        if(!row.products[key])row.products[key]={name:item.name||"Mahsulot",unit,quantity:0};
+        row.products[key].quantity+=qty;
+      }
     });
   });
 
@@ -119,7 +124,11 @@ export const projectInventoryScope = (inventoryState = [], storeId = "all") => i
   const quantity = storeId === "all"
     ? Object.values(stockByStore).reduce((sum, value) => sum + Number(value || 0), 0)
     : Number(stockByStore?.[storeId] || 0);
-  return { ...product, quantity, stock: quantity };
+  const branchCost = (id) => Number(product.costByStore?.[id] ?? product.referenceCostPrice ?? product.costPrice ?? 0);
+  const inventoryValue = storeId === "all"
+    ? Object.entries(stockByStore).reduce((sum,[id,qty]) => sum + Number(qty || 0) * branchCost(id), 0)
+    : quantity * branchCost(storeId);
+  return { ...product, quantity, stock: quantity, inventoryValue };
 });
 
 export const scopedSale = (sale, itemPredicate) => {

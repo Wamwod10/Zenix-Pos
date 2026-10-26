@@ -1,0 +1,72 @@
+{
+  "scope": "MOCK-ONLY components and state transitions; no real identity/payment verification",
+  "results": [
+    {
+      "name": "Mock registration: field validation then successful workspace entry",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock logout clears authenticated UI",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock login rejects credentials then starts a valid session",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock expired session 401 redirects protected route to login",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock cashier cannot enter owner Analytics route",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock billing REVIEW state renders from authoritative reload",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock billing REJECTED state renders from authoritative reload",
+      "status": "PASS"
+    },
+    {
+      "name": "Mock billing APPROVED state renders from authoritative reload",
+      "status": "PASS"
+    }
+  ],
+  "writes": [
+    {
+      "path": "/api/auth/register",
+      "method": "POST"
+    },
+    {
+      "path": "/api/settings/preferences",
+      "method": "PATCH"
+    },
+    {
+      "path": "/api/auth/logout",
+      "method": "POST"
+    },
+    {
+      "path": "/api/auth/login",
+      "method": "POST"
+    },
+    {
+      "path": "/api/auth/login",
+      "method": "POST"
+    },
+    {
+      "path": "/api/settings/preferences",
+      "method": "PATCH"
+    },
+    {
+      "path": "/api/settings/preferences",
+      "method": "PATCH"
+    },
+    {
+      "path": "/api/settings/preferences",
+      "method": "PATCH"
+    }
+  ],
+  "errors": []
+}

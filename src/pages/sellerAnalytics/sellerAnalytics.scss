@@ -3,3 +3,12 @@
 
 /* v4 seller analytics readability */
 .leaderboard strong{font-size:13.5px;font-weight:600}.leaderboard small{font-size:12px}.leaderboard em{font-size:13px;font-weight:600}.seller-detail-grid span{font-size:12.5px}.seller-detail-grid strong{font-size:13.5px;font-weight:600}.seller-payment-mix h3{font-size:13.5px;font-weight:600}.seller-payment-mix span,.seller-payment-mix b{font-size:12.5px}
+
+/* Direct route loads must not depend on Analytics' lazy stylesheet. */
+.seller-product-ranking>div{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border)}
+.seller-product-ranking>div:last-child{border-bottom:0}
+.seller-product-ranking b{flex:0 0 23px;height:23px;border-radius:8px;background:var(--soft-surface);color:var(--primary);display:grid;place-items:center;font-size:11.5px}
+.seller-product-ranking span{flex:1;min-width:0;overflow-wrap:anywhere}
+.seller-product-ranking strong,.seller-product-ranking small{display:block}
+.seller-product-ranking strong{font-size:13.5px;font-weight:600}
+.seller-product-ranking small{font-size:12px;color:var(--muted);margin-top:2px}

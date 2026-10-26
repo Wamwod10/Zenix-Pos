@@ -1,0 +1,262 @@
+{
+  "scope": "Real React components with stateful synthetic API mocks; not database proof",
+  "results": [
+    {
+      "flow": "Inventory count",
+      "checks": [
+        "10→13 request contract",
+        "503 error visible",
+        "draft retained",
+        "retry succeeds",
+        "bootstrap refresh renders 13"
+      ],
+      "status": "passed"
+    },
+    {
+      "flow": "Branch transfer create",
+      "checks": [
+        "destination/product/quantity UI",
+        "503 error visible",
+        "draft retained",
+        "retry same contract",
+        "bootstrap refresh renders IN_TRANSIT"
+      ],
+      "status": "passed"
+    },
+    {
+      "flow": "Branch transfer cancellation",
+      "checks": [
+        "confirmation opens without write",
+        "decline sends no request",
+        "confirm posts empty cancellation body",
+        "bootstrap refresh renders rejected"
+      ],
+      "status": "passed"
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/sessions",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "body": null
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/preferences",
+      "body": {
+        "selectedStoreId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/api/inventory/counts",
+      "body": {
+        "storeId": "11111111-1111-4111-8111-111111111111",
+        "requireApproval": false,
+        "changes": [
+          {
+            "productId": "33333333-3333-4333-8333-333333333333",
+            "before": 10,
+            "after": 13
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/api/inventory/counts",
+      "body": {
+        "storeId": "11111111-1111-4111-8111-111111111111",
+        "requireApproval": false,
+        "changes": [
+          {
+            "productId": "33333333-3333-4333-8333-333333333333",
+            "before": 10,
+            "after": 13
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/api/inventory/transfers",
+      "body": {
+        "fromStoreId": "11111111-1111-4111-8111-111111111111",
+        "toStoreId": "22222222-2222-4222-8222-222222222222",
+        "needsApproval": false,
+        "items": [
+          {
+            "productId": "33333333-3333-4333-8333-333333333333",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/inventory/transfers",
+      "body": {
+        "fromStoreId": "11111111-1111-4111-8111-111111111111",
+        "toStoreId": "22222222-2222-4222-8222-222222222222",
+        "needsApproval": false,
+        "items": [
+          {
+            "productId": "33333333-3333-4333-8333-333333333333",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "body": null
+    },
+    {
+      "method": "POST",
+      "path": "/api/inventory/transfers/44444444-4444-4444-8444-444444444444/cancel",
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/version",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/bootstrap",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "body": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/customers/stats",
+      "body": null
+    }
+  ],
+  "errors": [],
+  "gaps": [
+    "No live database or concurrent stock mutation",
+    "No transfer receiving, tracked batches/serials or count approval role flow",
+    "No supplier or expense workflow in this script"
+  ]
+}
