@@ -4,7 +4,7 @@ import {preview} from 'vite';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {posDraftKey} from '../src/utils/posDraft.js';
-const phase=process.env.VISUAL_PHASE||'before',out=`../artifacts/visual-fix-2026/${phase}`;
+const phase=process.env.VISUAL_PHASE||'before',out=process.env.VISUAL_OUTPUT||`../artifacts/visual-fix-2026/${phase}`;
 await mkdir(out,{recursive:true});
 const server=await preview({preview:{host:'127.0.0.1',port:0},logLevel:'error'}),base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
@@ -12,7 +12,7 @@ const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-
 const results=[],errors=[],interactions=[];
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oila uchun',sku:'SKU-'+i,barcode:'1234567890123456789012345678901234567890',unit:'kg',sellPrice:12000,costPrice:5000,quantity:1000,stockByStore:{[store]:1000},archived:false});
 const routes=['/','/sales','/pos-pro','/shifts','/products','/inventory','/suppliers','/customers','/history','/expenses','/analytics','/seller-analytics','/activity-log','/settings','/billing','/profile','/help','/login','/register','/reset-password','/platform','/?ai=open'];
-const matrix=[[320,700],[360,780],[375,812],[390,844],[430,932],[600,800],[680,900],[700,900],[760,900],[768,1024],[820,1180],[900,600],[980,800],[1024,768],[1280,800],[1366,768],[1440,900],[1600,900],[1920,1080]];
+const matrix=process.env.VISUAL_MATRIX?JSON.parse(process.env.VISUAL_MATRIX):[[320,700],[360,780],[375,812],[390,844],[430,932],[600,800],[680,900],[700,900],[760,900],[768,1024],[820,1180],[900,600],[980,800],[1024,768],[1280,800],[1366,768],[1440,900],[1600,900],[1920,1080]];
 try{
  for(const [width,height] of matrix.filter(([w])=>!process.env.VISUAL_WIDTHS||process.env.VISUAL_WIDTHS.split(',').includes(String(w)))){
   const context=await browser.newContext({viewport:{width,height},hasTouch:width<=900,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();
@@ -46,13 +46,13 @@ try{
   for(const route of routes){
    if(process.env.VISUAL_ROUTES&&!process.env.VISUAL_ROUTES.split(',').includes(route))continue;
    // Every viewport covers the core layouts; all modules also run at narrow and wide sizes.
-   if(![320,390,768,1366].includes(width)&&!['/','/sales','/pos-pro','/inventory','/login'].includes(route))continue;
+   if(!process.env.VISUAL_ALL_ROUTES&&![320,390,768,1366].includes(width)&&!['/','/sales','/pos-pro','/inventory','/login'].includes(route))continue;
    currentRoute=route;
    try{
     await page.goto(base+route);assert.equal(new URL(page.url()).pathname,new URL(route,base).pathname,'requested route must render without redirect');await page.locator('h1:visible,.pp-brand:visible,form:visible,.pos-page-pro').first().waitFor();await page.waitForTimeout(350);
     if(route==='/pos-pro')await expect(page.locator('.pp-product').first()).toBeEnabled();
     if(route==='/')await expect(page.locator('.dashboard-chart svg text').first()).toBeVisible();
-    for(const theme of [ 'light',...([320,390,768,1366].includes(width)?['dark']:[])]){
+    for(const theme of [ 'light',...((process.env.VISUAL_ALL_ROUTES||[320,390,768,1366].includes(width))?['dark']:[])]){
      await page.evaluate(theme=>document.body.classList.toggle('dark-mode',theme==='dark'),theme);
      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
      const measurement=await page.evaluate(()=>{
@@ -72,6 +72,24 @@ try{
      results.push({width,height,route,theme,url:new URL(page.url()).pathname,...measurement});
      if(route==='/products'&&width<=760&&!process.env.VISUAL_GEOMETRY_ONLY)await page.locator('.product-table tbody tr').first().screenshot({path:`${out}/${width}-product-actions-${theme}.png`});
      if(process.env.VISUAL_CAPTURE_ALL||[320,390,768,1366].includes(width))if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-${route==='/'?'dashboard':route==='/?ai=open'?'ai':route.slice(1)}-${theme}.png`,fullPage:true});
+    }
+    if(process.env.VISUAL_PLATFORM_ACTIONS&&route==='/platform'&&width<=760){
+     await page.getByRole('button',{name:'Foydalanuvchi menyusi',exact:true}).click();
+     await expect(page.locator('.profile-menu').getByRole('button',{name:'Yordam',exact:true})).toBeVisible();
+     await expect(page.locator('.profile-menu').getByRole('button',{name:/^To.li[qk] ekran$/})).toBeVisible();
+     if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-platform-mobile-actions.png`,fullPage:true});
+     await page.getByRole('button',{name:'Foydalanuvchi menyusi',exact:true}).click();
+     interactions.push({width,route,name:'Platform mobile profile retains Help and Fullscreen actions',status:'PASS'});
+    }
+    if(process.env.VISUAL_SETTINGS_TABS&&route==='/settings'){
+     const names=await page.locator('.settings-nav button').allTextContents();
+     for(const name of names){
+      const back=page.locator('.settings-mobile-back');if(await back.isVisible())await back.click();
+      const tab=page.locator('.settings-nav button').filter({hasText:new RegExp(`^${name.trim()}$`)});
+      await tab.click();await expect(tab).toHaveClass(/active/);await expect(page.locator('.settings-content')).toBeVisible();
+      if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-settings-${names.indexOf(name)}.png`,fullPage:true});
+      interactions.push({width,route,name:`Settings section: ${name.trim()} (read-only panel navigation)`,status:'PASS'});
+     }
     }
     if(process.env.VISUAL_MODULE_VIEWS&&['/inventory','/suppliers'].includes(route)){
      const cards=page.locator(route==='/inventory'?'.inventory-card-pro':'.supplier-card-pro');

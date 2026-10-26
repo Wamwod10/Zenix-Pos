@@ -17,6 +17,18 @@ import "./analytics.scss";
 
 const presets = ["Bugun", "7 kun", "30 kun", "Bu oy", "Ixtiyoriy"];
 
+export const buildAnalyticsProductMap = (sales) => {
+  const productMap = {};
+  sales.forEach((sale) => (sale.items || []).forEach((item) => {
+    const key = JSON.stringify([String(item.productId || item.id || item.name),item.unit||"dona"]);
+    const {qty, revenue:value} = netItemContribution(item);
+    productMap[key] = productMap[key] || { id:key, name:item.name, unit:item.unit||"dona", qty:0, revenue:0 };
+    productMap[key].qty += qty;
+    productMap[key].revenue += value;
+  }));
+  return productMap;
+};
+
 function Analytics() {
   const { returns:bootstrapReturns, inventoryState, stores, currentStoreId, effectiveWorkspaceSettings:workspaceSettings } = useStore();
   const [period, setPeriod] = useState("30 kun");
@@ -100,16 +112,9 @@ function Analytics() {
   };
 
   const scopedInventory = useMemo(() => projectInventoryScope(inventoryState, store).filter((product) => category === "all" || product.category === category), [inventoryState, store, category]);
-  const stockValue = scopedInventory.reduce((sum, product) => sum + Number(product.costPrice || 0) * Number(product.quantity || 0), 0);
+  const stockValue = scopedInventory.reduce((sum, product) => sum + product.inventoryValue, 0);
 
-  const productMap = {};
-  filteredSales.forEach((sale) => (sale.items || []).forEach((item) => {
-    const key = String(item.productId || item.id || item.name);
-    const {qty, revenue:value} = netItemContribution(item);
-    productMap[key] = productMap[key] || { name:item.name, qty:0, revenue:0 };
-    productMap[key].qty += qty;
-    productMap[key].revenue += value;
-  }));
+  const productMap = buildAnalyticsProductMap(filteredSales);
   const topProducts = Object.values(productMap).sort((a,b) => b.revenue - a.revenue).slice(0,6);
 
   const payment = filteredSales.reduce((result, sale) => {
@@ -135,8 +140,9 @@ function Analytics() {
     return Object.values(map).sort((a,b) => a.key.localeCompare(b.key)).slice(-18);
   }, [filteredSales, filteredExpenses, timezone, canCalculateNet]);
 
-  const dead = scopedInventory.filter((product) => !product.archived && !productMap[String(product.id)] && Number(product.quantity) > 0).slice(0,5);
-  const slow = scopedInventory.filter((product) => !product.archived && productMap[String(product.id)] && productMap[String(product.id)].qty <= 2 && Number(product.quantity) > 0).slice(0,5);
+  const productSales = (product) => productMap[JSON.stringify([String(product.id),product.unit||"dona"])];
+  const dead = scopedInventory.filter((product) => !product.archived && !productSales(product) && Number(product.quantity) > 0).slice(0,5);
+  const slow = scopedInventory.filter((product) => !product.archived && productSales(product) && productSales(product).qty <= 2 && Number(product.quantity) > 0).slice(0,5);
 
   const compare = stores.filter((item) => item.active !== false).map((branch) => {
     const branchSales = basePeriodSales
@@ -174,9 +180,9 @@ function Analytics() {
     <section className="analytics-filterbar pro-card">
       <div className="pro-tabs">{presets.map((item) => <button key={item} className={period === item ? "active" : ""} onClick={() => setPeriod(item)}>{item}</button>)}</div>
       {period === "Ixtiyoriy" && <><PremiumDateInput className="pro-date" value={from} onChange={(event) => setFrom(event.target.value)}/><PremiumDateInput className="pro-date" value={to} onChange={(event) => setTo(event.target.value)}/></>}
-      <PremiumSelect className="pro-select" value={store} onChange={(event) => setStore(event.target.value)}><option value="all">Barcha filiallar</option>{stores.filter((item) => item.active !== false).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</PremiumSelect>
-      <PremiumSelect className="pro-select" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">Barcha kategoriyalar</option>{categories.map((item) => <option key={item}>{item}</option>)}</PremiumSelect>
-      <PremiumSelect className="pro-select" value={seller} onChange={(event) => setSeller(event.target.value)}><option value="all">Barcha sotuvchilar</option>{sellers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</PremiumSelect>
+      <PremiumSelect className="pro-select" aria-label="Filial" value={store} onChange={(event) => setStore(event.target.value)}><option value="all">Barcha filiallar</option>{stores.filter((item) => item.active !== false).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</PremiumSelect>
+      <PremiumSelect className="pro-select" aria-label="Kategoriya" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">Barcha kategoriyalar</option>{categories.map((item) => <option key={item}>{item}</option>)}</PremiumSelect>
+      <PremiumSelect className="pro-select" aria-label="Sotuvchi" value={seller} onChange={(event) => setSeller(event.target.value)}><option value="all">Barcha sotuvchilar</option>{sellers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</PremiumSelect>
     </section>
 
     <div className="pro-stat-grid analytics-kpis">
@@ -197,7 +203,7 @@ function Analytics() {
     </div>
 
     <div className="analytics-bottom-grid">
-      <section className="pro-card"><div className="pro-card-head"><div><h2>Eng ko‘p sotilgan mahsulotlar</h2><p>Sof savdo summasi bo‘yicha</p></div></div><div className="rank-list">{topProducts.length ? topProducts.map((product,index) => <div key={product.name}><b>{index+1}</b><span><strong>{product.name}</strong><small>{product.qty} {product.qty === 1 ? "birlik" : "birlik"}</small></span><em>{formatPrice(product.revenue)}</em></div>) : <div className="pro-empty">Savdo ma’lumoti yo‘q</div>}</div></section>
+      <section className="pro-card"><div className="pro-card-head"><div><h2>Eng ko‘p sotilgan mahsulotlar</h2><p>Sof savdo summasi bo‘yicha</p></div></div><div className="rank-list">{topProducts.length ? topProducts.map((product,index) => <div key={product.id}><b>{index+1}</b><span><strong>{product.name}</strong><small>{product.qty} {product.unit}</small></span><em>{formatPrice(product.revenue)}</em></div>) : <div className="pro-empty">Savdo ma’lumoti yo‘q</div>}</div></section>
       <section className="pro-card"><div className="pro-card-head"><div><h2>Sekin aylanayotgan qoldiq</h2><p>Tanlangan filialdagi mahsulotlar</p></div></div><div className="stock-risk-list">{dead.map((product) => <div key={product.id}><span><strong>{product.name}</strong><small>{product.quantity} {product.unit || "dona"} qoldiq</small></span><StatusBadge tone="danger">Sotilmagan</StatusBadge></div>)}{slow.map((product) => <div key={product.id}><span><strong>{product.name}</strong><small>{product.quantity} {product.unit || "dona"} qoldiq</small></span><StatusBadge tone="warning">Sekin</StatusBadge></div>)}{!dead.length && !slow.length && <div className="pro-empty">Riskli qoldiq topilmadi</div>}</div></section>
     </div>
   </div>;

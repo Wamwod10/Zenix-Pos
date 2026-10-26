@@ -1,0 +1,17 @@
+{
+  "scope": "Actual source React Chromium -> local Express -> disposable local PostgreSQL. Test tenant only.",
+  "checks": [
+    "UI creates product, verified PostgreSQL sell_price12000",
+    "UI receives10 units; authoritative branch inventory10",
+    "UI ordinary cash sale12000; one DB sale/payment12000; stock9",
+    "UI refund original cash12000; one return quantity1; stock restored10",
+    "UI shift authoritative summary100000 = opening100000 + cashsale12000 - refund12000; close100000 zero discrepancy verified PostgreSQL"
+  ],
+  "closedShift": {
+    "status": "closed",
+    "expected_cash": "100000.00",
+    "actual_cash": "100000.00",
+    "difference": "0.00"
+  },
+  "errors": []
+}

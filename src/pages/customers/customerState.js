@@ -1,5 +1,5 @@
-export function buildCustomerPaymentPayload({ amount, paymentMethod, note = "", storeId = null,clientReference }) {
-  return { amount:Number(amount), paymentMethod, note, storeId:storeId || null,...(clientReference?{clientReference}:{}) };
+export function buildCustomerPaymentPayload({ amount, paymentMethod, note = "", storeId = null,clientReference,shiftId }) {
+  return { amount:Number(amount), paymentMethod, note, storeId:storeId || null,...(paymentMethod==='cash'&&shiftId?{shiftId}:{}),...(clientReference?{clientReference}:{}) };
 }
 
 export function appendCustomerHistory(detail,key,page){
@@ -18,4 +18,9 @@ export function resolveCustomerLoadResults(listResult, statsResult) {
     stats:statsResult.status === "fulfilled" ? (statsResult.value || {}) : null,
     statsError:statsResult.status === "rejected" ? (statsResult.reason?.message || "Moliyaviy ko‘rsatkichlarni yuklab bo‘lmadi") : "",
   };
+}
+export function buildCustomerProfilePayload(form,canWriteFinancial){
+ const payload={name:form.name.trim(),phone:form.phone.trim(),email:form.email.trim(),address:form.address.trim(),note:form.note||'',tags:Array.isArray(form.tags)?form.tags:[]};
+ if(canWriteFinancial)for(const key of ['creditLimit','defaultCreditDays','customerType','loyaltyTier'])payload[key]=form[key];
+ return payload;
 }

@@ -65,13 +65,13 @@ const normalizeProduct = (item, storeIds = [DEFAULT_STORE_ID]) => {
 const normalizeInventoryState = (items = [], storeIds = [DEFAULT_STORE_ID]) => items.map((item)=>normalizeProduct(item,storeIds));
 const projectInventory = (items = [], storeId = DEFAULT_STORE_ID) => items.map((item)=>{
   const qty = number(item.stockByStore?.[storeId], 0);
-  return { ...item, quantity:qty, stock:qty };
+  return { ...item, quantity:qty, stock:qty, referenceCostPrice:item.referenceCostPrice??item.costPrice, costPrice:number(item.costByStore?.[storeId]??item.referenceCostPrice??item.costPrice,0) };
 });
 export const productFromApi=(row,storeIds=[])=>normalizeProduct({
   ...(row.metadata||{}),metadata:row.metadata||{},
   id:row.id,name:row.name,sku:row.sku||"",barcode:row.barcode||"",category:row.category||"",brand:row.brand||"",unit:row.unit||"dona",
   costPrice:number(row.cost_price??row.costPrice,0),sellPrice:number(row.sell_price??row.sellPrice,0),wholesalePrice:number(row.wholesale_price??row.wholesalePrice,0),
-  minStock:number(row.min_stock??row.minStock,0),archived:Boolean(row.archived),stockByStore:row.stock_by_store||row.stockByStore||{},
+  minStock:number(row.min_stock??row.minStock,0),archived:Boolean(row.archived),stockByStore:row.stock_by_store||row.stockByStore||{},costByStore:row.cost_by_store||row.costByStore||{},
   // Bootstrap tracking is database state; metadata may contain old snapshots.
   serializedUnits:Array.isArray(row.serializedUnits)?row.serializedUnits:[],
   stockBatches:Array.isArray(row.stockBatches)?row.stockBatches:[],
@@ -170,7 +170,7 @@ export const StoreProvider = ({ children }) => {
   const activeShift = activeShifts[currentStoreId] || null;
   const readOnly=workspaceAccessState({organization:organizations.find(item=>item.id===currentUser?.organizationId)}).readOnly;
   const hasPermission = useCallback((permission, role=currentUser?.appRole)=>{
-    if(readOnly&&['productWrite','inventoryAdjust','transferCreate','transferApprove','transferReceive','transferCancel','supplierWrite','returns','expensesWrite','shiftRecon','inventoryCountApprove','closeBusinessDay','settingsWrite'].includes(permission))return false;
+    if(readOnly&&['productWrite','inventoryAdjust','transferCreate','transferApprove','transferReceive','transferCancel','supplierWrite','returns','expensesWrite','shiftRecon','inventoryCountApprove','closeBusinessDay','settingsWrite','customerFinancialWrite'].includes(permission))return false;
     if(role===ROLES.OWNER)return true;
     const overrides=currentUser?.permissionOverrides;
     if(role===currentUser?.appRole&&overrides&&Object.prototype.hasOwnProperty.call(overrides,permission)) return Boolean(overrides[permission]);
@@ -404,7 +404,7 @@ export const StoreProvider = ({ children }) => {
   const saveProduct=useCallback(async({id=null,payload})=>{
     const metadata=productMetadata(payload,inventoryState.find(item=>item.id===id)?.metadata||{});
     const body={name:payload.name,sku:payload.sku||"",barcode:payload.barcode||"",category:payload.category||"",brand:payload.brand||"",unit:payload.unit||"dona",costPrice:number(payload.costPrice,0),sellPrice:number(payload.sellPrice??payload.price,0),wholesalePrice:number(payload.wholesalePrice,0),minStock:number(payload.minStock,0),metadata};
-    try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore,serializedUnits:Array.isArray(data.product.serializedUnits)?product.serializedUnits:item.serializedUnits,stockBatches:Array.isArray(data.product.stockBatches)?product.stockBatches:item.stockBatches}:item):[product,...items]);return {success:true,product}}
+    try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore,costByStore:item.costByStore,serializedUnits:Array.isArray(data.product.serializedUnits)?product.serializedUnits:item.serializedUnits,stockBatches:Array.isArray(data.product.stockBatches)?product.stockBatches:item.stockBatches}:item):[product,...items]);return {success:true,product}}
     catch(error){return {success:false,message:error?.message||"Mahsulotni saqlab bo‘lmadi"}}
   },[stores,inventoryState]);
 
@@ -419,14 +419,15 @@ export const StoreProvider = ({ children }) => {
   },[]);
 
   const patchProducts=useCallback(async(productIds,patch)=>{
-    const results=[];
-    for(const id of productIds||[]){
-      const current=inventoryState.find((item)=>item.id===id);if(!current)continue;
-      if(Object.prototype.hasOwnProperty.call(patch,"archived")){const result=await setProductArchived(id,Boolean(patch.archived));if(!result.success)return result;results.push(result.product);continue;}
-      const result=await saveProduct({id,payload:{...current,...patch}});if(!result.success)return result;results.push(result.product);
-    }
-    return {success:true,products:results};
-  },[inventoryState,saveProduct,setProductArchived]);
+    const ids=[...new Set(productIds||[])];
+    if(!ids.length)return {success:true,products:[]};
+    try{
+      const data=await api.post('/api/products/bulk',Array.isArray(patch)?{updates:patch}:{productIds:ids,patch});
+      const updates=new Map(data.products.map((row)=>[row.id,productFromApi(row,stores.map((store)=>store.id))]));
+      setInventoryState((items)=>items.map((item)=>{const next=updates.get(item.id);return next?{...item,...next,stockByStore:item.stockByStore,costByStore:item.costByStore,serializedUnits:item.serializedUnits,stockBatches:item.stockBatches}:item}));
+      return {success:true,products:data.products};
+    }catch(error){return apiFailure(error,"Mahsulotlarni yangilab bo'lmadi")}
+  },[stores]);
 
   const addStore = useCallback(async({name})=>{
     if(!hasPermission("settingsWrite",currentUser?.appRole))return {success:false,message:"Filial yaratish uchun Sozlamalarni boshqarish ruxsati kerak"};
@@ -730,7 +731,7 @@ export const StoreProvider = ({ children }) => {
   const commitShiftClose = useCallback(async ({ closedShift, storeId = currentStoreId, activity = null } = {}) => {
     const current=activeShifts?.[storeId];if(!current||!closedShift)return {success:false,message:"Joriy smena topilmadi"};
     try{
-      const data=await api.post(`/api/shifts/${encodeURIComponent(current.id)}/close`,{actualCash:number(closedShift.closingCash??closedShift.actualCash,0),metadata:{differenceReason:closedShift.differenceReason||"",denominationCounts:closedShift.denominationCounts||null,duration:closedShift.duration||""}});
+      const data=await api.post(`/api/shifts/${encodeURIComponent(current.id)}/close`,{actualCash:number(closedShift.closingCash??closedShift.actualCash,0),...(Number.isFinite(closedShift.expectedCash)?{expectedCash:closedShift.expectedCash}:{}),metadata:{differenceReason:closedShift.differenceReason||"",denominationCounts:closedShift.denominationCounts||null,duration:closedShift.duration||""}});
       scheduleWorkspaceRefresh();return {success:true,shift:data.shift||data};
     }catch(error){return apiFailure(error,"Smenani yopib bo‘lmadi")}
   },[activeShifts,currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);

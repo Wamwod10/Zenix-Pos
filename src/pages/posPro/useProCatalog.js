@@ -12,7 +12,7 @@ export default function useProCatalog(storeId){
   controller.current=createPosCatalog({request:query=>api.get(`/api/bootstrap/catalog?${new URLSearchParams({storeId,...query})}`,{signal:AbortSignal.timeout(15000)}),normalize:row=>{
    const stock=row.stockByStore||row.stock_by_store;
    if(!stock||!Object.hasOwn(stock,storeId)||!Number.isFinite(Number(stock[storeId])))throw Error('Filial qoldig‘i tekshirilmagan');
-   const p=productFromApi(row,[storeId]);return {...p,quantity:Number(stock[storeId]),stock:Number(stock[storeId])};
+   const p=productFromApi(row,[storeId]);return {...p,referenceCostPrice:p.referenceCostPrice??p.costPrice,costPrice:Number(p.costByStore?.[storeId]??p.costPrice??0),quantity:Number(stock[storeId]),stock:Number(stock[storeId])};
   },onChange:setView});
   return()=>{active.current=false;controller.current?.dispose()};
  },[storeId]);

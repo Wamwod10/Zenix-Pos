@@ -84,26 +84,26 @@ export const DEFAULT_WORKSPACE_SETTINGS = {
 export const DEFAULT_ROLE_PERMISSIONS = {
   OWNER: {
     moduleDashboard:true,moduleShifts:true,moduleSales:true,moduleHistory:true,moduleProducts:true,moduleInventory:true,moduleSuppliers:true,moduleExpenses:true,moduleAnalytics:true,moduleSellerAnalytics:true,moduleActivityLog:true,moduleSettings:true,moduleBilling:true,
-    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:true,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:true,inventoryCountApprove:true,closeBusinessDay:true,dataExport:true,settingsWrite:true,
+    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:true,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:true,inventoryCountApprove:true,closeBusinessDay:true,dataExport:true,settingsWrite:true,customerFinancialWrite:true,
   },
   ADMIN: {
     moduleDashboard:true,moduleShifts:true,moduleSales:true,moduleHistory:true,moduleProducts:true,moduleInventory:true,moduleSuppliers:true,moduleExpenses:true,moduleAnalytics:true,moduleSellerAnalytics:true,moduleActivityLog:true,moduleSettings:true,moduleBilling:true,
-    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:true,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:false,inventoryCountApprove:true,closeBusinessDay:true,dataExport:true,settingsWrite:true,
+    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:true,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:false,inventoryCountApprove:true,closeBusinessDay:true,dataExport:true,settingsWrite:true,customerFinancialWrite:true,
   },
   MANAGER: {
     moduleDashboard:true,moduleShifts:true,moduleSales:true,moduleHistory:true,moduleProducts:true,moduleInventory:true,moduleSuppliers:true,moduleExpenses:true,moduleAnalytics:true,moduleSellerAnalytics:true,moduleActivityLog:true,moduleSettings:false,moduleBilling:false,
-    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:false,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,
+    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:false,transferReceive:true,transferCancel:true,supplierWrite:true,returns:true,expensesWrite:true,analytics:true,shiftRecon:true,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,customerFinancialWrite:false,
   },
   CASHIER: {
     moduleDashboard:false,moduleShifts:true,moduleSales:true,moduleHistory:true,moduleProducts:false,moduleInventory:false,moduleSuppliers:false,moduleExpenses:false,moduleAnalytics:false,moduleSellerAnalytics:false,moduleActivityLog:false,moduleSettings:false,moduleBilling:false,
-    productWrite:false,inventoryAdjust:false,transferView:false,transferCreate:false,transferApprove:false,transferReceive:false,transferCancel:false,supplierWrite:false,returns:true,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,
+    productWrite:false,inventoryAdjust:false,transferView:false,transferCreate:false,transferApprove:false,transferReceive:false,transferCancel:false,supplierWrite:false,returns:true,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,customerFinancialWrite:false,
   },
   SALES: {
     moduleDashboard:false,moduleShifts:true,moduleSales:true,moduleHistory:true,moduleProducts:true,moduleInventory:false,moduleSuppliers:false,moduleExpenses:false,moduleAnalytics:false,moduleSellerAnalytics:false,moduleActivityLog:false,moduleSettings:false,moduleBilling:false,
-    productWrite:false,inventoryAdjust:false,transferView:false,transferCreate:false,transferApprove:false,transferReceive:false,transferCancel:false,supplierWrite:false,returns:false,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,
+    productWrite:false,inventoryAdjust:false,transferView:false,transferCreate:false,transferApprove:false,transferReceive:false,transferCancel:false,supplierWrite:false,returns:false,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,customerFinancialWrite:false,
   },
   WAREHOUSE: {
     moduleDashboard:false,moduleShifts:false,moduleSales:false,moduleHistory:false,moduleProducts:true,moduleInventory:true,moduleSuppliers:true,moduleExpenses:false,moduleAnalytics:false,moduleSellerAnalytics:false,moduleActivityLog:false,moduleSettings:false,moduleBilling:false,
-    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:false,transferReceive:true,transferCancel:false,supplierWrite:true,returns:false,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,
+    productWrite:true,inventoryAdjust:true,transferView:true,transferCreate:true,transferApprove:false,transferReceive:true,transferCancel:false,supplierWrite:true,returns:false,expensesWrite:false,analytics:false,shiftRecon:false,billingWrite:false,inventoryCountApprove:false,closeBusinessDay:false,dataExport:false,settingsWrite:false,customerFinancialWrite:false,
   },
 };

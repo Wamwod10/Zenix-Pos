@@ -30,7 +30,7 @@ async function withSession(page, get, run, user = owner, requests = []) {
       if(path==="/api/auth/me")return {user};
       if(path==="/api/users/me/sessions")return {sessions:[]};
       if(path==="/api/users")return {users:[]};
-      if(path==="/api/bootstrap")return {stores:[{id:"store-1",name:"Main",active:true}],organization:{id:user.organizationId,plan:"MONTHLY",storeLimit:2}};
+      if(path==="/api/bootstrap")return {stores:[{id:"store-1",name:"Main",active:true}],activeShifts:{"store-1":{id:"shift-1",cashierAccountId:user.id}},organization:{id:user.organizationId,plan:"MONTHLY",storeLimit:2}};
       if(path==="/api/settings")return {selectedStoreId:"store-1",workspaceSettings:{},uiPreferences:{},businessFeatures:{},rolePermissions:{}};
       if(path==="/api/platform/overview")return {overview:{organizations:2}};
       if(path==="/api/sync/version")return {revision:"1"};
@@ -122,6 +122,7 @@ for(const mutation of ["create","edit","payment"]) {
       }
       assert.equal(writes.length,1,`${mutation} must be pending before changing controls`);
       assert.equal(writes[0].path,mutation==="create"?"/api/customers":mutation==="edit"?"/api/customers/c-1":"/api/customers/c-1/payments");
+      if(mutation==="payment")assert.equal(writes[0].payload.shiftId,"shift-1","cash repayment carries the authorized open shift");
       while(document.querySelector('[role="dialog"]'))await act(async()=>document.querySelector('[aria-label="Yopish"]').click());
       await select(container,"Mijozlar filtri","VIP");
       const beforeResolve=calls.length;

@@ -75,7 +75,12 @@ test('real Chromium → frontend → Express → PostgreSQL subscription accepta
       await pool.query("UPDATE organizations SET expiry_date='2000-01-01',settings=settings-'trialEndsAt' WHERE id=$1",[org.id]);await pool.query("UPDATE subscription_terms SET superseded_at=now() WHERE organization_id=$1",[org.id]);
       await page.goto(base+'/products');await page.getByRole('status').filter({hasText:'Faqat ko‘rish rejimi'}).waitFor();
       const response=await context.request.post(base+'/api/stores',{headers:{'x-zenix-client':'web',origin:base},data:{name:'Blocked'}});assert.equal(response.status(),402);
-      await page.goto(base+'/billing');await page.locator('.subscription-usage').waitFor();assert.equal(await page.getByRole('button',{name:'To‘lov hisobini ko‘rish'}).isEnabled(),true);
+      await page.goto(base+'/billing');await page.locator('.subscription-usage').waitFor();
+      // Billing can initially show the readable overview while the refreshed expiry arrives.
+      // Exercise its renewal action instead of assuming the plan chooser is already open.
+      const renew=page.getByRole('button',{name:'Tarifni uzaytirish',exact:true});
+      if(await renew.count())await renew.click();
+      assert.equal(await page.getByRole('button',{name:'To‘lov hisobini ko‘rish'}).isEnabled(),true);
     });
     await t.test('public registration offers three backend tiers without an interval requirement',async()=>{
       const guest=await browser.newContext({viewport:{width:390,height:1000}});const registration=await guest.newPage();await registration.goto(base+'/register');await registration.locator('input[value=PREMIUM]').check();

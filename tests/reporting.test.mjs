@@ -35,6 +35,14 @@ test("multi-store inventory scope and legacy store-name matching stay determinis
   assert.equal(matchesStore({store:"Asosiy filial"},"s2",stores),false);
 });
 
+test("report inventory valuation uses each branch average including zero",()=>{
+  const products=[{costPrice:99,stockByStore:{a:10,b:20,c:2},costByStore:{a:0,b:15}}];
+  assert.equal(projectInventoryScope(products,"a")[0].inventoryValue,0);
+  assert.equal(projectInventoryScope(products,"b")[0].inventoryValue,300);
+  assert.equal(projectInventoryScope(products,"c")[0].inventoryValue,198);
+  assert.equal(projectInventoryScope(products,"all")[0].inventoryValue,498);
+});
+
 test("previous reporting range is exactly the same length as current range",()=>{
   const current=periodRange("7",{timezone:"Asia/Tashkent"});
   const previous=previousPeriodRange("7",{timezone:"Asia/Tashkent"});
@@ -60,6 +68,18 @@ test("seller analytics includes active cashiers and sales staff before their fir
   assert.deepEqual(rows.map((row)=>row.name),["Yangi kassir","Yangi sotuvchi"]);
   assert.deepEqual(rows.map((row)=>({sales:row.sales,count:row.count,avg:row.avg})),[
     {sales:0,count:0,avg:0},{sales:0,count:0,avg:0},
+  ]);
+});
+
+test("seller product rankings keep product identities and units separate",()=>{
+  const [row]=reporting.buildSellerAnalyticsRows({sales:[{sellerId:"s1",items:[
+    {productId:"p1",name:"Same",unit:"kg",quantity:2,price:10},
+    {productId:"p2",name:"Same",unit:"dona",quantity:3,price:10},
+    {productId:"p1",name:"Renamed",unit:"kg",quantity:5,price:10},
+    {productId:"p1",name:"Same",unit:"dona",quantity:1,price:10},
+  ]}]});
+  assert.deepEqual(Object.values(row.products).map(({name,unit,quantity})=>({name,unit,quantity})),[
+    {name:"Same",unit:"kg",quantity:7},{name:"Same",unit:"dona",quantity:3},{name:"Same",unit:"dona",quantity:1},
   ]);
 });
 

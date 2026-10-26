@@ -1,0 +1,364 @@
+{
+  "matrix": {
+    "cases": 440,
+    "runtimeErrors": [],
+    "routeFailures": [],
+    "uncontainedOverflow": 0,
+    "headerOverflow": 0,
+    "containedScrollCases": 38,
+    "interactions": [
+      {
+        "width": 320,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      },
+      {
+        "width": 360,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      },
+      {
+        "width": 430,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      }
+    ]
+  },
+  "controls": {
+    "cases": 24,
+    "runtimeErrors": [],
+    "routeFailures": [],
+    "uncontainedOverflow": 0,
+    "headerOverflow": 0,
+    "containedScrollCases": 8,
+    "interactions": [
+      {
+        "width": 320,
+        "route": "/inventory",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/suppliers",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Tashkilot (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Filiallar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Xodimlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Ruxsatlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Chek (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: POS (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Ombor (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Ish kuni (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Bildirishnomalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Telegram (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Interfeys (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Funksiyalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Eksport (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Diagnostika (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/settings",
+        "name": "Settings section: Tarix (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 320,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/inventory",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/suppliers",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Tashkilot (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Filiallar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Xodimlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Ruxsatlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Chek (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: POS (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Ombor (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Ish kuni (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Bildirishnomalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Telegram (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Interfeys (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Funksiyalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Eksport (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Diagnostika (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/settings",
+        "name": "Settings section: Tarix (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "route": "/platform",
+        "name": "Platform mobile profile retains Help and Fullscreen actions",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/inventory",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/suppliers",
+        "name": "module views, 45-record pagination, actions, search and reload persistence",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Tashkilot (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Filiallar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Xodimlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Ruxsatlar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Chek (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: POS (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Ombor (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Ish kuni (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Bildirishnomalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Telegram (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Interfeys (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Funksiyalar (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Eksport (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Diagnostika (read-only panel navigation)",
+        "status": "PASS"
+      },
+      {
+        "width": 1366,
+        "route": "/settings",
+        "name": "Settings section: Tarix (read-only panel navigation)",
+        "status": "PASS"
+      }
+    ]
+  }
+}

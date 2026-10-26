@@ -95,6 +95,7 @@ test("Vercel proxy forwards only application headers to the backend",async()=>{
     cookie:"zenix_session=test-session",
     "content-type":"application/json",
     "x-file-name":"receipt.pdf",
+    "x-file-purpose":"expense",
     "x-telegram-bot-api-secret-token":"test-webhook-secret",
     "x-zenix-client":"web",
     "x-vercel-forwarded-for":"203.0.113.10",
@@ -106,6 +107,7 @@ test("Vercel proxy forwards only application headers to the backend",async()=>{
     assert.equal(upstreamHeaders.get("authorization"),"Bearer test-token");
     assert.equal(upstreamHeaders.get("cookie"),"zenix_session=test-session");
     assert.equal(upstreamHeaders.get("x-file-name"),"receipt.pdf");
+    assert.equal(upstreamHeaders.get("x-file-purpose"),"expense");
     assert.equal(upstreamHeaders.get("x-telegram-bot-api-secret-token"),"test-webhook-secret");
     assert.equal(upstreamHeaders.get("x-zenix-client"),"web");
     assert.equal(upstreamHeaders.has("x-vercel-forwarded-for"),false);

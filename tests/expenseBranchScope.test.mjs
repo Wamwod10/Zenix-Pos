@@ -21,7 +21,7 @@ test('expense employee choices and open forms follow the selected branch',async(
       if(path==='/api/settings')return {selectedStoreId:'a'};
       return {items:[],users:[],sessions:[],revision:1};
     };
-    api.upload=async()=>{uploads++;return {file:{id:'11111111-1111-4111-8111-111111111111'}}};api.delete=async path=>deleted.push(path);
+    api.upload=async(path,_file,options)=>{assert.equal(path,'/api/files');assert.equal(options.purpose,'expense');uploads++;return {file:{id:'11111111-1111-4111-8111-111111111111'}}};api.delete=async path=>deleted.push(path);
     api.patch=async()=>({});api.post=async(path,body)=>{if(path==='/api/expenses'){saved=body;submitted.push(body);return submitted.length===1?{}:{expense:{id:'22222222-2222-4222-8222-222222222222',...body}}}return {}};
     function Probe(){store=useStore();return store.workspaceReady?React.createElement(Expenses):null}
     root=createRoot(document.getElementById('root'));

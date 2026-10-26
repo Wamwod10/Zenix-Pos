@@ -1,4 +1,4 @@
-import { Children, Fragment, isValidElement, useEffect, useMemo, useRef, useState } from "react";
+import { Children, Fragment, isValidElement, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiCalendar, FiCheck, FiChevronDown, FiChevronLeft, FiChevronRight, FiClock, FiFileText, FiSliders, FiUploadCloud, FiX } from "react-icons/fi";
 
@@ -118,7 +118,12 @@ export function PremiumSelect({ children, value, onChange, disabled = false, cla
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const [menuStyle, setMenuStyle] = useState({});
   const triggerRef = useRef(null);
+  const menuId = useId();
   const menuRef = useRef(null);
+  const [hasNativeLabel, setHasNativeLabel] = useState(true);
+  useEffect(() => {
+    setHasNativeLabel(Boolean(triggerRef.current?.labels?.length));
+  }, []);
 
   const syncPosition = () => {
     const rect = triggerRef.current?.getBoundingClientRect();
@@ -171,7 +176,8 @@ export function PremiumSelect({ children, value, onChange, disabled = false, cla
       return;
     }
     if (!open) return;
-    if (event.key === "Escape") { event.preventDefault(); setOpen(false); return; }
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setOpen(false); return; }
+    if (event.key === "Tab") { setOpen(false); return; }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const direction = event.key === "ArrowDown" ? 1 : -1;
@@ -183,7 +189,13 @@ export function PremiumSelect({ children, value, onChange, disabled = false, cla
       setActiveIndex(next);
       return;
     }
-    if (event.key === "Enter") { event.preventDefault(); choose(options[activeIndex]); }
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      const enabled = options.map((option, index) => option.disabled ? -1 : index).filter((index) => index >= 0);
+      setActiveIndex((event.key === "Home" ? enabled[0] : enabled.at(-1)) ?? 0);
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(options[activeIndex]); }
   };
 
   return <>
@@ -192,20 +204,25 @@ export function PremiumSelect({ children, value, onChange, disabled = false, cla
       type="button"
       className={`premium-select ${className}`.trim()}
       disabled={disabled}
+      role="combobox"
+      aria-controls={open ? menuId : undefined}
+      aria-activedescendant={open && options[activeIndex] ? `${menuId}-${activeIndex}` : undefined}
       aria-haspopup="listbox"
       aria-expanded={open}
-      aria-label={ariaLabel}
+      aria-label={ariaLabel || (!hasNativeLabel ? selected.label : undefined)}
       onClick={() => { if (!disabled) setOpen((state) => !state); }}
       onKeyDown={onKeyDown}
     >
       <span>{selected.label}</span><FiChevronDown className={open ? "rotate" : ""}/>
     </button>
-    {open && createPortal(<div ref={menuRef} className="premium-select-menu" style={menuStyle} role="listbox">
+    {open && createPortal(<div ref={menuRef} id={menuId} className="premium-select-menu" style={menuStyle} role="listbox">
       {options.map((option, index) => {
         const current = String(option.value) === String(value ?? "");
         return <button
           key={`${String(option.value)}-${index}`}
           type="button"
+          id={`${menuId}-${index}`}
+          tabIndex={-1}
           role="option"
           aria-selected={current}
           disabled={option.disabled}
@@ -585,9 +602,9 @@ export function MultiFilePicker({
 }
 
 
-export function PremiumCheckbox({ checked = false, onChange, disabled = false, className = "", children, title, description }) {
+export function PremiumCheckbox({ checked = false, onChange, disabled = false, className = "", children, title, description, "aria-label": ariaLabel }) {
   return <label className={`premium-check ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} ${className}`.trim()}>
-    <input type="checkbox" checked={checked} disabled={disabled} onChange={onChange}/>
+    <input aria-label={ariaLabel} type="checkbox" checked={checked} disabled={disabled} onChange={onChange}/>
     <span className="premium-check-box"><FiCheck/></span>
     {(children || title || description) && <span className="premium-check-copy">
       {children || <>{title && <strong>{title}</strong>}{description && <small>{description}</small>}</>}

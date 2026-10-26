@@ -8,6 +8,9 @@ export class ApiError extends Error{
 }
 
 const FRIENDLY_ERRORS={
+  CUSTOMER_FINANCIAL_WRITE_FORBIDDEN:'Mijozning kredit va loyalty sozlamalarini o‘zgartirishga ruxsat yo‘q.',
+  CLIENT_REFERENCE_REQUIRED:'To‘lov identifikatori yetishmayapti. Sahifani yangilab, qayta urining.',
+  SHIFT_CASH_CHANGED:'Kassa summasi o‘zgardi. Yangilangan hisobni tekshirib, qayta yoping.',
   AI_UNAVAILABLE:'ZENIX AI provayderi hali faollashtirilmagan. POS modullari ishlashda davom etadi.',
   AI_FAILURE:'AI tahlili vaqtincha mavjud emas. Birozdan keyin qayta urining.',
   AI_PROVIDER_FAILURE:'AI provayderi javob bermadi. POS modullari ishlashda davom etadi.',
@@ -30,6 +33,8 @@ const FRIENDLY_ERRORS={
   DOWNGRADE_REQUIRED:'Pastroq tarif uchun avval downgrade rejalashtiring.',
   TRIAL_NOT_ACTIVE:'Trial muddati tugagan. Tarifni to‘lov orqali faollashtiring.',
   REGISTER_INACTIVE:'Tanlangan POS kassa faol emas. Faol kassani tanlang yoki uni faollashtiring.',
+  SHIFT_ALREADY_OPEN:'Bu filialda smena allaqachon ochiq. Holatni yangilab, joriy filialdagi ochiq smenani tekshiring.',
+  EMPLOYEE_SHIFT_ALREADY_OPEN:'Boshqa filialdagi smenangiz ochiq. O‘sha filialga o‘tib, smenani yakunlang; keyin bu filialda qayta urining.',
   REGISTER_HAS_OPEN_SHIFT:'POS kassada ochiq smena bor. Kassani faolsizlantirishdan oldin smenani yoping.',
   TRIAL_ALREADY_USED:"Bu telefon raqami bilan bepul sinov avval ishlatilgan. Pullik tarifni tanlang yoki mavjud akkauntingizga kiring.",
   USERNAME_EXISTS:"Bu kirish nomi allaqachon band. Boshqa kirish nomi tanlang yoki mavjud akkauntingizga kiring.",
@@ -106,12 +111,12 @@ export async function apiRequest(path,{method="GET",body,headers={},signal}={}){
   return payload?.data??payload;
 }
 
-export async function apiUpload(path,file,{signal,headers={}}={}){
+export async function apiUpload(path,file,{signal,headers={},purpose}={}){
   ensureApi();
   if(!file)throw new ApiError("Fayl tanlanmagan",{code:"FILE_REQUIRED"});
   const response=await fetch(`${API_URL}${path}`,{
     method:"POST",credentials:"include",signal,
-    headers:{"X-Zenix-Client":"web","Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name||"file"),...headers},
+    headers:{"X-Zenix-Client":"web","Content-Type":file.type||"application/octet-stream","X-File-Name":encodeURIComponent(file.name||"file"),...(purpose?{"X-File-Purpose":purpose}:{}),...headers},
     body:file,
   });
   const payload=await response.json().catch(()=>null);

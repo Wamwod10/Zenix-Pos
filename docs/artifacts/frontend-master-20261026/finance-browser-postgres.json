@@ -1,0 +1,44 @@
+{
+  "scope": "Actual source React Chromium -> local Express -> disposable local PostgreSQL. Test tenant only.",
+  "checks": [
+    "Customer created through UI and verified in PostgreSQL",
+    "Lost committed cash-payment response recovered after browser reload with exact same payload/reference; one PAYMENT -25000 and one drawer in 25000; remaining debt35000",
+    "Shifts UI authoritative API summary125000 includes customer cash repayment; discrepancy requires reason; confirmed UI close persisted expected125000 actual124000 difference-1000 and reason"
+  ],
+  "paymentRequests": [
+    {
+      "body": {
+        "amount": 25000,
+        "paymentMethod": "cash",
+        "note": "",
+        "storeId": "3ef59186-716f-4e56-8fe1-6e6fc71e71cd",
+        "shiftId": "c6b9cff8-b070-499f-b7e1-9e890d01234c",
+        "clientReference": "RET-e39a8ef8-32f5-44e4-96e2-a6bc14a8291a"
+      },
+      "status": 200
+    },
+    {
+      "body": {
+        "amount": 25000,
+        "paymentMethod": "cash",
+        "note": "",
+        "storeId": "3ef59186-716f-4e56-8fe1-6e6fc71e71cd",
+        "shiftId": "c6b9cff8-b070-499f-b7e1-9e890d01234c",
+        "clientReference": "RET-e39a8ef8-32f5-44e4-96e2-a6bc14a8291a"
+      },
+      "status": 200
+    }
+  ],
+  "closedShift": {
+    "status": "closed",
+    "expected_cash": "125000.00",
+    "actual_cash": "124000.00",
+    "difference": "-1000.00",
+    "metadata": {
+      "duration": "0 soat 0 daqiqa",
+      "differenceReason": "Test counted shortage",
+      "denominationCounts": null
+    }
+  },
+  "errors": []
+}

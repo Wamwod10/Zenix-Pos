@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Register password reveal has accessible name",
+    "status": "PASS"
+  },
+  {
+    "name": "Wrapped supplier select preserves its native accessible label",
+    "status": "PASS"
+  },
+  {
+    "name": "Select exposes active option",
+    "status": "PASS"
+  },
+  {
+    "name": "Select Arrow/Home/End and Space select options",
+    "status": "PASS"
+  },
+  {
+    "name": "Escape closes select and retains parent modal",
+    "status": "PASS"
+  },
+  {
+    "name": "Tab dismisses select",
+    "status": "PASS"
+  },
+  {
+    "name": "Second Escape closes modal",
+    "status": "PASS"
+  },
+  {
+    "name": "Profile modal focuses form field",
+    "status": "PASS"
+  },
+  {
+    "name": "Profile modal traps forward and reverse Tab",
+    "status": "PASS"
+  },
+  {
+    "name": "Profile Escape restores trigger focus",
+    "status": "PASS"
+  },
+  {
+    "name": "Bare dashboard selects retain accessible selected-value names",
+    "status": "PASS"
+  },
+  {
+    "name": "Analytics filter names are stable",
+    "status": "PASS"
+  },
+  {
+    "name": "Seller Analytics filter names are stable",
+    "status": "PASS"
+  },
+  {
+    "name": "Help route renders",
+    "status": "PASS"
+  }
+]
