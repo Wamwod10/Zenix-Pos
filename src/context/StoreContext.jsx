@@ -419,14 +419,15 @@ export const StoreProvider = ({ children }) => {
   },[]);
 
   const patchProducts=useCallback(async(productIds,patch)=>{
-    const results=[];
-    for(const id of productIds||[]){
-      const current=inventoryState.find((item)=>item.id===id);if(!current)continue;
-      if(Object.prototype.hasOwnProperty.call(patch,"archived")){const result=await setProductArchived(id,Boolean(patch.archived));if(!result.success)return result;results.push(result.product);continue;}
-      const result=await saveProduct({id,payload:{...current,...patch}});if(!result.success)return result;results.push(result.product);
-    }
-    return {success:true,products:results};
-  },[inventoryState,saveProduct,setProductArchived]);
+    const ids=[...new Set(productIds||[])];
+    if(!ids.length)return {success:true,products:[]};
+    try{
+      const data=await api.post('/api/products/bulk',Array.isArray(patch)?{updates:patch}:{productIds:ids,patch});
+      const updates=new Map(data.products.map((row)=>[row.id,productFromApi(row,stores.map((store)=>store.id))]));
+      setInventoryState((items)=>items.map((item)=>{const next=updates.get(item.id);return next?{...item,...next,stockByStore:item.stockByStore,costByStore:item.costByStore,serializedUnits:item.serializedUnits,stockBatches:item.stockBatches}:item}));
+      return {success:true,products:data.products};
+    }catch(error){return apiFailure(error,"Mahsulotlarni yangilab bo'lmadi")}
+  },[stores]);
 
   const addStore = useCallback(async({name})=>{
     if(!hasPermission("settingsWrite",currentUser?.appRole))return {success:false,message:"Filial yaratish uchun Sozlamalarni boshqarish ruxsati kerak"};

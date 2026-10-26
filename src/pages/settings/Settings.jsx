@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useStore } from "../../context/StoreContext";
 import { DEFAULT_BUSINESS_FEATURES } from "../../config/uiDefaults";
 import { BILLING_CONFIG } from "../../config/billing";
-import { ROLE_LABELS, ROLES, isBranchEmployee, legacyRoleForAppRole } from "../../config/roles";
+import { ROLE_LABELS, ROLES, isBranchEmployee, legacyRoleForAppRole, canAdministerStaff, buildStaffRolePatch } from "../../config/roles";
 import { createTelegramConnection, waitForTelegramConnection, disconnectTelegramGroup, updateTelegramConnectionSettings, sendTelegramTestMessage } from "../../services/telegramService";
 import { PageHeader, StatusBadge, PremiumSelect, PremiumTimeInput, ColumnPicker, PremiumCheckbox } from "../../components/Ui";
 import { formatUzPhone, isValidUzPhone, sameUzPhone } from "../../utils/phone";
@@ -90,7 +90,7 @@ function Settings(){
       return `${emp.name||""} ${emp.phone||""} ${emp.login||""} ${ROLE_LABELS[emp.role]||emp.role||""} ${storeName}`.toLowerCase().includes(query);
     });
   },[employees,employeeSearch,employeeStatus,stores,currentStoreId]);
-  const protectedEmployee=(emp)=>emp.role===ROLES.OWNER||emp.accountId===currentUser?.id||String(emp.login||"").toLowerCase()===String(currentUser?.username||"").toLowerCase();
+  const protectedEmployee=(emp)=>!canAdministerStaff(currentUser?.appRole,emp.role)||emp.role===ROLES.OWNER||emp.accountId===currentUser?.id||String(emp.login||"").toLowerCase()===String(currentUser?.username||"").toLowerCase();
   const selectableEmployees=filteredEmployees.filter((emp)=>!protectedEmployee(emp));
   const selectedEmployees=employees.filter((emp)=>isBranchEmployee(emp,currentStoreId)&&selectedEmployeeIds.includes(emp.id)&&!protectedEmployee(emp));
   const allFilteredEmployeesSelected=selectableEmployees.length>0&&selectableEmployees.every((emp)=>selectedEmployeeIds.includes(emp.id));
@@ -148,7 +148,7 @@ function Settings(){
     employeeFormInitial.current=null;setEmployeeBusy(false);setEmployeeModal(false);
   };
   const updateEmployeeField=async(emp,key,value)=>{
-    if(!canWrite)return;
+    if(!canWrite||!canAdministerStaff(currentUser?.appRole,emp.role))return;
     const ownerRow=emp.role===ROLES.OWNER;
     if(ownerRow&&(key==="active"||key==="role")){
       notify({tone:"warning",title:"Asosiy egasi himoyalangan",message:"Asosiy egasining roli yoki faol holatini bu yerdan o‘zgartirib bo‘lmaydi."});
@@ -169,12 +169,12 @@ function Settings(){
       const duplicate=employees.some(item=>item.id!==emp.id&&item.active!==false&&sameUzPhone(item.phone,normalizedValue));
       if(duplicate){notify({tone:"danger",title:"Telefon band",message:"Bu telefon raqami boshqa faol xodimda ishlatilgan."});return}
     }
-    const nextOverrides=key==="role"?{}:(emp.permissionOverrides||{});
+    const nextOverrides=key==="role"&&canManagePermissions?{}:(emp.permissionOverrides||{});
     if(emp.accountId||emp.login){
-      const result=await updateWorkspaceUser(emp.id,{...(key==="name"?{name:normalizedValue}:{}),...(key==="phone"?{phone:normalizedValue}:{}),...(key==="role"?{appRole:normalizedValue,role:legacyRoleForAppRole(normalizedValue),permissionOverrides:nextOverrides}:{}),...(key==="storeId"?{storeId:normalizedValue}:{}),...(key==="active"?{active:normalizedValue}:{})});
+      const result=await updateWorkspaceUser(emp.id,{...(key==="name"?{name:normalizedValue}:{}),...(key==="phone"?{phone:normalizedValue}:{}),...(key==="role"?buildStaffRolePatch(currentUser?.appRole,normalizedValue):{}),...(key==="storeId"?{storeId:normalizedValue}:{}),...(key==="active"?{active:normalizedValue}:{})});
       if(!result.success){notify({tone:"danger",title:"Xodim yangilanmadi",message:result.message||"Kirish hisobini yangilab bo‘lmadi."});return}
     }
-    setEmployees(items=>items.map(item=>item.id===emp.id?{...item,[key]:normalizedValue,...(key==="role"?{permissionOverrides:{}}:{})}:item));
+    setEmployees(items=>items.map(item=>item.id===emp.id?{...item,[key]:normalizedValue,...(key==="role"?{permissionOverrides:nextOverrides}:{})}:item));
   };
   const applyEmployeeActiveBulk=async(targets,nextActive)=>{
     const successful=[];
@@ -405,15 +405,16 @@ function Settings(){
               <tbody>{filteredEmployees.length?filteredEmployees.map(emp=>{
                 const ownerRow=emp.role===ROLES.OWNER;
                 const protectedRow=protectedEmployee(emp);
+                const accountReadOnly=!canWrite||!canAdministerStaff(currentUser?.appRole,emp.role);
                 return <tr key={emp.id}>
                   {canWrite&&<td data-label="Tanlash" className="employee-select-cell">{protectedRow?<StatusBadge tone="neutral">Himoyalangan</StatusBadge>:<PremiumCheckbox checked={selectedEmployeeIds.includes(emp.id)} onChange={(event)=>toggleEmployeeSelection(emp.id,event.target.checked)} aria-label={`${emp.name} xodimini tanlash`}/>}</td>}
-                  <td data-label="Xodim"><input className="table-inline-input" disabled={!canWrite} value={emp.name} onChange={e=>updateEmployeeField(emp,"name",e.target.value)}/></td>
-                  {showEmployeeColumn("phone")&&<td data-label="Telefon"><input className="table-inline-input phone-inline" inputMode="tel" disabled={!canWrite} value={emp.phone||""} onChange={e=>updateEmployeeField(emp,"phone",formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67"/></td>}
+                  <td data-label="Xodim"><input className="table-inline-input" disabled={accountReadOnly} value={emp.name} onChange={e=>updateEmployeeField(emp,"name",e.target.value)}/></td>
+                  {showEmployeeColumn("phone")&&<td data-label="Telefon"><input className="table-inline-input phone-inline" inputMode="tel" disabled={accountReadOnly} value={emp.phone||""} onChange={e=>updateEmployeeField(emp,"phone",formatUzPhone(e.target.value))} placeholder="+998 90 123 45 67"/></td>}
                   {showEmployeeColumn("login")&&<td data-label="Kirish"><span className="employee-account-copy"><strong>{emp.login||(ownerRow?currentUser?.username:"—")}</strong><small>{emp.accountId?"Kirish faol":"Kirish hisobi yo‘q"}</small></span></td>}
-                  {showEmployeeColumn("role")&&<td data-label="Rol"><PremiumSelect className="table-inline-select" disabled={!canWrite||ownerRow} value={emp.role} onChange={e=>updateEmployeeField(emp,"role",e.target.value)}><option value={ROLES.OWNER}>{ROLE_LABELS[ROLES.OWNER]}</option><option value={ROLES.ADMIN}>{ROLE_LABELS[ROLES.ADMIN]}</option><option value={ROLES.MANAGER}>{ROLE_LABELS[ROLES.MANAGER]}</option><option value={ROLES.CASHIER}>{ROLE_LABELS[ROLES.CASHIER]}</option><option value={ROLES.SALES}>{ROLE_LABELS[ROLES.SALES]}</option><option value={ROLES.WAREHOUSE}>{ROLE_LABELS[ROLES.WAREHOUSE]}</option></PremiumSelect></td>}
-                  {showEmployeeColumn("store")&&<td data-label="Filial"><PremiumSelect className="table-inline-select" disabled={!canWrite} value={emp.storeId||""} onChange={e=>updateEmployeeField(emp,"storeId",e.target.value)}>{stores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</PremiumSelect></td>}
+                  {showEmployeeColumn("role")&&<td data-label="Rol"><PremiumSelect className="table-inline-select" disabled={accountReadOnly||ownerRow} value={emp.role} onChange={e=>updateEmployeeField(emp,"role",e.target.value)}><option value={ROLES.OWNER}>{ROLE_LABELS[ROLES.OWNER]}</option><option value={ROLES.ADMIN}>{ROLE_LABELS[ROLES.ADMIN]}</option><option value={ROLES.MANAGER}>{ROLE_LABELS[ROLES.MANAGER]}</option><option value={ROLES.CASHIER}>{ROLE_LABELS[ROLES.CASHIER]}</option><option value={ROLES.SALES}>{ROLE_LABELS[ROLES.SALES]}</option><option value={ROLES.WAREHOUSE}>{ROLE_LABELS[ROLES.WAREHOUSE]}</option></PremiumSelect></td>}
+                  {showEmployeeColumn("store")&&<td data-label="Filial"><PremiumSelect className="table-inline-select" disabled={accountReadOnly} value={emp.storeId||""} onChange={e=>updateEmployeeField(emp,"storeId",e.target.value)}>{stores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</PremiumSelect></td>}
                   {showEmployeeColumn("status")&&<td data-label="Holat"><button disabled={!canWrite||protectedRow} className={`status-toggle ${emp.active!==false?"on":""}`} onClick={()=>updateEmployeeField(emp,"active",emp.active===false)}>{emp.active!==false?"Faol":"O‘chiq"}</button></td>}
-                  {showEmployeeColumn("account")&&<td data-label="Hisob">{emp.accountId?<button className="pro-btn secondary compact-action" onClick={()=>resetEmployeePassword(emp)}>Parolni yangilash</button>:<StatusBadge tone="neutral">Hisob yo‘q</StatusBadge>}</td>}
+                  {showEmployeeColumn("account")&&<td data-label="Hisob">{emp.accountId?<button className="pro-btn secondary compact-action" disabled={accountReadOnly} onClick={()=>resetEmployeePassword(emp)}>Parolni yangilash</button>:<StatusBadge tone="neutral">Hisob yo‘q</StatusBadge>}</td>}
                   {showEmployeeColumn("permissions")&&<td data-label="Shaxsiy ruxsat">{emp.accountId&&emp.role!==ROLES.OWNER?<button className="pro-btn secondary compact-action" disabled={!canManagePermissions} onClick={()=>setPermissionEmployee(emp)}><FiShield/> Sozlash</button>:<span className="permission-default-label">{emp.role===ROLES.OWNER?"To‘liq":"Rol bo‘yicha"}</span>}</td>}
                 </tr>
               }):<tr><td colSpan={employeeColumns.length+2}><div className="pro-empty"><FiUsers/><strong>Xodim topilmadi</strong><span>Qidiruv yoki holat filtrini o‘zgartiring.</span></div></td></tr>}</tbody>

@@ -1,4 +1,4 @@
-import {financialSalesEvents} from "../../utils/reporting";
+import {financialSalesEvents,projectInventoryScope} from "../../utils/reporting";
 import { useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
@@ -83,12 +83,9 @@ function Dashboard(){
     payment.transfer+=Number(breakdown.transfer||0);
   });
 
-  const scopedInventory=useMemo(()=>{
-    if(store!=="all")return inventoryState.map(p=>({...p,quantity:Number(p.stockByStore?.[store]||0),stock:Number(p.stockByStore?.[store]||0)}));
-    return inventoryState.map(p=>{const quantity=Object.values(p.stockByStore||{}).reduce((sum,n)=>sum+Number(n||0),0);return{...p,quantity,stock:quantity}});
-  },[inventoryState,store]);
+  const scopedInventory=useMemo(()=>projectInventoryScope(inventoryState,store),[inventoryState,store]);
   const activeInventory=scopedInventory.filter(p=>!p.archived);
-  const inventoryValue=activeInventory.reduce((sum,p)=>sum+Number(p.costPrice||0)*Number(p.quantity||0),0);
+  const inventoryValue=activeInventory.reduce((sum,p)=>sum+p.inventoryValue,0);
   const low=activeInventory.filter(p=>Number(p.quantity)>0&&Number(p.quantity)<=Number(p.minStock||5));
   const out=activeInventory.filter(p=>Number(p.quantity)<=0);
   const supplierDebt=suppliers.filter(s=>!s.archived).reduce((sum,s)=>sum+supplierOpenDebt(s),0);

@@ -13,7 +13,7 @@ const api=app.listen(0,'127.0.0.1');await new Promise(r=>api.once('listening',r)
 const backend=`http://127.0.0.1:${api.address().port}`,web=await createServer({server:{host:'127.0.0.1',port:0},logLevel:'error'});await web.listen();const base=`http://127.0.0.1:${web.httpServer.address().port}`;
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)}),errors=[];
 
-const out='../artifacts/frontend-master-20261026/after';await mkdir(out,{recursive:true});
+const out=process.env.FINAL_RELEASE_ARTIFACTS_DIR||'../artifacts/frontend-master-20261026/after';await mkdir(out,{recursive:true});
 const evidence={scope:'Actual source React Chromium -> local Express -> disposable local PostgreSQL. Test tenant only.',checks:[]};
 try{
  const suffix=randomUUID(),org=(await pool.query("INSERT INTO organizations(name,license_status,expiry_date) VALUES($1,'ACTIVE','2099-01-01') RETURNING id",['Finance browser '+suffix])).rows[0].id;

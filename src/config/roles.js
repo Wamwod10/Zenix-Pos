@@ -29,6 +29,10 @@ export const isOrganizationUser = (user) => Boolean(
   user?.organizationId && user?.appRole !== ROLES.PLATFORM_ADMIN
 );
 
+// UI mirror of server staff hierarchy; module permission is checked separately.
+export const canAdministerStaff = (actorRole,targetRole) => actorRole === ROLES.OWNER
+  || (VALID_ROLES.has(actorRole) && actorRole !== ROLES.PLATFORM_ADMIN && ![ROLES.OWNER,ROLES.ADMIN].includes(targetRole));
+
 export const runForOrganizationUser = (user, action) => {
   if (!isOrganizationUser(user)) return false;
   action();
@@ -44,6 +48,11 @@ export const legacyRoleForAppRole = (appRole) => {
   if (appRole === ROLES.PLATFORM_ADMIN) return "platform_admin";
   return "admin";
 };
+
+export const buildStaffRolePatch = (actorRole,appRole) => ({
+  appRole,role:legacyRoleForAppRole(appRole),
+  ...(actorRole===ROLES.OWNER?{permissionOverrides:{}}:{}),
+});
 
 export const normalizeAppRole = (user) => {
   const explicit = String(user?.appRole || "").toUpperCase();

@@ -602,9 +602,9 @@ export function MultiFilePicker({
 }
 
 
-export function PremiumCheckbox({ checked = false, onChange, disabled = false, className = "", children, title, description }) {
+export function PremiumCheckbox({ checked = false, onChange, disabled = false, className = "", children, title, description, "aria-label": ariaLabel }) {
   return <label className={`premium-check ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} ${className}`.trim()}>
-    <input type="checkbox" checked={checked} disabled={disabled} onChange={onChange}/>
+    <input aria-label={ariaLabel} type="checkbox" checked={checked} disabled={disabled} onChange={onChange}/>
     <span className="premium-check-box"><FiCheck/></span>
     {(children || title || description) && <span className="premium-check-copy">
       {children || <>{title && <strong>{title}</strong>}{description && <small>{description}</small>}</>}
