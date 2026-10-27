@@ -24,6 +24,9 @@ test('supplier date-only values preserve calendar day in western time zones',()=
   assert.equal(typeof dates.formatWorkspaceCalendarDate,'function');
   const settings={timezone:'America/Los_Angeles',dateFormat:'YYYY-MM-DD'};
   assert.equal(dates.formatWorkspaceCalendarDate('2026-09-30T00:00:00.000Z',settings),'2026-09-30');
+  assert.equal(dates.formatWorkspaceCalendarDate('2026-09-30T00:00:00.000Z',{...settings,dateFormat:'DD.MM.YYYY'}),'30.09.2026');
+  assert.equal(dates.formatWorkspaceCalendarDate('2026-09-30',{...settings,dateFormat:'MM/DD/YYYY'}),'09/30/2026');
+  assert.equal(dates.formatWorkspaceCalendarDate('2026-02-30',settings),'—');
   assert.equal(dates.formatWorkspaceCalendarDate('bad',settings),'—');
   assert.equal(dates.formatWorkspaceCalendarDate(null,settings),'—');
 });

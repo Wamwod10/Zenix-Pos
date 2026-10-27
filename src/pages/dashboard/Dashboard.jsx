@@ -117,7 +117,7 @@ function Dashboard(){
     return rows;
   },[allSales,period,store,stores,organizationSettings.timezone,organizationSettings.dateFormat]);
 
-  const topProducts=useMemo(()=>rankProductEvents(sales),[sales]);
+  const topProducts=useMemo(()=>rankProductEvents(sales.map(sale=>({...sale,items:(sale.items||[]).map(item=>({...item,unit:item.unit||item.metadata?.unit||"dona"}))}))),[sales]);
 
   const expenseBreakdown=useMemo(()=>{
     const map=new Map();
