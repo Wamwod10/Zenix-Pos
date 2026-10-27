@@ -44,3 +44,4 @@ const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9
 export const isConfirmedFinancialRecord=value=>Boolean(uuid(value?.id)&&['number','string'].includes(typeof value.amount)&&String(value.amount).trim()!==''&&Number.isFinite(Number(value.amount))&&Number(value.amount)>=0);
 export const isConfirmedSale=value=>Boolean(uuid(value?.id)&&String(value.sale_number||value.saleNumber||'').trim());
 export const isConfirmedReceipt=value=>Boolean(uuid(value?.receiptId)&&Array.isArray(value.updated)&&value.updated.length&&value.updated.every(row=>uuid(row.productId||row.id)&&Number.isFinite(Number(row.quantity))));
+export const isConfirmedTransfer=(value,intent)=>Boolean(uuid(value?.id)&&value.from_store_id===intent?.fromStoreId&&value.to_store_id===intent?.toStoreId);

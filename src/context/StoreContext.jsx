@@ -12,7 +12,7 @@ import { api, ApiError } from "../services/apiClient";
 import {mapBootstrapInventory} from '../utils/bootstrapInventory';
 import {productMetadata} from '../utils/productOptions';
 import {workspaceAccessState} from '../utils/license';
-import {attemptKey,readAttempt,beginAttempt,prepareFinancialAttempt,settleFinancialAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt,isDefiniteWriteRejection,isConfirmedFinancialRecord} from '../utils/checkoutAttempt';
+import {attemptKey,readAttempt,beginAttempt,prepareFinancialAttempt,settleFinancialAttempt,settleAttempt,withAttemptLock,isConfirmedSale,isConfirmedReceipt,isConfirmedTransfer,isDefiniteWriteRejection,isConfirmedFinancialRecord} from '../utils/checkoutAttempt';
 import {refundAttemptKey,prepareRefundPayload,isConfirmedRefund} from '../utils/refundAttempt';
 
 export const StoreContext = createContext(null);
@@ -529,12 +529,37 @@ export const StoreProvider = ({ children }) => {
     if(!toStoreId||toStoreId===currentStoreId)return {success:false,message:"Qabul qiluvchi filialni tanlang"};
     const clean=(items||[]).map((item)=>({productId:item.productId,quantity:Math.max(0,number(item.qty??item.quantity,0))})).filter((item)=>item.productId&&item.quantity>0);
     if(!clean.length)return {success:false,message:"Transferga mahsulot qo‘shing"};
-    try{
-      const data=await api.post("/api/inventory/transfers",{fromStoreId:currentStoreId,toStoreId,needsApproval:Boolean(needsApproval),items:clean});
-      scheduleWorkspaceRefresh();
-      return {success:true,transfer:data.transfer||data};
-    }catch(error){return apiFailure(error,"Transferni yaratib bo‘lmadi")}
-  },[currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
+    const key=attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'transfer');
+    return withAttemptLock(key,async()=>{
+      let packet;
+      try{
+        if(readAttempt(window.localStorage,key))return {success:false,state:'unknown',message:'Avval oldingi transfer natijasini tekshiring.'};
+        const clientReference=`TRANSFER-${crypto.randomUUID()}`;
+        packet=beginAttempt(window.localStorage,key,{clientReference,payload:{fromStoreId:currentStoreId,toStoreId,needsApproval:Boolean(needsApproval),items:clean,clientReference}});
+        // An old server silently ignores the new reference. Verify support before writing.
+        const lookup=await api.get(`/api/inventory/transfer-reconciliation?storeId=${encodeURIComponent(currentStoreId)}&clientReference=${encodeURIComponent(clientReference)}`);
+        if(lookup?.state!=='unknown')throw new Error('Transfer tekshirish xizmati mavjud emas.');
+        let data;
+        try{data=await api.post('/api/inventory/transfers',packet.payload)}catch(error){settleAttempt(window.localStorage,key,isDefiniteWriteRejection(error)?'rejected':'unknown');throw error}
+        if(!isConfirmedTransfer(data?.transfer,packet.payload))throw new Error('Transfer javobi to‘liq emas. Natijani tekshiring.');
+        settleAttempt(window.localStorage,key,'confirmed');scheduleWorkspaceRefresh();return {success:true,transfer:data.transfer};
+      }catch(error){if(packet&&readAttempt(window.localStorage,key))settleAttempt(window.localStorage,key,'unknown');return {...apiFailure(error,'Transfer natijasini tekshiring.'),state:readAttempt(window.localStorage,key)?'unknown':'rejected'}}
+    });
+  },[currentStoreId,currentUser?.organizationId,currentUser?.id,scheduleWorkspaceRefresh]);
+
+  const recoverInventoryTransfer=useCallback(async()=>{
+    const key=attemptKey(currentUser?.organizationId,currentStoreId,currentUser?.id,'transfer');
+    return withAttemptLock(key,async()=>{
+      const packet=readAttempt(window.localStorage,key);if(!packet)return {success:true};
+      try{
+        const found=await api.get(`/api/inventory/transfer-reconciliation?storeId=${encodeURIComponent(currentStoreId)}&clientReference=${encodeURIComponent(packet.clientReference)}`);
+        if(!['confirmed','unknown'].includes(found?.state))throw new Error('Transfer tekshirish xizmati mavjud emas.');
+        const data=found.state==='confirmed'?{transfer:found.transfer}:await api.post('/api/inventory/transfers',packet.payload);
+        if(!isConfirmedTransfer(data?.transfer,packet.payload))throw new Error('Transfer javobi to‘liq emas.');
+        settleAttempt(window.localStorage,key,'confirmed');scheduleWorkspaceRefresh();return {success:true,transfer:data.transfer};
+      }catch(error){settleAttempt(window.localStorage,key,'unknown');return {...apiFailure(error,'Transfer natijasi noma’lum. Qayta tekshiring.'),state:'unknown'}}
+    });
+  },[currentStoreId,currentUser?.organizationId,currentUser?.id,scheduleWorkspaceRefresh]);
 
   const commitInventoryTransferTransition = useCallback(async ({ transferId, nextStatus, receivedQuantities = null, differenceReason = "" } = {}) => {
     if(!transferId)return {success:false,message:"Transfer topilmadi"};
@@ -808,14 +833,14 @@ export const StoreProvider = ({ children }) => {
 
   const reloadStore = useCallback((options)=>hydrateWorkspace(options),[hydrateWorkspace]);
   const value = useMemo(() => ({
-    inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
+    inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,
     dailySales,setDailySales,salesHistory,setSalesHistory,suppliers,setSuppliers,
     expenses,setExpenses,returns,setReturns,activeShift,activeShifts,shiftHistory,setShiftHistory,
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
     employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,catalogComplete,catalogError,catalogEpoch,ensureCatalog,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

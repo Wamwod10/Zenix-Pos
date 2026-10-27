@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {attemptKey,readAttempt,beginAttempt,settleAttempt,isConfirmedSale,isConfirmedReceipt,isDefiniteWriteRejection} from '../src/utils/checkoutAttempt.js';
+import * as attempts from '../src/utils/checkoutAttempt.js';
 const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}};
+
+test('transfer confirmation requires an actual transfer in the submitted branches',()=>{
+ const id='00000000-0000-4000-8000-000000000001';
+ assert.equal(typeof attempts.isConfirmedTransfer,'function');
+ assert.equal(attempts.isConfirmedTransfer({id,from_store_id:'a',to_store_id:'b'},{fromStoreId:'a',toStoreId:'b'}),true);
+ for(const value of [null,{}, {id:'fake',from_store_id:'a',to_store_id:'b'}, {id,from_store_id:'a',to_store_id:'other'}])assert.equal(attempts.isConfirmedTransfer(value,{fromStoreId:'a',toStoreId:'b'}),false);
+});
 
 test('only definite write rejections can release checkout and receipt identities',()=>{
  for(const result of [{},{status:200},{status:408},{status:409},{status:409,code:'REQUEST_FAILED'},{status:409,code:'IDEMPOTENCY_CONFLICT'},{status:425},{status:429},{status:500}])assert.equal(isDefiniteWriteRejection(result),false,JSON.stringify(result));

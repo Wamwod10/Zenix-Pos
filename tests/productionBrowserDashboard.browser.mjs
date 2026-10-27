@@ -15,7 +15,8 @@ try{
   if(u.pathname==='/api/finance')data={sales:[sale],returns:[refund],expenses:[],pagination:{hasMore:false}};
   if(u.pathname==='/api/ai/status')data={enabled:false};
   if(u.pathname==='/api/billing/subscription')data={subscription:{planCode:'BUSINESS',status:'ACTIVE'}};
-  if(u.pathname==='/api/inventory/transfers'&&route.request().method()==='POST'){transferRequests++;await new Promise(resolve=>setTimeout(resolve,400));data={transfer:{id:'t',to_store_id:'b',items:[{product_id:'p'}]}};}
+  if(u.pathname==='/api/inventory/transfer-reconciliation')data={state:'unknown'};
+  if(u.pathname==='/api/inventory/transfers'&&route.request().method()==='POST'){transferRequests++;await new Promise(resolve=>setTimeout(resolve,400));data={transfer:{id:'00000000-0000-4000-8000-000000000001',from_store_id:'a',to_store_id:'b',items:[{product_id:'p'}]}};}
   return route.fulfill({json:{ok:true,data}});
  });
  await page.goto(base);const row=page.locator('.top-product-list > div').filter({hasText:'Audit product'});await expect(row).toContainText('1 kg');await expect(row).toContainText('foyda 1,000');await expect(row.locator('b')).toContainText('2,000');
