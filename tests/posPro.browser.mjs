@@ -265,7 +265,7 @@ try{
     if(theme==='dark')await p.getByRole('button',{name:'Mavzu',exact:true}).click();
     await p.keyboard.press('F3');await expect(p.getByLabel('Barcode',{exact:true})).toBeFocused();await expect.poll(()=>p.locator('.pp-barcode').evaluate(el=>getComputedStyle(el).outlineWidth)).toBe('2px');
     assert.ok(await p.locator('.pp-quantity').first().evaluate(el=>{const h=[...el.querySelectorAll('button,input')].map(n=>n.getBoundingClientRect().height);return Math.max(...h)-Math.min(...h)<1}));
-    const contrasts=await p.evaluate(()=>{
+    const measureContrasts=()=>p.evaluate(()=>{
      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=canvas.height=1;
      const color=s=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=s;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v)};
      const over=(a,b)=>a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3]));
@@ -275,6 +275,19 @@ try{
       const fg=over(color(getComputedStyle(el).color),bg),a=luminance(fg),b=luminance(bg);return {selector,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
      });
     });
+    let contrasts=await measureContrasts();
+    if(contrasts.some(c=>c.ratio<4.5)){
+      // Theme color transitions can cross through low-contrast intermediate frames.
+      // Wait for the settled UI; retain the original strict WCAG 4.5:1 gate.
+      try{
+        await expect.poll(async()=>{
+          contrasts=await measureContrasts();
+          return contrasts.every(c=>c.ratio>=4.5);
+        },{timeout:3000}).toBe(true);
+      }catch{
+        assert.fail(JSON.stringify({width,theme,contrasts}));
+      }
+    }
     assert.ok(contrasts.every(c=>c.ratio>=4.5),JSON.stringify({width,theme,contrasts}));evidence.push({width,theme,contrasts});
     await p.locator('.pp-cart-line').last().scrollIntoViewIfNeeded();assert.ok(await p.locator('.pp-cart-line').last().evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.top>=b.top&&a.bottom<=b.bottom+1}));
    }
