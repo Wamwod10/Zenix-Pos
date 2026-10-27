@@ -1,4 +1,4 @@
-import {financialSalesEvents,projectInventoryScope} from "../../utils/reporting";
+import {financialSalesEvents,projectInventoryScope,rankProductEvents} from "../../utils/reporting";
 import { useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
@@ -117,19 +117,7 @@ function Dashboard(){
     return rows;
   },[allSales,period,store,stores,organizationSettings.timezone,organizationSettings.dateFormat]);
 
-  const topProducts=useMemo(()=>{
-    const map=new Map();
-    sales.forEach(sale=>(sale.items||[]).forEach(item=>{
-      const key=item.productId||item.id||item.name;
-      const quantity=getNetSoldQty(item);
-      if(quantity<=0)return;
-      const unit=getItemFinalPrice(item);
-      const cost=Number(item.costPrice||0);
-      const current=map.get(key)||{id:key,name:item.name||"Mahsulot",unit:item.unit||item.metadata?.unit||"dona",qty:0,revenue:0,profit:0};
-      current.qty+=quantity;current.revenue+=quantity*unit;current.profit+=quantity*(unit-cost);map.set(key,current);
-    }));
-    return [...map.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,5);
-  },[sales]);
+  const topProducts=useMemo(()=>rankProductEvents(sales.map(sale=>({...sale,items:(sale.items||[]).map(item=>({...item,unit:item.unit||item.metadata?.unit||"dona"}))}))),[sales]);
 
   const expenseBreakdown=useMemo(()=>{
     const map=new Map();

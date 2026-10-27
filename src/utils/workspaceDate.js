@@ -55,6 +55,18 @@ export const formatWorkspaceDate = (value, organization = {}, { withTime = false
   return new Intl.DateTimeFormat(locale,opts).format(date);
 };
 
+// PostgreSQL DATE values can arrive as UTC-midnight timestamps; they are calendar dates, not instants.
+export const formatWorkspaceCalendarDate = (value, organization = {}) => {
+  const match=String(value || '').match(/^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.000)?Z)?$/);
+  if(!match)return '—';
+  const date=new Date(`${match[1]}T00:00:00Z`);
+  if(Number.isNaN(date.getTime()) || date.toISOString().slice(0,10)!==match[1])return '—';
+  const [year,month,day]=match[1].split('-');
+  if(organization.dateFormat==='YYYY-MM-DD')return `${year}-${month}-${day}`;
+  if(organization.dateFormat==='MM/DD/YYYY')return `${month}/${day}/${year}`;
+  return `${day}.${month}.${year}`;
+};
+
 export const workspaceTime = (value = new Date(), organization = {}) => new Intl.DateTimeFormat("uz-UZ", {
   timeZone:organization.timezone || "Asia/Tashkent", hour:"2-digit", minute:"2-digit", hour12:organization.timeFormat === "12",
 }).format(new Date(value));
