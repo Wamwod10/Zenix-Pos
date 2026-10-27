@@ -19,3 +19,12 @@ export async function mapBootstrapInventory(source,normalize,{isCurrent=()=>true
  }
  return isCurrent()?result:null;
 }
+export function transferConfirmation(transfer, stores = [], submitted = {}) {
+ const count=Array.isArray(transfer?.items)?transfer.items.length:(Number.isInteger(submitted.itemCount) && submitted.itemCount>0?submitted.itemCount:null);
+ const id=transfer?.to_store_id ?? transfer?.toStoreId ?? submitted.toStoreId;
+ const name=stores.find(store=>String(store.id)===String(id))?.name;
+ const parts=[];
+ if(count!==null)parts.push(`${count} ta mahsulot`);
+ if(typeof name==='string' && name.trim())parts.push(name.trim());
+ return parts.length?parts.join(' · '):'Transfer yaratildi';
+}

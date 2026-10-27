@@ -223,3 +223,22 @@ export const netItemContribution = (item = {}) => {
   const qty = sign * Math.max(0, Number(item.quantity ?? item.qty ?? 0) - Number(item.returnedQty || 0));
   return {qty, revenue: Number(item.finalPrice ?? item.price ?? 0) * qty};
 };
+
+// Sales and refunds are separate dated events; preserve the refund's cost snapshot.
+export const rankProductEvents = (events = []) => {
+  const products = new Map();
+  for (const event of events) for (const item of event.items || []) {
+    const key = item.productId;
+    if (!key) continue;
+    const qty = getNetSoldQty(item);
+    if (!qty) continue;
+    const revenue = qty * Number(item.finalPrice ?? item.price ?? item.sellPrice ?? 0);
+    const profit = event._financialType === 'refund'
+      ? Number(event._financialProfit ?? 0)
+      : revenue - qty * Number(item.unitCost ?? item.metadata?.unitCost ?? item.costPrice ?? 0);
+    const row = products.get(key) || {id:key,name:item.name || 'Mahsulot',unit:item.unit || item.metadata?.unit || 'dona',qty:0,revenue:0,profit:0};
+    row.qty += qty; row.revenue += revenue; row.profit += profit;
+    products.set(key,row);
+  }
+  return [...products.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,5);
+};

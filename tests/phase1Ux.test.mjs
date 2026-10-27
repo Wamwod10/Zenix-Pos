@@ -4,7 +4,8 @@ import {readFile} from 'node:fs/promises';
 test('dashboard top products retain the actual unit',async()=>{
   const s=await readFile(new URL('../src/pages/dashboard/Dashboard.jsx',import.meta.url),'utf8');
   assert.doesNotMatch(s,/\{item\.qty\} dona/);
-  assert.match(s,/unit:item\.unit/);
+  const reporting=await readFile(new URL('../src/utils/reporting.js',import.meta.url),'utf8');
+  assert.match(reporting,/unit:item\.unit/);
 });
 test('Telegram setting saves are serialized and errors remain visible',async()=>{
   const s=await readFile(new URL('../src/pages/settings/Settings.jsx',import.meta.url),'utf8');
