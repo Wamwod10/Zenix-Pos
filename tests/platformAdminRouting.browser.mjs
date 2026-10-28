@@ -119,6 +119,11 @@ try{
   await expect(detailTabs.getByRole("tab",{name:"Tarif",exact:true})).toHaveAttribute("aria-selected","true");
   await detailTabs.getByRole("tab",{name:"Xodimlar",exact:true}).click();
   await expect(detail.getByText("Test kassir")).toBeVisible();
+  const staffSearch=detail.getByRole("textbox",{name:"Xodim ismi yoki logini"});
+  await staffSearch.fill("mavjud bo‘lmagan xodim");
+  await expect(detail.getByText("Qidiruvga mos xodim yo‘q")).toBeVisible();
+  await staffSearch.fill("kassir");
+  await expect(detail.getByText("Test kassir")).toBeVisible();
   await detail.getByRole("button",{name:"Parolni tiklash",exact:true}).click();
   const reset=page.getByRole("dialog",{name:"Xodim parolini tiklash"});
   await expect(reset).toBeVisible();
@@ -137,6 +142,8 @@ try{
   await expect(detail).toBeVisible();
   await detailTabs.getByRole("tab",{name:"Tarif",exact:true}).click();
   await expect(detail.getByRole("heading",{name:"Biznes va tarif boshqaruvi"})).toBeVisible();
+  await expect(detail.getByText("Maxsus boshqaruv amallari")).toBeVisible();
+  await expect(detail.getByRole("button",{name:"Tarifni saqlash"})).toBeVisible();
   await expect(detail.getByText("Test kassir")).toHaveCount(0);
   await detailTabs.getByRole("tab",{name:"Umumiy",exact:true}).click();
   await expect(detail.locator(".platform-customer-kpis > div")).toHaveCount(3);
