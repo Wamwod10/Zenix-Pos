@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { FiX } from "react-icons/fi";
 
-export default function Modal({ open, onClose, title, subtitle, children, size = "md", footer, closeOnBackdrop = true }) {
+export default function Modal({ open, onClose, title, subtitle, children, size = "md", footer, closeOnBackdrop = true, className = "" }) {
   const ref = useRef(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
   }, [open]);
   if (!open) return null;
   return <div className="pro-modal-backdrop" role="presentation" onMouseDown={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose?.(); }}>
-    <section ref={ref} className={`pro-modal pro-modal-${size}`} role="dialog" aria-modal="true" aria-label={title}>
+    <section ref={ref} className={`pro-modal pro-modal-${size} ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title}>
       <div className="pro-modal-head"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="pro-icon-btn" onClick={onClose} aria-label="Yopish"><FiX /></button></div>
       <div className="pro-modal-body">{children}</div>
       {footer && <div className="pro-modal-footer">{footer}</div>}
