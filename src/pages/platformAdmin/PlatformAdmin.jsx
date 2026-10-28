@@ -55,7 +55,7 @@ function PlatformAdmin(){
   const [detailDiagnosticTab,setDetailDiagnosticTab]=useState("business");
   const [detailError,setDetailError]=useState("");
   const detailTabs=[["overview","Umumiy"],["license","Tarif"],["users","Xodimlar"],["stores","Filiallar"],["diagnostics","Diagnostika"],["payments","To‘lovlar"],["audit","Audit"]];
-  const selectDetailTab=(next)=>{setDetailSection(next);document.querySelector(".platform-customer-modal .pro-modal-body")?.scrollTo({top:0,behavior:"instant"})};
+  const selectDetailTab=(next)=>{setDetailSection(next);document.querySelector(".platform-customer-modal .pro-modal-body")?.scrollTo?.({top:0,behavior:"instant"})};
   const onDetailTabKeyDown=(event,index)=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();const next=event.key==="Home"?0:event.key==="End"?detailTabs.length-1:(index+(event.key==="ArrowRight"?1:-1)+detailTabs.length)%detailTabs.length;selectDetailTab(detailTabs[next][0]);event.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[next]?.focus()};
   const [detailAudit,setDetailAudit]=useState([]);
   const [detailAuditLoading,setDetailAuditLoading]=useState(false);
