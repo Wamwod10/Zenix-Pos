@@ -51,8 +51,11 @@ try{
   await expect(page.getByRole("button",{name:"Tezkor klaviatura",exact:true})).toHaveCount(0);
   const tabs=page.getByRole("navigation",{name:"Platforma boshqaruvi bo‘limlari"});
   await expect(tabs.getByRole("button")).toHaveCount(8);
+  await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(1);
+  await page.getByRole("button",{name:"Yana 7 ta ko‘rsatkichni ko‘rish"}).click();
   await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(3);
   await tabs.getByRole("button",{name:"Audit",exact:true}).click();
+  await expect(page).toHaveURL(/section=audit/);
   await expect(page.getByRole("heading",{name:"Platforma audit jurnali"})).toBeVisible();
   await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(0);
   await expect(page.getByText("Audit qidiruvi",{exact:true})).toBeVisible();
