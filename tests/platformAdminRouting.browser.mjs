@@ -20,6 +20,12 @@ try{
       data={user:{id:"platform-routing-fixture",name:"Synthetic Platform Administrator",appRole:"PLATFORM_ADMIN",organizationId:null,forcePasswordChange:false}};
     }else if(url.pathname==="/api/platform/overview"){
       data={overview:{organizations:0,active:0,review:0,stores:0}};
+    }else if(url.pathname==="/api/platform/organizations/page"){
+      data={items:[{id:"org-synthetic-platform-1",name:"Sinov biznesi — juda uzun kompaniya nomi",owner:"Test egasi",phone:"+998901234567",stores:3,plan:"MONTHLY",licenseStatus:"ACTIVE",expiryDate:"2027-12-31",billingHold:false}],total:1,hasMore:false};
+    }else if(url.pathname==="/api/platform/payments/page"){
+      data={items:[{id:"synthetic-pay-review-1",orderId:"SYNTHETIC-ORDER-2026",organization:"Sinov biznesi",submittedAt:"2026-10-28T09:00:00Z",purpose:"Obuna to‘lovi",amount:150000,status:"REVIEW",receiptId:null}],total:1,hasMore:false};
+    }else if(url.pathname==="/api/platform/promos"){
+      data={promos:[{id:"synthetic-promo-1",code:"ZENIX-SYNTHETIC-2026",plan:"BOTH",percent:50,uses:2,maxUses:10,reserved:1,remaining:7,perBusiness:1,active:true,startsAt:"2026-10-01",expiresAt:"2027-12-31"}],total:1};
     }else if(url.pathname.startsWith("/api/platform/")){
       data={items:[],organizations:[],payments:[],total:0,hasMore:false};
     }else if(url.pathname.startsWith("/api/finance")||url.pathname.startsWith("/api/bootstrap")){
@@ -53,7 +59,18 @@ try{
   await expect(page.getByPlaceholder("Promokod qidirish...")).toBeVisible();
   await expect(page.getByText("Biznes holati",{exact:true})).toHaveCount(0);
   await expect(page.locator(".platform-pro .mobile-card-table")).toHaveCount(1);
+  await expect(page.locator(".platform-pro .mobile-card-table tbody tr")).toHaveCount(1);
+  await expect(page.getByText("Oylik va yillik",{exact:true})).toBeVisible();
   await page.setViewportSize({width:375,height:812});
+  await expect(page.locator(".platform-pro .mobile-card-table tbody tr td[data-label='Kod']")).toBeVisible();
+  await tabs.getByRole("button",{name:"To‘lovlar",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"To‘lovlarni tekshirish"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"To‘lovni tasdiqlash"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"To‘lovni rad etish"})).toBeVisible();
+  await tabs.getByRole("button",{name:"Mijozlar",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Mijozlar ro‘yxati"})).toBeVisible();
+  await expect(page.getByText("Sinov biznesi — juda uzun kompaniya nomi",{exact:true})).toBeVisible();
+  assert.equal(await page.getByPlaceholder("Promokod qidirish...").count(),0,"Switching admin tabs must reset context-specific search");
   await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Backup va tiklash nazorati"})).toBeVisible();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
