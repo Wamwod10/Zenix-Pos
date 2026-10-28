@@ -23,6 +23,7 @@ function PlatformAdmin(){
   const {confirm,notify}=useFeedback();
   const [tab,setTab]=useState("dashboard");
   const [query,setQuery]=useState("");
+  const changeTab=(next)=>{if(next===tab)return;setTab(next);setQuery("");setPage(1);};
   const [debouncedQuery,setDebouncedQuery]=useState("");
   const [paymentStatus,setPaymentStatus]=useState("all");
   const [customerStatus,setCustomerStatus]=useState("all");
@@ -278,14 +279,14 @@ function PlatformAdmin(){
     <section className="pro-card platform-directory">
       <div className="platform-tab-navigation">
         <div className="pro-tabs platform-admin-tabs" role="navigation" aria-label="Platforma boshqaruvi bo‘limlari">
-          <button type="button" key="dashboard" className={tab==="dashboard"?"active":""} aria-current={tab==="dashboard"?"page":undefined} onClick={()=>setTab("dashboard")}>Boshqaruv</button>
-          <button type="button" key="customers" className={tab==="customers"?"active":""} aria-current={tab==="customers"?"page":undefined} onClick={()=>setTab("customers")}>Mijozlar</button>
-          <button type="button" key="payments" className={tab==="payments"?"active":""} aria-current={tab==="payments"?"page":undefined} onClick={()=>setTab("payments")}>To‘lovlar</button>
-          <button type="button" key="promos" className={tab==="promos"?"active":""} aria-current={tab==="promos"?"page":undefined} onClick={()=>setTab("promos")}>Promokodlar</button>
-          <button type="button" key="storage" className={tab==="storage"?"active":""} aria-current={tab==="storage"?"page":undefined} onClick={()=>setTab("storage")}>Saqlash</button>
-          <button type="button" key="support" className={tab==="support"?"active":""} aria-current={tab==="support"?"page":undefined} onClick={()=>setTab("support")}>Yordam</button>
-          <button type="button" key="recovery" className={tab==="recovery"?"active":""} aria-current={tab==="recovery"?"page":undefined} onClick={()=>setTab("recovery")}>Tiklash</button>
-          <button type="button" key="audit" className={tab==="audit"?"active":""} aria-current={tab==="audit"?"page":undefined} onClick={()=>setTab("audit")}>Audit</button>
+          <button type="button" key="dashboard" className={tab==="dashboard"?"active":""} aria-current={tab==="dashboard"?"page":undefined} onClick={()=>changeTab("dashboard")}>Boshqaruv</button>
+          <button type="button" key="customers" className={tab==="customers"?"active":""} aria-current={tab==="customers"?"page":undefined} onClick={()=>changeTab("customers")}>Mijozlar</button>
+          <button type="button" key="payments" className={tab==="payments"?"active":""} aria-current={tab==="payments"?"page":undefined} onClick={()=>changeTab("payments")}>To‘lovlar</button>
+          <button type="button" key="promos" className={tab==="promos"?"active":""} aria-current={tab==="promos"?"page":undefined} onClick={()=>changeTab("promos")}>Promokodlar</button>
+          <button type="button" key="storage" className={tab==="storage"?"active":""} aria-current={tab==="storage"?"page":undefined} onClick={()=>changeTab("storage")}>Saqlash</button>
+          <button type="button" key="support" className={tab==="support"?"active":""} aria-current={tab==="support"?"page":undefined} onClick={()=>changeTab("support")}>Yordam</button>
+          <button type="button" key="recovery" className={tab==="recovery"?"active":""} aria-current={tab==="recovery"?"page":undefined} onClick={()=>changeTab("recovery")}>Tiklash</button>
+          <button type="button" key="audit" className={tab==="audit"?"active":""} aria-current={tab==="audit"?"page":undefined} onClick={()=>changeTab("audit")}>Audit</button>
         </div>
         <span className="platform-tab-scroll-hint" aria-hidden="true">Boshqa bo‘limlar uchun yon tomonga suring</span>
       </div>
