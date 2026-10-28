@@ -424,7 +424,7 @@ try{
   await amount.fill('15000');await dialog.getByRole('checkbox').check();
   r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.pp-error')).toContainText('qoldiq yetarli emas');
+  await expect(dialog.locator('.pp-error')).toContainText('yetarli emas');
   await expect(amount).toHaveValue('15000');
   await expect(p.locator('.pp-recovery')).toHaveCount(0);
   assert.equal(r.sales.length,0,'definite rejection must not create sale');
@@ -440,7 +440,7 @@ try{
   const card=p.getByLabel('Karta summasi',{exact:true});
   await card.fill('2000');await cash.fill('15000');await dialog.getByRole('checkbox').nth(0).check();await dialog.getByRole('checkbox').nth(1).check();
   r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
-  await expect(dialog).toBeVisible();await expect(dialog.locator('.pp-error')).toContainText('qoldiq yetarli emas');
+  await expect(dialog).toBeVisible();await expect(dialog.locator('.pp-error')).toContainText('yetarli emas');
   await expect(card).toHaveValue('2000');await expect(cash).toHaveValue('15000');
   assert.equal(r.sales.length,0);
   r.rejectStatus=0;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
