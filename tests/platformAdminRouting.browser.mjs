@@ -45,6 +45,8 @@ try{
   // UI acceptance on mocked platform admin: filters must belong to the active tab,
   // and KPIs must not push audit/promo content down the page.
   await page.goto(new URL("/platform",base).href);
+  await expect(page.getByRole("button",{name:"Kurslar",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Tezkor klaviatura",exact:true})).toHaveCount(0);
   const tabs=page.getByRole("navigation",{name:"Platforma boshqaruvi bo‘limlari"});
   await expect(tabs.getByRole("button")).toHaveCount(8);
   await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(3);
