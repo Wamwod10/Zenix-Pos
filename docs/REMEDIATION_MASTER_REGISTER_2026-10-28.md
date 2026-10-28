@@ -25,6 +25,7 @@ Date: 2026-10-28. Source commits: frontend `d294df5`, backend `94f88cf`.
 | POS-001 | RISK | Payment/stock/return/idempotency replay matrix with real PostgreSQL |
 | POS-002 | NOT VERIFIED | Scanner, receipt printer, offline/reconnect and Windows/Android devices with actual hardware |
 | POS-003 | RISK | Real customer checkout and cashier shift workflow, interruption, back-button and second tab |
+| POS-004 | CONFIRMED UX | POS Pro `onConfirm` closed payment modal unconditionally even for definite 4xx checkout rejection, losing typed cash/split amounts and hiding inline error. | FIX IMPLEMENTED / VERIFY | Keep modal on definitive reject, preserve inputs, and verify no extra sale; unknown-write journal still opens recovery; PR #41 |
 
 ## Phase 3 — Inventory and financial accounting
 | ID | Type | Exit condition |
