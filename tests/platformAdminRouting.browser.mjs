@@ -13,7 +13,7 @@ try{
   const requested=[],pageErrors=[];
   page.on("pageerror",error=>pageErrors.push(error.message));
   await page.route("**/api/**",async route=>{
-    const url=new URL(route.request().url);
+    const url=new URL(route.request().url());
     requested.push(url.pathname);
     let data={};
     if(url.pathname==="/api/auth/me"){
