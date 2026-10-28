@@ -12,7 +12,7 @@ test('support diagnostics follows server paging for all issue streams',async()=>
  try{
   const [{BusinessDiagnostics},{api}]=await Promise.all([vite.ssrLoadModule('/src/pages/platformAdmin/PlatformTools.jsx'),vite.ssrLoadModule('/src/services/apiClient.js')]);const requests=[];
   api.get=async path=>{requests.push(path);return {support:{apiIssues:[],billingIssues:[],deliveryIssues:[],hasMore:{billing:false,delivery:!path.endsWith('offset=20'),api:false}}}};
-  await act(async()=>root.render(React.createElement(BusinessDiagnostics,{organization:{id:'org'},usage:{}})));
+  await act(async()=>root.render(React.createElement(BusinessDiagnostics,{organization:{id:'org'},usage:{},view:'support'})));
   await act(async()=>{document.querySelector('button').click();await new Promise(r=>setTimeout(r,20))});
   let next=[...document.querySelectorAll('button')].find(el=>el.textContent==='Keyingi');assert.equal(next.disabled,false);
   await act(async()=>{next.click();await new Promise(r=>setTimeout(r,20))});

@@ -231,9 +231,14 @@ test("reversed organization usage responses keep B visible and closing invalidat
     if(path.startsWith("/api/platform/audit-logs"))return {logs:[]};
     throw new Error(`Unexpected ${path}`);
   },async({container})=>{
+     const showUsage=async()=>{
+       await act(async()=>document.getElementById("platform-customer-tab-diagnostics").click());
+       const storageTab=Array.from(document.querySelectorAll(".platform-diagnostics-tabs [role=tab]")).find(node=>node.textContent==="Saqlash");
+       await act(async()=>storageTab.click());
+     };
     await act(async()=>button(container,"Mijozlar").click());await pause();
     const rows=container.querySelectorAll('tbody [aria-label="Tashkilotni ko‘rish"]');
-    await act(async()=>rows[0].click());await act(async()=>rows[1].click());
+    await act(async()=>rows[0].click());await act(async()=>rows[1].click());await showUsage();
     await act(async()=>usageB.resolve({usage:{receiptBytes:2097152,estimatedBytes:3145728}}));
     assert.match(document.body.textContent,/2 MB/);
     await act(async()=>usageA.resolve({usage:{receiptBytes:9437184,estimatedBytes:9437184}}));
@@ -242,7 +247,7 @@ test("reversed organization usage responses keep B visible and closing invalidat
     assert.equal(document.querySelector('[role="dialog"]'),null);
     await act(async()=>rows[0].click());
     await act(async()=>document.querySelector('[aria-label="Yopish"]').click());
-    await act(async()=>rows[0].click());
+    await act(async()=>rows[0].click());await showUsage();
     await act(async()=>reopenedUsage.resolve({usage:{receiptBytes:4194304,estimatedBytes:4194304}}));
     await act(async()=>closedUsage.resolve({usage:{receiptBytes:8388608,estimatedBytes:8388608}}));
     assert.match(document.querySelector('[role="dialog"]').textContent,/4 MB/);
@@ -262,6 +267,7 @@ test("late reset token cannot appear in another user's reset workflow",async()=>
     api.post=()=>pending.promise;
     await act(async()=>button(container,'Mijozlar').click());await pause();
     await act(async()=>container.querySelector('tbody [aria-label="Tashkilotni ko‘rish"]').click());await pause();
+     await act(async()=>document.getElementById('platform-customer-tab-users').click());
     const users=()=>Array.from(document.querySelectorAll('.platform-detail-list button')).filter(node=>node.textContent==='Parolni tiklash');
     await act(async()=>users()[0].click());
     await inputValue(document.querySelector('input[placeholder="Shaxsni qanday tasdiqladingiz?"]'),'Identity checked by support',dom);
