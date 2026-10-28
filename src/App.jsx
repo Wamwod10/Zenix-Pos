@@ -57,7 +57,7 @@ function PermissionAccess({children,permission}){
   const {hasPermission}=useStore();
   if(authLoading)return <Fallback/>;
   if(!currentUser)return <Navigate to="/login" replace/>;
-  if(currentUser.appRole===ROLES.PLATFORM_ADMIN)return children;
+  if(currentUser.appRole===ROLES.PLATFORM_ADMIN)return <Navigate to="/platform" replace/>;
   return hasPermission(permission,currentUser.appRole)?children:<Forbidden/>;
 }
 
