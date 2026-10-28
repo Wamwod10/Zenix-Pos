@@ -45,7 +45,7 @@ test('manual cash movement retry preserves one identifier and immutable signed i
  assert.equal(retry.clientReference,first.clientReference);
  assert.deepEqual(retry.payload,first.payload);
  for(const changed of [{amount:0.20},{reason:'Different cash'},{type:'out'}]){
-  await assert.rejects(()=>attempt.prepareFinancialAttempt(s,key,{...original,...changed}),/oldingi|tekshiring/i);
+  await assert.rejects(async()=>attempt.prepareFinancialAttempt(s,key,{...original,...changed}),/oldingi|tekshiring/i);
  }
  await attempt.settleFinancialAttempt(s,key,first.clientReference,'confirmed');
  assert.equal(attempt.readAttempt(s,key),null);
