@@ -1119,3 +1119,27 @@ body.dark-mode .billing-renewal-extra{
  .platform-customer-modal .platform-customer-panel{padding-inline:12px}
  .platform-customer-modal .platform-customer-identity{padding-inline:12px}
 }
+
+/* Customer detail: deliberate action grouping and readable large histories. */
+.platform-customer-modal .platform-detail-license .platform-detail-grid>.pro-field:last-child{grid-column:1/-1}
+.platform-customer-modal .platform-customer-license-actions{display:flex;align-items:center;gap:10px;margin-top:17px}
+.platform-customer-modal .platform-customer-license-actions .pro-btn{min-height:44px}
+.platform-customer-modal .platform-customer-danger-zone{margin-top:18px;padding:16px 17px;border:1px solid color-mix(in srgb,var(--danger, #c56b6b) 22%,var(--border));background:color-mix(in srgb,var(--danger,#c56b6b) 4%,var(--card-bg));border-radius:14px;display:grid;gap:10px}
+.platform-customer-modal .platform-customer-danger-zone>p{display:flex;align-items:center;gap:7px;font-size:13.5px;line-height:1.5;font-weight:650;margin:0;color:var(--text)}
+.platform-customer-modal .platform-customer-danger-zone>p svg{color:var(--danger,#c56b6b)}
+.platform-customer-modal .platform-customer-danger-zone>small{display:block;color:var(--muted);font-size:12px;line-height:1.55}
+.platform-customer-modal .platform-customer-danger-zone .pro-row-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;padding:0}
+.platform-customer-modal .platform-customer-danger-zone>.pro-row-actions>.pro-row-actions{width:100%;margin:0;padding-top:9px;border-top:1px solid var(--border)}
+.platform-customer-modal .platform-customer-filter{display:grid;gap:6px;margin:0 0 16px;max-width:440px}
+.platform-customer-modal .platform-customer-filter>span{font-size:12.5px;font-weight:600;color:var(--muted)}
+.platform-customer-modal .platform-customer-filter input{height:44px;width:100%;min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--card-bg);color:var(--text);padding:0 13px;outline:none;font-size:13.5px}
+.platform-customer-modal .platform-customer-filter input:focus-visible{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent)}
+.platform-customer-modal .admin-timeline .platform-audit-danger>i{background:var(--danger,#c56b6b)}
+.platform-customer-modal .admin-timeline .platform-audit-success>i{background:var(--success,#4f9770)}
+.platform-customer-modal .platform-customer-panel>.admin-timeline+.pro-btn{margin-top:12px}
+@media(max-width:620px){
+ .platform-customer-modal .platform-customer-danger-zone{padding:12px}
+ .platform-customer-modal .platform-customer-license-actions .pro-btn{width:100%}
+ .platform-customer-modal .platform-customer-danger-zone .pro-row-actions{flex-direction:column;align-items:stretch}
+ .platform-customer-modal .platform-customer-danger-zone .pro-row-actions .pro-btn{width:100%;min-height:44px}
+}
