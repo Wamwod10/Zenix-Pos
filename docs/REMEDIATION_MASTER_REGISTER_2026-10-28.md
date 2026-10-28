@@ -25,6 +25,7 @@ Date: 2026-10-28. Source commits: frontend `d294df5`, backend `94f88cf`.
 | POS-001 | RISK | Payment/stock/return/idempotency replay matrix with real PostgreSQL |
 | POS-002 | NOT VERIFIED | Scanner, receipt printer, offline/reconnect and Windows/Android devices with actual hardware |
 | POS-003 | RISK | Real customer checkout and cashier shift workflow, interruption, back-button and second tab |
+| POS-004 | CONFIRMED UX / FIX IMPLEMENTED | Definite 4xx rejection closed POS Pro payment modal, losing cash/split inputs and inline error. PR #41 retains modal and inputs, checks two methods, no duplicate sale, and preserves unknown-write recovery. Browser PASS and production verification required. |
 
 ## Phase 3 — Inventory and financial accounting
 | ID | Type | Exit condition |

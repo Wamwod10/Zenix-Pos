@@ -12,7 +12,7 @@ const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
 async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER'}={}){
- const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
+ const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
  if(cartSize)await page.addInitScript(({key,cart})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({v:1,cart,cartDiscountPct:0,checkoutReference:'PRO-browser-stable'}))},{key:`${posDraftKey(org,'owner',store)}:pro`,cart:Array.from({length:cartSize},(_,i)=>({...product(i),cartQty:1,discountPercent:0}))});
@@ -35,6 +35,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
    else products=Array.from({length:40},(_,i)=>product(i));
    data={products:products.map(p=>({...p,unit,...(presentation?{name:['Olma','Tuxum','Guruch','Sut','Ichimlik suvi'][Number(p.id.slice(-12))-1]||p.name,unit:['kg','dona','g','l','ml'][(Number(p.id.slice(-12))-1)%5],sellPrice:[12000,1500,18,14000,4][(Number(p.id.slice(-12))-1)%5],stockByStore:{[store]:[18.75,120,5000,24,10000][(Number(p.id.slice(-12))-1)%5]}}:{}),...(longName&&p.id===product(0).id?{name:longName}:{}),...(stress?{barcode:'12345678901234567890123456789012345678901234567890'}:{}),...(serial&&p.id===product(0).id?{unit:'dona',serializedUnits:[{id:'s1',serial:'S1',storeId:store,productId:p.id,status:'IN_STOCK'},{id:'s2',serial:'S2',storeId:store,productId:p.id,status:'IN_STOCK'}]}:{})})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
   }
+  if(url.pathname==='/api/bootstrap/catalog'&&priceOverride)data.products=data.products.map(p=>p.id===product(0).id?{...p,sellPrice:priceOverride}:p);
   if(url.pathname==='/api/sales/pos-pro/summary'){
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
    data={shift:closed?null:{id:shift},count:sales.length,total:sales.reduce((s,p)=>s+Number(p.total),0),cash:0,card:0,recent:[],popular:[{product_id:product(2).id}]};
@@ -47,7 +48,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   }
   if(url.pathname.startsWith('/api/sales/holds/')&&req.method()==='DELETE'){holds=holds.filter(h=>h.id!==url.pathname.split('/').at(-1));data={deleted:true}}
   if(url.pathname==='/api/sales'&&req.method()==='POST'){
-   posts++;const body=req.postDataJSON();let sale=sales.find(p=>p.client_reference===body.clientReference);
+   posts++;if(rejectStatus)return route.fulfill({status:rejectStatus,json:{ok:false,error:{code:'INSUFFICIENT_STOCK',message:'Server: qoldiq yetarli emas'}}});const body=req.postDataJSON();let sale=sales.find(p=>p.client_reference===body.clientReference);
    if(!sale){sale={id:'66666666-6666-4666-8666-'+String(sales.length+1).padStart(12,'0'),sale_number:'S-'+(sales.length+1),client_reference:body.clientReference,total:body.payments.reduce((s,p)=>s+p.amount,0)+body.creditAmount,created_at:new Date().toISOString(),request:body};sales.push(sale)}
    if(delay)await new Promise(r=>setTimeout(r,delay));if(fail)return route.abort();data={sale};
   }
@@ -56,7 +57,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
  });
  const start=performance.now();await page.goto(base+'/pos-pro');await expect(page.locator('.pp-product').first()).toBeEnabled();
  results.push({kind:'load',cartSize,catalogSize,width,ms:performance.now()-start});
- return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value}};
+ return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value},set rejectStatus(value){rejectStatus=value},set priceOverride(value){priceOverride=value}};
 }
 try{
  const benchmark=process.env.POS_PRO_SEARCH_BENCHMARK;
@@ -417,6 +418,52 @@ try{
  }
  if(!uxOnly||uxOnly==='currency'){
   const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');await expect(p.locator('.pp-payment-total')).toBeVisible();assert.equal((await p.locator('.pp-payment-total').textContent()).match(/so‘m/g)?.length,1);await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='payment-rejection'){
+  const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');
+  const dialog=p.getByRole('dialog',{name:'To‘lov — Naqd'}),amount=p.getByLabel('Mijoz bergan naqd',{exact:true});
+  await amount.fill('15000');await dialog.getByRole('checkbox').check();
+  r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.pp-error')).toContainText('yetarli emas');
+  await expect(amount).toHaveValue('15000');
+  await expect(p.locator('.pp-recovery')).toHaveCount(0);
+  assert.equal(r.sales.length,0,'definite rejection must not create sale');
+  r.rejectStatus=0;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.sales.length,1);
+  assert.equal(r.posts,2,'one rejected and one accepted POST');
+  await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='payment-rejection'){
+  const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F9');
+  const dialog=p.getByRole('dialog',{name:'To‘lov — Aralash'}),cash=p.getByLabel('Mijoz bergan naqd',{exact:true});
+  const card=p.getByLabel('Karta summasi',{exact:true});
+  await card.fill('2000');await cash.fill('15000');await dialog.getByRole('checkbox').nth(0).check();await dialog.getByRole('checkbox').nth(1).check();
+  r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(dialog).toBeVisible();await expect(dialog.locator('.pp-error')).toContainText('yetarli emas');
+  await expect(card).toHaveValue('2000');await expect(cash).toHaveValue('15000');
+  assert.equal(r.sales.length,0);
+  r.rejectStatus=0;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.sales.length,1);assert.equal(r.posts,2);
+  assert.equal(r.sales[0].request.payments.find(row=>row.method==='card')?.amount,2000);
+  await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='payment-rejection'){
+  // Catalog price changed after payment review; old review must not authorize the new total.
+  const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');
+  const dialog=p.getByRole('dialog',{name:'To‘lov — Naqd'}),cash=p.getByLabel('Mijoz bergan naqd',{exact:true});
+  await cash.fill('15000');await dialog.getByRole('checkbox').check();
+  r.priceOverride=13000;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(dialog).toBeVisible();await expect(dialog.locator('.pp-payment-total')).toContainText(/13[ ,]000/);
+  await expect(dialog.getByRole('checkbox')).not.toBeChecked();
+  await expect(dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true})).toBeDisabled();
+  assert.equal(r.posts,0,'reconciled cart price must not dispatch without review');
+  await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.posts,1);assert.equal(r.sales[0].request.payments[0].amount,13000);
+  await r.context.close();
  }
  if(!uxOnly||uxOnly==='receipt'){
   for(const unit of ['kg','l'])for(const recovery of [false,true]){

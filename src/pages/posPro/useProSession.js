@@ -132,5 +132,5 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   }catch(e){if(active.current)setError(e.message);return false}
   finally{busyRef.current=false;if(active.current)setBusy(false)}
  };
- return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds};
+ return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds,hasPendingCheckout:()=>Boolean(readAttempt(localStorage,journal))};
 }
