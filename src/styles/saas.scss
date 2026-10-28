@@ -931,3 +931,31 @@ body.dark-mode .billing-renewal-extra{
 .subscription-interval{display:inline-flex;gap:6px;padding:4px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
 .subscription-interval button{min-height:40px;min-width:80px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer}
 .subscription-plan-grid .saving-pill{display:block;width:fit-content}
+
+/* Platform administration: content prioritization and mobile ergonomics. */
+.platform-pro .platform-summary-area{display:grid;gap:0}
+.platform-pro .platform-toolbar{flex-wrap:wrap;min-width:0}
+.platform-pro .platform-toolbar .pro-tabs{max-width:100%;flex:1 1 100%;scrollbar-width:thin}
+.platform-pro .platform-toolbar .pro-search{flex:1 1 220px;min-width:0}
+.platform-pro .platform-toolbar .pro-select{flex:0 1 auto}
+.platform-pro .platform-workspace{margin-top:14px}
+.platform-pro .platform-workspace h2{font-size:17px;margin:0 0 8px}
+.platform-pro .platform-workspace p{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 15px}
+.platform-pro .platform-detail-list>div{min-width:0;flex-wrap:wrap}
+.platform-pro .platform-detail-list>div>span:last-child{max-width:100%;flex-wrap:wrap}
+.platform-pro .platform-detail-list strong,.platform-pro .platform-detail-list small{overflow-wrap:anywhere}
+@media(max-width:700px){
+ .platform-pro .platform-toolbar{align-items:stretch}
+ .platform-pro .platform-toolbar .pro-tabs{width:100%;flex-basis:100%}
+ .platform-pro .platform-toolbar .pro-search{flex-basis:100%;max-width:none}
+ .platform-pro .platform-toolbar>.premium-select,.platform-pro .platform-toolbar>.column-picker{flex:1 1 auto;min-width:0}
+ .platform-pro .platform-detail-list>div{align-items:flex-start}
+}
+@media(max-width:460px){
+ .platform-pro .platform-summary-area .pro-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .platform-pro .platform-summary-area .pro-stat{padding:10px;gap:7px;align-items:flex-start;border-radius:14px}
+ .platform-pro .platform-summary-area .pro-stat-icon{width:30px;height:30px;flex:0 0 30px;border-radius:9px;font-size:14px}
+ .platform-pro .platform-summary-area .pro-stat strong{font-size:16px;overflow-wrap:anywhere}
+ .platform-pro .platform-summary-area .pro-stat span{font-size:11px;line-height:1.4}
+ .platform-pro .platform-summary-area .pro-stat small{font-size:10.5px;line-height:1.4}
+}
