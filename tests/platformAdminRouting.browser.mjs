@@ -20,6 +20,8 @@ try{
       data={user:{id:"platform-routing-fixture",name:"Synthetic Platform Administrator",appRole:"PLATFORM_ADMIN",organizationId:null,forcePasswordChange:false}};
     }else if(url.pathname==="/api/platform/overview"){
       data={overview:{organizations:0,active:0,review:0,stores:0}};
+    }else if(url.pathname==="/api/platform/organizations/org-synthetic-platform-1/detail"){
+      data={organization:{id:"org-synthetic-platform-1",name:"Sinov biznesi — juda uzun kompaniya nomi",owner:"Test egasi",phone:"+998901234567",stores:3,plan:"MONTHLY",licenseStatus:"ACTIVE",expiryDate:"2027-12-31",billingHold:false,users:[{id:"user-synthetic-1",name:"Test kassir",username:"test-cashier",phone:"+998901234567",role:"CASHIER",active:true}],storeRows:[]},payments:[]};
     }else if(url.pathname==="/api/platform/organizations/page"){
       data={items:[{id:"org-synthetic-platform-1",name:"Sinov biznesi — juda uzun kompaniya nomi",owner:"Test egasi",phone:"+998901234567",stores:3,plan:"MONTHLY",licenseStatus:"ACTIVE",expiryDate:"2027-12-31",billingHold:false}],total:1,hasMore:false};
     }else if(url.pathname==="/api/platform/payments/page"){
@@ -73,6 +75,26 @@ try{
   await expect(page.getByRole("heading",{name:"Mijozlar ro‘yxati"})).toBeVisible();
   await expect(page.getByText("Sinov biznesi — juda uzun kompaniya nomi",{exact:true})).toBeVisible();
   assert.equal(await page.getByPlaceholder("Promokod qidirish...").count(),0,"Switching admin tabs must reset context-specific search");
+  await page.getByRole("button",{name:"Tashkilotni ko‘rish"}).click();
+  const detail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
+  await expect(detail).toBeVisible();
+  await expect(detail.getByText("Test kassir")).toBeVisible();
+  await detail.getByRole("button",{name:"Parolni tiklash",exact:true}).click();
+  const reset=page.getByRole("dialog",{name:"Xodim parolini tiklash"});
+  await expect(reset).toBeVisible();
+  const overlayTop=await page.evaluate(()=>{
+    const dialogs=[...document.querySelectorAll('.pro-modal-backdrop .pro-modal')];
+    return dialogs.at(-1)?.getAttribute('aria-label');
+  });
+  assert.equal(overlayTop,"Xodim parolini tiklash","Password reset must be the topmost nested modal");
+  await expect(reset.getByRole("button",{name:"Bir martalik token"})).toHaveAttribute("aria-pressed","true");
+  await expect(reset.getByLabel("Vaqtinchalik parol (kamida 12 belgi)")).toHaveCount(0);
+  await reset.getByRole("button",{name:"Administrator parol beradi"}).click();
+  await expect(reset.getByLabel("Vaqtinchalik parol (kamida 12 belgi)")).toBeVisible();
+  await expect(reset.getByRole("button",{name:"Token yaratish"})).toHaveCount(0);
+  await reset.getByRole("button",{name:"Yopish"}).click();
+  await detail.getByRole("button",{name:"Yopish"}).click();
+
   await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Backup va tiklash nazorati"})).toBeVisible();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
