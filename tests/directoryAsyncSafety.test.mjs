@@ -247,7 +247,7 @@ test("reversed organization usage responses keep B visible and closing invalidat
     assert.equal(document.querySelector('[role="dialog"]'),null);
     await act(async()=>rows[0].click());
     await act(async()=>document.querySelector('[aria-label="Yopish"]').click());
-    await act(async()=>rows[0].click());
+    await act(async()=>rows[0].click());await showUsage();
     await act(async()=>reopenedUsage.resolve({usage:{receiptBytes:4194304,estimatedBytes:4194304}}));
     await act(async()=>closedUsage.resolve({usage:{receiptBytes:8388608,estimatedBytes:8388608}}));
     assert.match(document.querySelector('[role="dialog"]').textContent,/4 MB/);
