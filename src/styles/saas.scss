@@ -1005,3 +1005,17 @@ body.dark-mode .billing-renewal-extra{
 .platform-pro .platform-reset-flow{display:grid;gap:12px;margin-top:12px}
 .platform-pro .platform-reset-flow>.pro-btn{justify-self:start;min-height:42px}
 @media(max-width:420px){.platform-pro .platform-reset-options>button{font-size:11.5px}.platform-pro .platform-reset-flow>.pro-btn{width:100%}}
+
+/* Super Admin audit: optional analytics, promo creation, receipt controls. */
+.platform-metrics-toggle{margin:0 0 18px;min-height:40px}
+.platform-promo-form-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.platform-promo-form-heading>div{min-width:0}
+.platform-promo-form-heading h2{font-size:18px;margin:0 0 5px}
+.platform-promo-form-heading p{font-size:13px;color:var(--muted);margin:0;line-height:1.5}
+.platform-promo-form-heading>.pro-btn{flex:0 0 auto}
+.platform-receipt-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin:10px 0}
+.platform-plan-breakdown{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.platform-plan-breakdown>span{display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+.platform-plan-breakdown small{font-size:11px;font-weight:500;color:var(--muted)}
+.platform-plan-breakdown b{font-size:18px;color:var(--text);font-weight:650}
+@media(max-width:700px){.platform-promo-form-heading{flex-direction:column}.platform-promo-form-heading>.pro-btn{width:100%}.platform-receipt-actions>a{flex:1 1 auto}}
