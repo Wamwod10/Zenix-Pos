@@ -1,3 +1,4 @@
+import {isValidCalendarDateISO} from '../../utils/creditDueDate.js';
 import {lineAmount,roundMoney,sumMoney} from '../../utils/posMoney.js';
 export const MAX_CART_LINES=500;
 const moneyFormatter=new Intl.NumberFormat('uz-UZ',{maximumFractionDigits:2});
@@ -26,12 +27,6 @@ export function cartTotals(cart,cartPct=0){
  const total=sumMoney(cart.map(p=>lineAmount(p.cartQty,finalUnitPrice(p,cartPct))));
  return {subtotal,total,discount:sumMoney([subtotal,-total]),lines:cart.length};
 }
-// Gregorian date-only, independent of local Date.parse normalization.
-export const isValidCalendarDateISO=value=>{
- if(typeof value!=='string'||!/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(value))return false;
- const date=new Date(value+'T12:00:00.000Z');
- return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;
-};
 const amount=value=>{const n=Number(value||0);if(!Number.isFinite(n)||n<0||roundMoney(n)!==n||n>9000000000000)throw Error('To‘lov summasi noto‘g‘ri');return n};
 export function paymentPlan({method,total,tendered=0,card=0,transfer=0,externalConfirmed=false,customerId,dueDate,creditAllowed=false,todayISO=null}){
  total=amount(total);tendered=amount(tendered);card=amount(card);transfer=amount(transfer);
