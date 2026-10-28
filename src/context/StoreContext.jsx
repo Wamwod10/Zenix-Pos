@@ -745,13 +745,31 @@ export const StoreProvider = ({ children }) => {
   },[scheduleWorkspaceRefresh]);
 
   const commitShiftMovement = useCallback(async ({ movement, storeId = currentStoreId, activity = null } = {}) => {
-    const shift=activeShifts?.[storeId];if(!shift)return {success:false,message:"Avval smenani oching"};
+    const journalKey=attemptKey(currentUser?.organizationId,storeId,currentUser?.id,'shift-movement');
+    const unresolved=readAttempt(window.localStorage,journalKey);
+    const shiftId=unresolved?.payload?.shiftId||activeShifts?.[storeId]?.id;
+    if(!shiftId)return {success:false,message:"Avval smenani oching"};
     if(!movement||number(movement.amount,0)<=0)return {success:false,message:"Kassa harakati ma’lumotlari to‘liq emas"};
-    try{
-      const data=await api.post(`/api/shifts/${encodeURIComponent(shift.id)}/movements`,{type:movement.type,amount:number(movement.amount,0),reason:String(movement.reason||"").trim(),source:movement.source||"manual",referenceId:movement.referenceId||movement.id||""});
-      scheduleWorkspaceRefresh();return {success:true,movement:data.movement||data};
-    }catch(error){return apiFailure(error,"Kassa harakatini saqlab bo‘lmadi")}
-  },[activeShifts,currentStoreId,hydrateWorkspace,scheduleWorkspaceRefresh]);
+    let packet;
+    try {
+      // The same attempt survives a lost response, reload and even shift close.
+      // Never issue a new reference while an older cash write is unresolved.
+      packet=await prepareFinancialAttempt(window.localStorage,journalKey,{
+        shiftId,type:movement.type,amount:number(movement.amount,0),
+        reason:String(movement.reason||"").trim(),source:'manual',
+      });
+      const data=await api.post(`/api/shifts/${encodeURIComponent(packet.payload.shiftId)}/movements`,{
+        type:packet.payload.type,amount:packet.payload.amount,reason:packet.payload.reason,
+        referenceId:packet.clientReference,
+      });
+      if(!isConfirmedFinancialRecord(data?.movement))throw new Error("Kassa harakati javobi to‘liq emas. Avvalgi urinishni qayta tekshiring.");
+      await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,'confirmed');
+      scheduleWorkspaceRefresh();return {success:true,movement:data.movement,replayed:data?.replayed||false};
+    }catch(error) {
+      const state=packet?await settleFinancialAttempt(window.localStorage,journalKey,packet.clientReference,isDefiniteWriteRejection(error)?'rejected':'unknown'):'unknown';
+      return {...apiFailure(error,"Kassa harakatini saqlab bo‘lmadi"),state};
+    }
+  },[activeShifts,currentStoreId,currentUser?.organizationId,currentUser?.id,scheduleWorkspaceRefresh]);
 
   const commitShiftClose = useCallback(async ({ closedShift, storeId = currentStoreId, activity = null } = {}) => {
     const current=activeShifts?.[storeId];if(!current||!closedShift)return {success:false,message:"Joriy smena topilmadi"};
