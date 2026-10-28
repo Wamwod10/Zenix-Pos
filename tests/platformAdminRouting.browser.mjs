@@ -64,7 +64,7 @@ try{
   await expect(page.getByText("Biznes holati",{exact:true})).toHaveCount(0);
   await expect(page.locator(".platform-pro .mobile-card-table")).toHaveCount(1);
   await expect(page.locator(".platform-pro .mobile-card-table tbody tr")).toHaveCount(1);
-  await expect(page.getByText("Oylik va yillik",{exact:true})).toBeVisible();
+  await expect(page.locator(".platform-pro .mobile-card-table tbody tr").first().getByText("Oylik va yillik",{exact:true})).toBeVisible();
   await page.setViewportSize({width:375,height:812});
   await expect(page.locator(".platform-pro .mobile-card-table tbody tr td[data-label='Kod']")).toBeVisible();
   await tabs.getByRole("button",{name:"To‘lovlar",exact:true}).click();
