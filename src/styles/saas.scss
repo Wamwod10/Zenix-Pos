@@ -974,3 +974,9 @@ body.dark-mode .billing-renewal-extra{
   .platform-pro .platform-detail-list>div>span:last-child .pro-btn{min-height:42px}
   .platform-pro .admin-receipt-preview iframe,.platform-pro .admin-receipt-preview img{max-height:42dvh!important}
 }
+
+.platform-pro .platform-support-issue{display:grid;gap:4px;margin-top:7px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);min-width:0}
+.platform-pro .platform-support-issue strong{font-size:12px;font-weight:600;color:var(--text);overflow-wrap:anywhere}
+.platform-pro .platform-support-issue small{font-size:11.5px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+.platform-pro .platform-support-caption{margin:12px 0 8px;font-size:12px;line-height:1.5;color:var(--muted)}
+.platform-pro .platform-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;overflow-wrap:anywhere;word-break:break-all}
