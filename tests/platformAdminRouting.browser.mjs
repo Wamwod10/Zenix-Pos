@@ -100,6 +100,17 @@ try{
   await expect(detail).toBeVisible();
   await detail.getByRole("button",{name:"Yopish"}).click();
 
+  await tabs.getByRole("button",{name:"Saqlash",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Saqlash diagnostikasi"})).toBeVisible();
+  await page.getByRole("button",{name:"Saqlash hajmini ko‘rish"}).click();
+  const storageDetail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
+  await expect(storageDetail.getByRole("heading",{name:"Saqlash hajmi"})).toBeVisible();
+  await storageDetail.getByRole("button",{name:"Yopish"}).click();
+  await tabs.getByRole("button",{name:"Yordam",exact:true}).click();
+  await page.getByRole("button",{name:"Yordam diagnostikasini ko‘rish"}).click();
+  const supportDetail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
+  await expect(supportDetail.getByRole("heading",{name:"Yordam diagnostikasi"})).toBeVisible();
+  await supportDetail.getByRole("button",{name:"Yopish"}).click();
   await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Backup va tiklash nazorati"})).toBeVisible();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
