@@ -13,6 +13,9 @@ const cents=value=>{const r=ratio(value);return round(r.numerator*100n,r.denomin
 const fromCents=value=>{if(value>BigInt(Number.MAX_SAFE_INTEGER)||value<-BigInt(Number.MAX_SAFE_INTEGER))throw new RangeError('Money out of range');return Number(value)/100};
 export const roundMoney=value=>fromCents(cents(value));
 export const sumMoney=values=>fromCents(values.reduce((sum,value)=>sum+cents(value),0n));
+// Derived tender/credit balances must use integer cents: native 100.30-0.10-0.10
+// becomes 100.10000000000001 and fails strict backend payment validation.
+export const remainingPayment=(total,paid=[])=>sumMoney([total,...paid.map(value=>-value)]);
 export const lineAmount=(quantity,unitPrice,discount=0)=>{
  const q=ratio(quantity),p=ratio(unitPrice),d=ratio(discount);
  return fromCents(round(q.numerator*p.numerator*(100n*d.denominator-d.numerator),q.denominator*p.denominator*d.denominator));

@@ -1,5 +1,5 @@
 import {refundAttemptKey,prepareRefundReference,settleRefund} from "../../utils/refundAttempt";
-import {lineAmount,sumMoney} from "../../utils/posMoney";
+import {lineAmount,sumMoney,remainingPayment} from "../../utils/posMoney";
 import {createPosCatalogSearch,searchPosCatalog} from "../../utils/posCatalogSearch";
 import TodaySales from "./TodaySales";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -291,11 +291,11 @@ function Sales(){
   const change=Math.max(0,sumMoney([Number(cashTendered||0),-total]));
   const splitCardN=Math.max(0,Number(splitCard||0));
   const splitTransferN=Math.max(0,Number(splitTransfer||0));
-  const splitCash=Math.max(0,total-splitCardN-splitTransferN);
+  const splitCash=Math.max(0,remainingPayment(total,[splitCardN,splitTransferN]));
   const splitCashTenderedN=Math.max(0,Number(splitCashTendered||0));
-  const splitChange=Math.max(0,splitCashTenderedN-splitCash);
+  const splitChange=Math.max(0,remainingPayment(splitCashTenderedN,[splitCash]));
   const splitMethodCount=[splitCash,splitCardN,splitTransferN].filter(value=>value>0.009).length;
-  const splitValid=splitCardN+splitTransferN<=total&&splitMethodCount>=2&&(splitCash<=0||splitCashTenderedN>=splitCash);
+  const splitValid=sumMoney([splitCardN,splitTransferN])<=total&&splitMethodCount>=2&&(splitCash<=0||splitCashTenderedN>=splitCash);
   const storeDailySales=useMemo(()=>dailySales.filter(sale=>sale.storeId?String(sale.storeId)===String(currentStoreId):sale.store===currentStore?.name),[dailySales,currentStoreId,currentStore?.name]);
 
   const add=useCallback((product)=>{
@@ -487,7 +487,7 @@ function Sales(){
     if(payment==="credit"&&!isAcceptableCreditDueDate(creditDueDate,workspaceDateISO(new Date(),workspaceSettings.organization?.timezone||"Asia/Tashkent"))){setError("Nasiya muddati haqiqiy sana va bugundan oldin bo‘lmasligi kerak.");return}
     if(payment==="credit"&&Number(creditPaid||0)>total){setError("Boshlang‘ich to‘lov jami summadan oshmasligi kerak");return}
     if(payment==="cash"&&Number(cashTendered||0)<total){setError("Mijoz bergan summa yetarli emas");return}
-    if(payment==="split"&&!splitValid){setError(splitMethodCount<2?"Aralash to‘lovda kamida 2 ta to‘lov usulidan foydalaning":splitCardN+splitTransferN>total?"Karta va o‘tkazma summasi jami summadan oshmasligi kerak":"Mijoz bergan naqd summa naqd qismidan kam");return}
+    if(payment==="split"&&!splitValid){setError(splitMethodCount<2?"Aralash to‘lovda kamida 2 ta to‘lov usulidan foydalaning":sumMoney([splitCardN,splitTransferN])>total?"Karta va o‘tkazma summasi jami summadan oshmasligi kerak":"Mijoz bergan naqd summa naqd qismidan kam");return}
     const saleId=checkoutReferenceRef.current||`POS-${crypto.randomUUID()}`;
     checkoutReferenceRef.current=saleId;
     if(!savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:saleId})){setError("Savat qurilmaga saqlanmadi; qayta urinib koring.");return;}
@@ -510,7 +510,7 @@ function Sales(){
       time:workspaceTime(saleMoment,organizationSettings),sellerId:currentUser?.employeeId||currentUser?.id,sellerAccountId:currentUser?.id,sellerName:currentUser?.name,seller:currentUser?.name,
       storeId:currentStoreId,store:currentStore?.name,shiftId:activeShift?.id,paymentMethod:payment,saleTotal:total,total,subtotal,discountTotal,cartDiscountPercent:cartDiscountPct,
       cashTendered:payment==="split"?splitCashTenderedN:Number(cashTendered||0),change:payment==="split"?splitChange:change,paymentBreakdown:payment==="split"?{cash:splitCash,card:splitCardN,transfer:splitTransferN}:payment==="credit"?{cash:Number(creditPaid||0),card:0,transfer:0}:null,
-      customer,customerId:customerId||null,creditAmount:payment==="credit"?Math.max(0,total-Number(creditPaid||0)):0,creditDueDate:payment==="credit"?creditDueDate:null,note,items:saleItems,
+      customer,customerId:customerId||null,creditAmount:payment==="credit"?Math.max(0,remainingPayment(total,[Number(creditPaid||0)])):0,creditDueDate:payment==="credit"?creditDueDate:null,note,items:saleItems,
     };
     const committed=await commitSaleTransaction({
       sale,storeId:currentStoreId,productUpdates:trackedUpdates,
