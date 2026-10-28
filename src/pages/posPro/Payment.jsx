@@ -3,11 +3,11 @@ import Modal from '../../components/Modal';
 import {PremiumDateInput} from '../../components/Ui';
 import {paymentPlan,formatProMoney as formatPrice} from './model';
 export const paymentLabels={cash:'Naqd',card:'Karta',transfer:'O‘tkazma',split:'Aralash',credit:'Nasiya'};
-export default function Payment({method,total,customerId,creditAllowed,busy,error,onClose,onConfirm}){
+export default function Payment({method,total,customerId,creditAllowed,todayISO,busy,error,onClose,onConfirm}){
  const [tendered,setTendered]=useState(''),[card,setCard]=useState(''),[transfer,setTransfer]=useState(''),[dueDate,setDueDate]=useState(''),[externalConfirmed,setConfirmed]=useState(false),[reviewed,setReviewed]=useState(false);
  // If server-side catalog reconciliation changes the total, prior payment acknowledgement is stale.
- useEffect(()=>{setReviewed(false);setConfirmed(false)},[total,method,customerId]);
- const input={method,total,tendered,card:method==='split'?card:0,transfer:method==='split'?transfer:0,dueDate,externalConfirmed,customerId,creditAllowed};
+ useEffect(()=>{setReviewed(false);setConfirmed(false)},[total,method,customerId,todayISO]);
+ const input={method,total,tendered,card:method==='split'?card:0,transfer:method==='split'?transfer:0,dueDate,externalConfirmed,customerId,creditAllowed,todayISO};
  let plan,validation='';try{plan=paymentPlan(input)}catch(e){validation=e.message}
  const edit=setter=>event=>{setter(event.target.value);setConfirmed(false);setReviewed(false)};
  const cashNeeded=method==='split'?Math.max(0,total-Number(card||0)-Number(transfer||0)):method==='cash'?total:0;
