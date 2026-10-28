@@ -12,7 +12,7 @@ const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
 async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER'}={}){
- const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false;
+ const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
  if(cartSize)await page.addInitScript(({key,cart})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({v:1,cart,cartDiscountPct:0,checkoutReference:'PRO-browser-stable'}))},{key:`${posDraftKey(org,'owner',store)}:pro`,cart:Array.from({length:cartSize},(_,i)=>({...product(i),cartQty:1,discountPercent:0}))});
@@ -47,7 +47,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   }
   if(url.pathname.startsWith('/api/sales/holds/')&&req.method()==='DELETE'){holds=holds.filter(h=>h.id!==url.pathname.split('/').at(-1));data={deleted:true}}
   if(url.pathname==='/api/sales'&&req.method()==='POST'){
-   posts++;const body=req.postDataJSON();let sale=sales.find(p=>p.client_reference===body.clientReference);
+   posts++;if(rejectStatus)return route.fulfill({status:rejectStatus,json:{ok:false,error:{code:'INSUFFICIENT_STOCK',message:'Server: qoldiq yetarli emas'}}});const body=req.postDataJSON();let sale=sales.find(p=>p.client_reference===body.clientReference);
    if(!sale){sale={id:'66666666-6666-4666-8666-'+String(sales.length+1).padStart(12,'0'),sale_number:'S-'+(sales.length+1),client_reference:body.clientReference,total:body.payments.reduce((s,p)=>s+p.amount,0)+body.creditAmount,created_at:new Date().toISOString(),request:body};sales.push(sale)}
    if(delay)await new Promise(r=>setTimeout(r,delay));if(fail)return route.abort();data={sale};
   }
@@ -56,7 +56,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
  });
  const start=performance.now();await page.goto(base+'/pos-pro');await expect(page.locator('.pp-product').first()).toBeEnabled();
  results.push({kind:'load',cartSize,catalogSize,width,ms:performance.now()-start});
- return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value}};
+ return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value},set rejectStatus(value){rejectStatus=value}};
 }
 try{
  const benchmark=process.env.POS_PRO_SEARCH_BENCHMARK;
@@ -417,6 +417,22 @@ try{
  }
  if(!uxOnly||uxOnly==='currency'){
   const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');await expect(p.locator('.pp-payment-total')).toBeVisible();assert.equal((await p.locator('.pp-payment-total').textContent()).match(/so‘m/g)?.length,1);await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='payment-rejection'){
+  const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');
+  const dialog=p.getByRole('dialog',{name:'To‘lov — Naqd'}),amount=p.getByLabel('Mijoz bergan naqd',{exact:true});
+  await amount.fill('15000');await dialog.getByRole('checkbox').check();
+  r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.pp-error')).toContainText('qoldiq yetarli emas');
+  await expect(amount).toHaveValue('15000');
+  await expect(p.locator('.pp-recovery')).toHaveCount(0);
+  assert.equal(r.sales.length,0,'definite rejection must not create sale');
+  r.rejectStatus=0;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.sales.length,1);
+  assert.equal(r.posts,2,'one rejected and one accepted POST');
+  await r.context.close();
  }
  if(!uxOnly||uxOnly==='receipt'){
   for(const unit of ['kg','l'])for(const recovery of [false,true]){
