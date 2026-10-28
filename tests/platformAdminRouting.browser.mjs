@@ -91,6 +91,10 @@ try{
   await page.getByRole("button",{name:"Tashkilotni ko‘rish"}).click();
   const detail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
   await expect(detail).toBeVisible();
+  const detailTabs=detail.getByRole("tablist",{name:"Mijoz tafsilotlari bo‘limlari"});
+  await expect(detailTabs.getByRole("tab")).toHaveCount(7);
+  await expect(detail.locator(".platform-customer-kpis > div")).toHaveCount(3);
+  await detailTabs.getByRole("tab",{name:"Xodimlar",exact:true}).click();
   await expect(detail.getByText("Test kassir")).toBeVisible();
   await detail.getByRole("button",{name:"Parolni tiklash",exact:true}).click();
   const reset=page.getByRole("dialog",{name:"Xodim parolini tiklash"});
@@ -108,17 +112,24 @@ try{
   await page.keyboard.press("Escape");
   await expect(reset).toHaveCount(0);
   await expect(detail).toBeVisible();
+  await detailTabs.getByRole("tab",{name:"Tarif",exact:true}).click();
+  await expect(detail.getByRole("heading",{name:"Biznes va tarif boshqaruvi"})).toBeVisible();
+  await expect(detail.getByText("Test kassir")).toHaveCount(0);
+  await detailTabs.getByRole("tab",{name:"Umumiy",exact:true}).click();
+  await expect(detail.locator(".platform-customer-kpis > div")).toHaveCount(3);
   await detail.getByRole("button",{name:"Yopish"}).click();
 
   await tabs.getByRole("button",{name:"Saqlash",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Saqlash diagnostikasi"})).toBeVisible();
   await page.getByRole("button",{name:"Saqlash hajmini ko‘rish"}).click();
   const storageDetail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
+  await expect(storageDetail.getByRole("tab",{name:"Diagnostika"})).toHaveAttribute("aria-selected","true");
   await expect(storageDetail.getByRole("heading",{name:"Saqlash hajmi"})).toBeVisible();
   await storageDetail.getByRole("button",{name:"Yopish"}).click();
   await tabs.getByRole("button",{name:"Yordam",exact:true}).click();
   await page.getByRole("button",{name:"Yordam diagnostikasini ko‘rish"}).click();
   const supportDetail=page.getByRole("dialog",{name:"Sinov biznesi — juda uzun kompaniya nomi"});
+  await expect(supportDetail.getByRole("tab",{name:"Diagnostika"})).toHaveAttribute("aria-selected","true");
   await expect(supportDetail.getByRole("heading",{name:"Yordam diagnostikasi"})).toBeVisible();
   await supportDetail.getByRole("button",{name:"Yopish"}).click();
   await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
