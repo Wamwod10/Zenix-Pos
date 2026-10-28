@@ -70,6 +70,16 @@ try{
   await expect(page.locator(".platform-pro .mobile-card-table tbody tr").first().getByText("Oylik va yillik",{exact:true})).toBeVisible();
   await page.setViewportSize({width:375,height:812});
   await expect(page.locator(".platform-pro .mobile-card-table tbody tr td[data-label='Kod']")).toBeVisible();
+  await tabs.getByRole("button",{name:"Boshqaruv",exact:true}).click();
+  const kpiGrid=page.locator(".platform-pro > .pro-stat-grid").first();
+  await expect(kpiGrid).toBeVisible();
+  for(const theme of ["light","dark"]){
+    await page.evaluate(next=>document.body.classList.toggle("dark-mode",next==="dark"),theme);
+    const columns=await kpiGrid.evaluate(node=>getComputedStyle(node).gridTemplateColumns.trim().split(/\\s+/).length);
+    assert.equal(columns,2,`375px ${theme}: primary KPIs must use two columns`);
+  }
+  await page.evaluate(()=>document.body.classList.remove("dark-mode"));
+  await tabs.getByRole("button",{name:"Promokodlar",exact:true}).click();
   await tabs.getByRole("button",{name:"To‘lovlar",exact:true}).click();
   await expect(page.getByRole("heading",{name:"To‘lovlarni tekshirish"})).toBeVisible();
   await expect(page.getByRole("button",{name:"To‘lovni tasdiqlash"})).toBeVisible();
