@@ -487,7 +487,7 @@ function Sales(){
     if(payment==="credit"&&!isAcceptableCreditDueDate(creditDueDate,workspaceDateISO(new Date(),workspaceSettings.organization?.timezone||"Asia/Tashkent"))){setError("Nasiya muddati haqiqiy sana va bugundan oldin bo‘lmasligi kerak.");return}
     if(payment==="credit"&&Number(creditPaid||0)>total){setError("Boshlang‘ich to‘lov jami summadan oshmasligi kerak");return}
     if(payment==="cash"&&Number(cashTendered||0)<total){setError("Mijoz bergan summa yetarli emas");return}
-    if(payment==="split"&&!splitValid){setError(splitMethodCount<2?"Aralash to‘lovda kamida 2 ta to‘lov usulidan foydalaning":splitCardN+splitTransferN>total?"Karta va o‘tkazma summasi jami summadan oshmasligi kerak":"Mijoz bergan naqd summa naqd qismidan kam");return}
+    if(payment==="split"&&!splitValid){setError(splitMethodCount<2?"Aralash to‘lovda kamida 2 ta to‘lov usulidan foydalaning":sumMoney([splitCardN,splitTransferN])>total?"Karta va o‘tkazma summasi jami summadan oshmasligi kerak":"Mijoz bergan naqd summa naqd qismidan kam");return}
     const saleId=checkoutReferenceRef.current||`POS-${crypto.randomUUID()}`;
     checkoutReferenceRef.current=saleId;
     if(!savePosDraft(window.localStorage,draftKey,{cart,customer,customerId,note,payment,cashTendered:cashTenderedInput,cartDiscountPct,creditDueDate,creditPaid,splitCard,splitTransfer,splitCashTendered,checkoutReference:saleId})){setError("Savat qurilmaga saqlanmadi; qayta urinib koring.");return;}
