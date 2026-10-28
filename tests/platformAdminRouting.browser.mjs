@@ -95,7 +95,9 @@ try{
   await reset.getByRole("button",{name:"Administrator parol beradi"}).click();
   await expect(reset.getByLabel("Vaqtinchalik parol (kamida 12 belgi)")).toBeVisible();
   await expect(reset.getByRole("button",{name:"Token yaratish"})).toHaveCount(0);
-  await reset.getByRole("button",{name:"Yopish"}).click();
+  await page.keyboard.press("Escape");
+  await expect(reset).toHaveCount(0);
+  await expect(detail).toBeVisible();
   await detail.getByRole("button",{name:"Yopish"}).click();
 
   await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
