@@ -31,7 +31,7 @@ try{
     requested.length=0;
     await page.goto(new URL(pathname,base).href);
     await expect(page).toHaveURL(/\/platform$/,{timeout:12000});
-    await expect(page.getByText("Platform boshqaruvi",{exact:true})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Platform boshqaruvi",exact:true})).toBeVisible();
     await page.waitForTimeout(100);
     assert.ok(!requested.some(path=>path.startsWith("/api/finance")||path.startsWith("/api/bootstrap")),
       `Platform admin must not request organization-scoped APIs from ${pathname}: ${requested.join(", ")}`);
