@@ -50,6 +50,8 @@ function PlatformAdmin(){
   const [receiptLoading,setReceiptLoading]=useState(false);
   const [detail,setDetail]=useState(null);
   const [detailLoaded,setDetailLoaded]=useState(false);
+  const [detailSection,setDetailSection]=useState("overview");
+  useEffect(()=>{if(!detailLoaded||!detail||detailSection==="overview")return;const t=window.requestAnimationFrame(()=>document.getElementById(`platform-detail-${detailSection}`)?.scrollIntoView({block:"start"}));return()=>window.cancelAnimationFrame(t)},[detailLoaded,detail?.id,detailSection]);
   const [detailAudit,setDetailAudit]=useState([]);
   const [detailAuditLoading,setDetailAuditLoading]=useState(false);
   const [detailAuditHasMore,setDetailAuditHasMore]=useState(false);
@@ -216,7 +218,7 @@ function PlatformAdmin(){
     }
   };
   const closeReceipt=()=>{receiptRequestRef.current+=1;setReceiptLoading(false);setReceiptUrl("");setReceipt(null)};
-  const openDetail=async(org)=>{closeReset();
+  const openDetail=async(org,section="overview")=>{closeReset();setDetailSection(section);
     const requestId=++detailRequestRef.current;
     const organizationId=org.id;
     detailOrganizationRef.current=organizationId;
@@ -321,7 +323,7 @@ function PlatformAdmin(){
         {showCustomerColumn("stores")&&<td data-label="Filiallar">{org.stores}</td>}
         {showCustomerColumn("plan")&&<td data-label="Tarif"><strong>{planLabel(org.plan)}</strong><StatusBadge tone={tone(org.licenseStatus)}>{STATUS_LABELS[org.licenseStatus]||org.licenseStatus}</StatusBadge>{org.billingHold&&<StatusBadge tone="warning">Billing cheklovi</StatusBadge>}{org.trialEndsAt&&Date.parse(org.trialEndsAt)>Date.now()&&<StatusBadge tone="neutral">Sinovda</StatusBadge>}</td>}
         {showCustomerColumn("expiry")&&<td data-label="Muddati">{org.expiryDate?new Date(org.expiryDate).toLocaleDateString("uz-UZ"):"—"}</td>}
-        <td data-label="Amal"><button className="pro-btn secondary platform-row-action" onClick={()=>openDetail(org)} aria-label="Tashkilotni ko‘rish"><FiEye/> Ko‘rish</button></td>
+        <td data-label="Amal"><button className="pro-btn secondary platform-row-action" onClick={()=>openDetail(org,tab==="storage"?"storage":tab==="support"?"support":tab==="recovery"?"recovery":"overview")} aria-label={tab==="storage"?"Saqlash hajmini ko‘rish":tab==="support"?"Yordam diagnostikasini ko‘rish":tab==="recovery"?"Tiklash holatini ko‘rish":"Tashkilotni ko‘rish"}><FiEye/> {tab==="storage"?"Saqlash":tab==="support"?"Yordam":tab==="recovery"?"Tiklash":"Ko‘rish"}</button></td>
       </tr>)}{tab!=="payments"&&!["promos","audit"].includes(tab)&&!pagedRows.length&&!pageLoading&&!pageError&&<tr><td colSpan={customerColumns.length+2}><div className="pro-empty"><FiUsers/><strong>Tashkilot topilmadi</strong></div></td></tr>}</tbody></table></div>}{!pageLoading&&!pageError&&!["promos","audit"].includes(tab)&&resultTotal>pageSize&&<div className="platform-pagination"><span>{resultTotal} ta natija · {page}/{totalPages} sahifa</span><div><button className="pro-btn secondary" disabled={page<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>Oldingi</button><button className="pro-btn secondary" disabled={page>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>Keyingi</button></div></div>}
       {pageLoading&&<div className="pro-empty" role="status">Ro‘yxat yuklanmoqda...</div>}{pageError&&<div className="pro-alert danger">{pageError}</div>}
     </section>
