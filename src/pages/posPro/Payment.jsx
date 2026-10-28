@@ -3,11 +3,11 @@ import Modal from '../../components/Modal';
 import {PremiumDateInput} from '../../components/Ui';
 import {paymentPlan,formatProMoney as formatPrice} from './model';
 export const paymentLabels={cash:'Naqd',card:'Karta',transfer:'O‘tkazma',split:'Aralash',credit:'Nasiya'};
-export default function Payment({method,total,customerId,creditAllowed,busy,error,onClose,onConfirm}){
+export default function Payment({method,total,customerId,creditAllowed,todayISO,busy,error,onClose,onConfirm}){
  const [tendered,setTendered]=useState(''),[card,setCard]=useState(''),[transfer,setTransfer]=useState(''),[dueDate,setDueDate]=useState(''),[externalConfirmed,setConfirmed]=useState(false),[reviewed,setReviewed]=useState(false);
  // If server-side catalog reconciliation changes the total, prior payment acknowledgement is stale.
- useEffect(()=>{setReviewed(false);setConfirmed(false)},[total,method,customerId]);
- const input={method,total,tendered,card:method==='split'?card:0,transfer:method==='split'?transfer:0,dueDate,externalConfirmed,customerId,creditAllowed};
+ useEffect(()=>{setReviewed(false);setConfirmed(false)},[total,method,customerId,todayISO]);
+ const input={method,total,tendered,card:method==='split'?card:0,transfer:method==='split'?transfer:0,dueDate,externalConfirmed,customerId,creditAllowed,todayISO};
  let plan,validation='';try{plan=paymentPlan(input)}catch(e){validation=e.message}
  const edit=setter=>event=>{setter(event.target.value);setConfirmed(false);setReviewed(false)};
  const cashNeeded=method==='split'?Math.max(0,total-Number(card||0)-Number(transfer||0)):method==='cash'?total:0;
@@ -16,7 +16,7 @@ export default function Payment({method,total,customerId,creditAllowed,busy,erro
   <div className="pp-payment"><div className="pp-payment-total">{formatPrice(total)}</div>
   {method==='split'&&<div className="pp-payment-fields"><label>Karta<input aria-label="Karta summasi" type="number" min="0" step="0.01" value={card} onChange={edit(setCard)}/></label><label>O‘tkazma<input aria-label="O‘tkazma summasi" type="number" min="0" step="0.01" value={transfer} onChange={edit(setTransfer)}/></label><p>Naqd qismi: <b>{formatPrice(cashNeeded)}</b></p></div>}
   {['cash','split','credit'].includes(method)&&<><label className="pp-field">{method==='credit'?'Boshlang‘ich naqd to‘lov':'Mijoz bergan naqd'}<input aria-label="Mijoz bergan naqd" type="number" inputMode="decimal" min="0" step="0.01" value={tendered} onChange={edit(setTendered)}/></label><div className="pp-quick-money"><button onClick={()=>{setTendered(String(cashNeeded));setReviewed(false)}}>Aniq summa</button>{[10000,50000,100000].map(n=><button key={n} onClick={()=>{setTendered(String(Number(tendered||0)+n));setReviewed(false)}}>+{formatPrice(n)}</button>)}<button onClick={()=>{setTendered('');setReviewed(false)}}>Tozalash</button></div><p className="pp-change">Qaytim <strong>{formatPrice(plan?.change||0)}</strong></p></>}
-  {method==='credit'&&<label className="pp-field">Nasiya muddati<PremiumDateInput aria-label="Nasiya muddati" value={dueDate} onChange={edit(setDueDate)}/></label>}
+  {method==='credit'&&<label className="pp-field">Nasiya muddati<PremiumDateInput aria-label="Nasiya muddati" min={todayISO||""} value={dueDate} onChange={edit(setDueDate)}/></label>}
   {external&&<label className="pp-confirm"><input type="checkbox" checked={externalConfirmed} onChange={e=>{setConfirmed(e.target.checked);setReviewed(false)}}/> Bank terminali / o‘tkazma muvaffaqiyatini tekshirdim. Qo‘lda tasdiqlayman. Avtomatik bank integratsiyasi ulanmagan.</label>}
   {validation&&<p className="pp-warning" role="status">{validation}</p>}{error&&<p className="pp-error" role="alert">{error}</p>}
   <label className="pp-confirm"><input type="checkbox" checked={reviewed} disabled={!plan||busy} onChange={e=>setReviewed(e.target.checked)}/> Chek va to‘lov summasini tekshirdim. Savdoni yakunlash.</label></div>

@@ -51,6 +51,8 @@ const FRIENDLY_ERRORS={
   BILLING_RECEIPT_ALREADY_USED:"Bu chek boshqa to‘lovda ishlatilgan. Yangi chek yuklang.",
   LOGIN_RATE_LIMITED:"Juda ko‘p noto‘g‘ri urinish. Birozdan keyin qayta urinib ko‘ring.",
   CREDIT_LIMIT_EXCEEDED:"Mijozning kredit limiti yetarli emas. Qarz yoki kredit limitini tekshiring.",
+  CREDIT_DUE_DATE_REQUIRED:"Nasiya uchun to‘lov muddatini kiriting.",
+  CREDIT_DUE_DATE_PAST:"Nasiya muddati bugundan oldin bo‘lishi mumkin emas. Yangi muddat tanlang.",
   TRACKED_SERIAL_ADJUSTMENT_REQUIRED:"Serial/IMEI mahsulot qoldig‘ini umumiy son bilan o‘zgartirib bo‘lmaydi. Serial birliklarini aniq kiriting.",
   TRACKED_BATCH_ADJUSTMENT_REQUIRED:"Partiyali mahsulot qoldig‘ini umumiy son bilan o‘zgartirib bo‘lmaydi. Partiya miqdorlarini aniq kiriting.",
   INSUFFICIENT_STOCK:"Mahsulot qoldig‘i yetarli emas. Joriy filial qoldig‘ini yangilang.",

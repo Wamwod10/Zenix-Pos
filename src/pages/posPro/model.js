@@ -1,3 +1,4 @@
+import {isValidCalendarDateISO} from '../../utils/creditDueDate.js';
 import {lineAmount,roundMoney,sumMoney} from '../../utils/posMoney.js';
 export const MAX_CART_LINES=500;
 const moneyFormatter=new Intl.NumberFormat('uz-UZ',{maximumFractionDigits:2});
@@ -27,7 +28,7 @@ export function cartTotals(cart,cartPct=0){
  return {subtotal,total,discount:sumMoney([subtotal,-total]),lines:cart.length};
 }
 const amount=value=>{const n=Number(value||0);if(!Number.isFinite(n)||n<0||roundMoney(n)!==n||n>9000000000000)throw Error('To‘lov summasi noto‘g‘ri');return n};
-export function paymentPlan({method,total,tendered=0,card=0,transfer=0,externalConfirmed=false,customerId,dueDate,creditAllowed=false}){
+export function paymentPlan({method,total,tendered=0,card=0,transfer=0,externalConfirmed=false,customerId,dueDate,creditAllowed=false,todayISO=null}){
  total=amount(total);tendered=amount(tendered);card=amount(card);transfer=amount(transfer);
  if(!['cash','card','transfer','split','credit'].includes(method))throw Error('To‘lov turini tanlang');
  let cash=0,credit=0;
@@ -35,7 +36,9 @@ export function paymentPlan({method,total,tendered=0,card=0,transfer=0,externalC
  if(method==='card')card=total;
  if(method==='transfer')transfer=total;
  if(method==='credit'){
-  if(!creditAllowed||!customerId||!/^\d{4}-\d{2}-\d{2}$/.test(dueDate||''))throw Error('Nasiya uchun ruxsat, mijoz va muddat kerak');
+  if(!creditAllowed||!customerId||!dueDate)throw Error('Nasiya uchun ruxsat, mijoz va muddat kerak');
+  if(!isValidCalendarDateISO(dueDate))throw Error('Nasiya uchun haqiqiy kalendar sanasini kiriting');
+  if(todayISO&&isValidCalendarDateISO(todayISO)&&dueDate<todayISO)throw Error('Nasiya muddati bugundan oldin bo‘lishi mumkin emas');
   if(tendered>total)throw Error('Boshlang‘ich to‘lov jami summadan oshdi');cash=tendered;credit=sumMoney([total,-cash]);
  }
  if(method==='split'){

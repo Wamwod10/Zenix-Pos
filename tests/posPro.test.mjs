@@ -39,6 +39,14 @@ test('cash change, split, credit and external confirmation',()=>{
  for(const input of [{method:'cash',tendered:-1},{method:'cash',tendered:1},{method:'card'},{method:'split',card:200000},{method:'credit'},{method:'split',tendered:180000}])assert.throws(()=>paymentPlan({total:180000,...input}));
  assert.equal(paymentPlan({method:'credit',total:180000,tendered:20000,customerId:'c',dueDate:'2026-12-01',creditAllowed:true}).credit,160000);
 });
+test('credit due dates require a real Gregorian day and cannot be in the past for the business timezone',()=>{
+ const base={method:'credit',total:20000,tendered:5000,customerId:'customer',creditAllowed:true,todayISO:'2026-10-28'};
+ for(const dueDate of ['2026-02-30','2026-02-29','2026-13-01','0000-01-01','2000-01-01']){
+  assert.throws(()=>paymentPlan({...base,dueDate}),/sana|muddati/i,dueDate);
+ }
+ assert.equal(paymentPlan({...base,dueDate:'2026-10-28'}).credit,15000);
+ assert.equal(paymentPlan({...base,dueDate:'2028-02-29'}).credit,15000);
+});
 test('58/80mm receipt escapes content and preserves exact paid/change amounts',()=>{
  const sale={id:'s',saleNumber:'S-1',createdAt:'2026-10-21T00:00:00Z',sellerName:'<script>bad</script>',total:12150.25,discountTotal:2850,cashTendered:15000,change:2849.75,paymentBreakdown:{cash:12150.25},items:[{name:'<img src=x>',unit:'kg',quantity:1.25,sellPrice:12000,finalPrice:9720.2}]};
  for(const width of ['58','80']){const html=receiptHtml(sale,{width,business:'Test market'});assert.ok(html.includes(`size:${width}mm auto`));assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('1.25 kg'));assert.match(html,/2[ ,]849[.,]75/);assert.ok(!html.includes('<script>'));assert.ok(!html.includes('https://'))}
