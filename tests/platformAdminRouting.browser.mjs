@@ -36,6 +36,30 @@ try{
     assert.ok(!requested.some(path=>path.startsWith("/api/finance")||path.startsWith("/api/bootstrap")),
       `Platform admin must not request organization-scoped APIs from ${pathname}: ${requested.join(", ")}`);
   }
+  // UI acceptance on mocked platform admin: filters must belong to the active tab,
+  // and KPIs must not push audit/promo content down the page.
+  await page.goto(new URL("/platform",base).href);
+  const tabs=page.getByRole("navigation",{name:"Platforma boshqaruvi bo‘limlari"});
+  await expect(tabs.getByRole("button")).toHaveCount(8);
+  await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(3);
+  await tabs.getByRole("button",{name:"Audit",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Platforma audit jurnali"})).toBeVisible();
+  await expect(page.locator(".platform-pro .pro-stat-grid")).toHaveCount(0);
+  await expect(page.getByText("Audit qidiruvi",{exact:true})).toBeVisible();
+  await expect(page.getByPlaceholder("Biznes qidirish...")).toHaveCount(0);
+  await expect(page.getByText("Biznes holati",{exact:true})).toHaveCount(0);
+  await tabs.getByRole("button",{name:"Promokodlar"}).click();
+  await expect(page.getByRole("heading",{name:"Promokodlarni boshqarish"})).toBeVisible();
+  await expect(page.getByPlaceholder("Promokod qidirish...")).toBeVisible();
+  await expect(page.getByText("Biznes holati",{exact:true})).toHaveCount(0);
+  await expect(page.locator(".platform-pro .mobile-card-table")).toHaveCount(1);
+  await page.setViewportSize({width:375,height:812});
+  await tabs.getByRole("button",{name:"Tiklash",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Backup va tiklash nazorati"})).toBeVisible();
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  assert.ok(overflow<=1,`Platform page has horizontal overflow on mobile: ${overflow}px`);
+  await expect(page.getByText("Quyidagi ro‘yxatdan biznesni",{exact:false})).toBeVisible();
+
   assert.deepEqual(pageErrors,[],"Platform routing must not raise uncaught browser errors");
   await context.close();
   console.log("PASS: platform admin is redirected from every organization module to /platform without tenant finance requests");
