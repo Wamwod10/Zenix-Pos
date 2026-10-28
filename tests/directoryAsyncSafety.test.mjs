@@ -232,7 +232,7 @@ test("reversed organization usage responses keep B visible and closing invalidat
     throw new Error(`Unexpected ${path}`);
   },async({container})=>{
     await act(async()=>button(container,"Mijozlar").click());await pause();
-    const rows=container.querySelectorAll("tbody .pro-icon-btn");
+    const rows=container.querySelectorAll('tbody [aria-label="Tashkilotni ko‘rish"]');
     await act(async()=>rows[0].click());await act(async()=>rows[1].click());
     await act(async()=>usageB.resolve({usage:{receiptBytes:2097152,estimatedBytes:3145728}}));
     assert.match(document.body.textContent,/2 MB/);
@@ -261,7 +261,7 @@ test("late reset token cannot appear in another user's reset workflow",async()=>
   },async({container,dom,api})=>{
     api.post=()=>pending.promise;
     await act(async()=>button(container,'Mijozlar').click());await pause();
-    await act(async()=>container.querySelector('tbody .pro-icon-btn').click());await pause();
+    await act(async()=>container.querySelector('tbody [aria-label="Tashkilotni ko‘rish"]').click());await pause();
     const users=()=>Array.from(document.querySelectorAll('.platform-detail-list button')).filter(node=>node.textContent==='Parolni tiklash');
     await act(async()=>users()[0].click());
     await inputValue(Array.from(document.querySelectorAll('input')).find(node=>node.previousElementSibling?.textContent.includes('Sabab')),'Identity checked by support',dom);
