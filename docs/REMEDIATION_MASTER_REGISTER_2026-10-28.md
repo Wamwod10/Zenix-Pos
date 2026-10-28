@@ -11,10 +11,10 @@ Date: 2026-10-28. Source commits: frontend `d294df5`, backend `94f88cf`.
 ## Phase 1 — Production Safety
 | ID | Classification | Finding | Status | Evidence/exit condition |
 | --- | --- | --- | --- | --- |
-| SAFE-001 | CONFIRMED | Neon production branch `br-small-dew-b197rvkz` was unprotected | FIXED / VERIFY | Neon API changed `protected: false` to `true` on 2026-10-28; readback required |
+| SAFE-001 | CONFIRMED | Neon production branch `br-small-dew-b197rvkz` was unprotected | FIXED / VERIFY | Neon API changed `protected: false` to `true` on 2026-10-28; readback CONFIRMED |
 | SAFE-002 | CONFIRMED | Vercel proxy runtime reported Node DEP0169 for `url.parse()` | OPEN | Identify actual stack owner before changing application proxy. Application proxy already uses `new URL`; do not claim warning fixed |
 | SAFE-003 | RISK | Backend Render auto-deployment disabled | REVIEW | Verify deliberate manual promotion, owner and rollback checklist; don't enable automatically |
-| SAFE-004 | RISK | Restore drill and retention policy not independently verified in current audit | OPEN | Prove isolated recovery without overwriting live data; confirm offsite/retention coverage |
+| SAFE-004 | CONFIRMED | Production automatic snapshot schedule is EMPTY (Neon reports `schedule: []`). Manual snapshots exist, latest from 2026-10-27 20:50Z. | OPEN / P0 | Choose retention, pricing and daily schedule consciously; prove isolated restore without overwriting live data |
 | SAFE-005 | CONFIRMED HISTORICAL | Render Telegram worker emitted 'financial writes paused' during 2026-10-27 cutover | MONITOR | No new error in 2026-10-28 08:00Z+ query; run alerting/retry and post-cutover review |
 | SAFE-006 | CONFIRMED | Neon production migration ledger contains migrations through 046 | VERIFIED | Read-only DB `schema_migrations` query 2026-10-28 |
 | SAFE-007 | IMPROVEMENT | Need repeatable external /health and /ready check | IMPLEMENTED / VERIFY | `node scripts/check-live-health.mjs https://www.zenixpos.uz`; CI should not depend on production internet |
