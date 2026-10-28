@@ -33,3 +33,34 @@ test('concurrent tabs share one reference and a late acknowledgement cannot eras
   assert.equal(attempt.readAttempt(s,'key').clientReference,newer.clientReference);
  }finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator}
 });
+
+test('manual cash movement retry preserves one identifier and immutable signed intent',async()=>{
+ const s=storage(),key=attempt.attemptKey('org','store','user','shift-movement');
+ const original={shiftId:'shift-a',type:'in',amount:0.10,reason:'Register float',source:'manual'};
+ const first=await attempt.prepareFinancialAttempt(s,key,original);
+ assert.match(first.clientReference,/^FIN-/);
+ assert.equal(attempt.readAttempt(s,key).payload.shiftId,'shift-a');
+ await attempt.settleFinancialAttempt(s,key,first.clientReference,'unknown');
+ const retry=await attempt.prepareFinancialAttempt(s,key,original);
+ assert.equal(retry.clientReference,first.clientReference);
+ assert.deepEqual(retry.payload,first.payload);
+ for(const changed of [{amount:0.20},{reason:'Different cash'},{type:'out'}]){
+  await assert.rejects(async()=>attempt.prepareFinancialAttempt(s,key,{...original,...changed}),/oldingi|tekshiring/i);
+ }
+ await attempt.settleFinancialAttempt(s,key,first.clientReference,'confirmed');
+ assert.equal(attempt.readAttempt(s,key),null);
+ const next=await attempt.prepareFinancialAttempt(s,key,original);
+ assert.notEqual(next.clientReference,first.clientReference,'only confirmed attempt may create a new identifier');
+});
+
+test('Shift UI and StoreContext retry only a journaled reference, without double submit',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const context=readFileSync(new URL('../src/context/StoreContext.jsx',import.meta.url),'utf8');
+ const ui=readFileSync(new URL('../src/pages/shifts/Shifts.jsx',import.meta.url),'utf8');
+ for(const expression of ['prepareFinancialAttempt(window.localStorage,journalKey','referenceId:packet.clientReference','settleFinancialAttempt(window.localStorage,journalKey']){
+  assert.ok(context.includes(expression),expression);
+ }
+ for(const expression of ['movementSubmittingRef.current','pendingCashMovement','readAttempt(window.localStorage,movementJournalKey)']){
+  assert.ok(ui.includes(expression),expression);
+ }
+});
