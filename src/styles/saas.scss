@@ -986,3 +986,13 @@ body.dark-mode .billing-renewal-extra{
 .platform-pro .platform-detail-jumps .pro-btn{min-height:34px;padding:0 11px;font-weight:600;white-space:nowrap;flex:0 0 auto}
 .platform-pro [id^="platform-detail-"]{scroll-margin-top:64px}
 @media(max-width:700px){.platform-pro .platform-detail-jumps{top:-14px;margin-top:-14px}.platform-pro .platform-detail-jumps .pro-btn{min-height:40px}}
+
+
+/* Platform admin diagnostics: improve hierarchy without changing global tokens. */
+.platform-pro .platform-support-caption{font-size:12px;line-height:1.6;color:var(--muted);margin:11px 0}
+.platform-pro .platform-support-caption strong{color:var(--text);font-variant-numeric:tabular-nums}
+.platform-pro .platform-support-issue{display:flex;flex-direction:column;gap:5px;padding:11px 13px;margin:8px 0;border:1px solid var(--border);border-radius:12px;background:var(--surface);min-width:0}
+.platform-pro .platform-support-issue>strong{font-size:12.5px;font-weight:650;line-height:1.5;color:var(--text)}
+.platform-pro .platform-support-issue>small{font-size:11.5px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.platform-pro .platform-code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:11.5px;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:560px){.platform-pro .platform-support-issue{padding:11px}.platform-pro .platform-section-notice{padding:11px 12px}}
