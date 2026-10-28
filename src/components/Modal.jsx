@@ -22,6 +22,10 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
       (preferredFocus() || focusables()[0])?.focus();
     }, 10);
     const onKey = (event) => {
+      // Only the topmost dialog may handle Escape or trap keyboard focus.
+      // Nested dialogs otherwise close both layers on a single Escape.
+      const top = [...document.querySelectorAll(".pro-modal-backdrop .pro-modal")].at(-1);
+      if (top !== node) return;
       if (event.key === "Escape") onCloseRef.current?.();
       if (event.key === "Tab") {
         const list = focusables();
