@@ -931,3 +931,46 @@ body.dark-mode .billing-renewal-extra{
 .subscription-interval{display:inline-flex;gap:6px;padding:4px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
 .subscription-interval button{min-height:40px;min-width:80px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer}
 .subscription-plan-grid .saving-pill{display:block;width:fit-content}
+
+
+/* Platform Super Admin: scoped UX hardening — preserve the shared design tokens. */
+.platform-pro .platform-directory{min-width:0}
+.platform-pro .platform-tab-navigation{min-width:0;position:relative;border-bottom:1px solid var(--border);padding-bottom:13px}
+.platform-pro .platform-admin-tabs{width:100%;max-width:100%;scrollbar-width:thin;scrollbar-color:var(--border) transparent;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;overscroll-behavior-x:contain}
+.platform-pro .platform-admin-tabs button{flex:0 0 auto;min-height:36px;white-space:nowrap}
+.platform-pro .platform-tab-scroll-hint{display:none;font-size:11px;color:var(--muted);padding:7px 1px 0}
+.platform-pro .platform-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 12px}
+.platform-pro .platform-section-heading h2{font-size:17px;line-height:1.35;font-weight:650;margin:0 0 3px}
+.platform-pro .platform-section-heading p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+.platform-pro .platform-section-notice{margin:0 0 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.55;color:var(--muted)}
+.platform-pro .platform-section-notice strong{color:var(--text)}
+.platform-pro .platform-toolbar{flex-wrap:wrap;gap:9px;margin-bottom:14px}
+.platform-pro .platform-toolbar .pro-search{max-width:420px;flex:1 1 230px;min-width:0}
+.platform-pro .platform-filter-label{font-size:12px;font-weight:600;color:var(--muted)}
+.platform-pro .platform-row-action{min-height:38px;padding:0 10px;white-space:nowrap;gap:6px}
+.platform-pro .pro-table td[data-label="Amal"] .pro-row-actions{flex-wrap:wrap;gap:7px}
+.platform-pro .mobile-card-table td small{overflow-wrap:anywhere}
+.platform-pro .platform-detail-list>div{min-width:0;flex-wrap:wrap}
+.platform-pro .platform-detail-list strong,.platform-pro .platform-detail-list small{overflow-wrap:anywhere;word-break:break-word}
+.platform-pro .platform-detail-list>div>span:last-child{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+.platform-pro .pro-modal-body .pro-card{min-width:0}
+.platform-pro .pro-modal-body .pro-row-actions{flex-wrap:wrap}
+.platform-pro .platform-pagination>.pro-btn{min-width:92px}
+@media(max-width:760px){
+  .platform-pro .platform-tab-scroll-hint{display:block}
+  .platform-pro .platform-admin-tabs{padding:4px}
+  .platform-pro .platform-section-heading{margin-top:13px}
+  .platform-pro .platform-toolbar .pro-search{max-width:none;flex-basis:100%}
+  .platform-pro .platform-filter-label{flex-basis:100%;margin-bottom:-7px}
+  .platform-pro .platform-toolbar>.pro-select{flex:1 1 160px;min-width:0}
+  .platform-pro .platform-toolbar>.column-picker{flex:0 0 auto}
+  .platform-pro .platform-directory{padding:13px}
+  .platform-pro .platform-row-action{min-height:44px}
+}
+@media(max-width:560px){
+  .platform-pro .platform-pagination>.pro-btn{width:100%}
+  .platform-pro .platform-detail-list>div{align-items:flex-start;gap:9px}
+  .platform-pro .platform-detail-list>div>span:last-child{width:100%;justify-content:flex-start}
+  .platform-pro .platform-detail-list>div>span:last-child .pro-btn{min-height:42px}
+  .platform-pro .admin-receipt-preview iframe,.platform-pro .admin-receipt-preview img{max-height:42dvh!important}
+}
