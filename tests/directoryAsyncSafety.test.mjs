@@ -264,10 +264,13 @@ test("late reset token cannot appear in another user's reset workflow",async()=>
     await act(async()=>container.querySelector('tbody [aria-label="Tashkilotni ko‘rish"]').click());await pause();
     const users=()=>Array.from(document.querySelectorAll('.platform-detail-list button')).filter(node=>node.textContent==='Parolni tiklash');
     await act(async()=>users()[0].click());
-    await inputValue(Array.from(document.querySelectorAll('input')).find(node=>node.previousElementSibling?.textContent.includes('Sabab')),'Identity checked by support',dom);
-    await act(async()=>button(document,'Bir martalik token yaratish').click());
-    await act(async()=>button(document,'Token yaratish').click());
-    const resetDialog=Array.from(document.querySelectorAll('[role="dialog"]')).find(node=>node.textContent.includes('Bir martalik token yaratish')||node.textContent.includes('Yaratilmoqda...'));
+    await inputValue(document.querySelector('input[placeholder="Shaxsni qanday tasdiqladingiz?"]'),'Identity checked by support',dom);
+    const resetDialog=Array.from(document.querySelectorAll('[role="dialog"]')).find(node=>node.getAttribute('aria-label')==='Xodim parolini tiklash');
+    assert.ok(resetDialog,'Password reset dialog must be visible');
+    await act(async()=>button(resetDialog,'Token yaratish').click());
+    const confirmDialog=Array.from(document.querySelectorAll('[role="dialog"]')).find(node=>node.getAttribute('aria-label')==='Shaxs tasdiqlandimi?');
+    assert.ok(confirmDialog,'Identity confirmation dialog must be shown');
+    await act(async()=>button(confirmDialog,'Token yaratish').click());
     await act(async()=>resetDialog.querySelector('[aria-label="Yopish"]').click());
     await act(async()=>users()[1].click());
     await act(async()=>pending.resolve({reset:{token:'SECRET-FOR-ALICE',expiresAt:'2099-01-01'}}));
