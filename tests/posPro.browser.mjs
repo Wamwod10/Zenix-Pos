@@ -434,6 +434,21 @@ try{
   assert.equal(r.posts,2,'one rejected and one accepted POST');
   await r.context.close();
  }
+ if(!uxOnly||uxOnly==='payment-rejection'){
+  const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F9');
+  const dialog=p.getByRole('dialog',{name:'To‘lov — Aralash'}),cash=p.getByLabel('Mijoz bergan naqd',{exact:true});
+  const card=p.getByLabel('Karta summasi',{exact:true});
+  await card.fill('2000');await cash.fill('15000');await dialog.getByRole('checkbox').nth(0).check();await dialog.getByRole('checkbox').nth(1).check();
+  r.rejectStatus=422;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(dialog).toBeVisible();await expect(dialog.locator('.pp-error')).toContainText('qoldiq yetarli emas');
+  await expect(card).toHaveValue('2000');await expect(cash).toHaveValue('15000');
+  assert.equal(r.sales.length,0);
+  r.rejectStatus=0;await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.sales.length,1);assert.equal(r.posts,2);
+  assert.equal(r.sales[0].request.payments.find(row=>row.method==='card')?.amount,2000);
+  await r.context.close();
+ }
  if(!uxOnly||uxOnly==='receipt'){
   for(const unit of ['kg','l'])for(const recovery of [false,true]){
    const r=await setup({unit}),p=r.page;await p.locator('.pp-product').first().click();const field=p.getByLabel('Olma miqdori',{exact:true});await field.fill('0.75');await field.press('Enter');await p.keyboard.press('F7');await p.getByLabel('Mijoz bergan naqd',{exact:true}).fill('10000');await p.getByRole('checkbox').check();if(recovery){r.fail=true;r.reconcileUnavailable=true}await p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
