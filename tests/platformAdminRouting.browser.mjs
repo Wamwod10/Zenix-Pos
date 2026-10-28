@@ -75,7 +75,7 @@ try{
   await expect(kpiGrid).toBeVisible();
   for(const theme of ["light","dark"]){
     await page.evaluate(next=>document.body.classList.toggle("dark-mode",next==="dark"),theme);
-    const columns=await kpiGrid.evaluate(node=>getComputedStyle(node).gridTemplateColumns.trim().split(/\\s+/).length);
+    const columns=await kpiGrid.evaluate(node=>getComputedStyle(node).gridTemplateColumns.trim().split(" ").filter(Boolean).length);
     assert.equal(columns,2,`375px ${theme}: primary KPIs must use two columns`);
   }
   await page.evaluate(()=>document.body.classList.remove("dark-mode"));
