@@ -1,0 +1,23 @@
+name: Zenix POS production API health
+
+on:
+  schedule:
+    # Hourly external, read-only probe; Actions schedules can be delayed.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-health:
+    name: External health and database readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify production proxy and database readiness
+        run: node scripts/check-live-health.mjs https://www.zenixpos.uz
