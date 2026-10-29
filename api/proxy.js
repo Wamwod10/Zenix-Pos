@@ -60,7 +60,12 @@ export function previewBackendOrigin(source=process.env){
 }
 
 export default async function handler(req,res){
-  const previewPath=Array.isArray(req.query?.path)?req.query.path.join("/"):req.query?.path;
+  const originalUrl=new URL(req.url||"/",`https://${req.headers.host||"localhost"}`);
+  const previewPath=originalUrl.searchParams.getAll("path").join("/")||(
+    originalUrl.pathname==="/health"?"health":null
+  );
+  if(process.env.VERCEL_ENV==="preview"&&req.method==="GET"&&previewPath==="health")
+    console.warn(`[preview:request-shape] pathname=${originalUrl.pathname}; hasPathParam=${originalUrl.searchParams.has("path")}`);
   // Temporary diagnostic: only GET /health may reach the public health endpoint
   // from a preview without staging backend configuration. Never proxy tenant APIs.
   const previewHealthProbe=process.env.VERCEL_ENV==="preview"&&req.method==="GET"&&previewPath==="health";
@@ -71,14 +76,13 @@ export default async function handler(req,res){
     return res.end(JSON.stringify({ok:false,error:{code:"BACKEND_NOT_CONFIGURED",message:"Zenix POS backend manzili sozlanmagan"}}));
   }
 
-  const rawPath=Array.isArray(req.query?.path)?req.query.path.join("/"):req.query?.path;
+  const rawPath=originalUrl.searchParams.getAll("path").join("/")||previewPath;
   const suffix=upstreamPath(rawPath);
   if (!suffix) {
     res.statusCode=400;
     res.setHeader('content-type','application/json; charset=utf-8');
     return res.end(JSON.stringify({ok:false,error:{code:'INVALID_PROXY_PATH',message:'API yo‘li noto‘g‘ri'}}));
   }
-  const originalUrl=new URL(req.url||"/",`https://${req.headers.host||"localhost"}`);
   originalUrl.searchParams.delete("path");
   const query=originalUrl.searchParams.toString();
   const target=`${backend}${suffix}${query?`?${query}`:""}`;
