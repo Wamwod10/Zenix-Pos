@@ -311,6 +311,7 @@ function PlatformAdmin(){
     }catch(error){notify({tone:"danger",title:"Amal bajarilmadi",message:error?.message||"Biznesni yangilab bo‘lmadi."})}
     finally{controlInFlightRef.current=false;setControlBusy(false)}
   };
+
   return <div className="pro-page platform-pro">
     <PageHeader title="Platform boshqaruvi" subtitle="Mijozlar, to‘lov tekshiruvi, tarif va platforma nazorati." actions={<button className="pro-btn secondary" disabled={!workspaceReady} onClick={()=>reloadStore()}><FiRefreshCw/> Yangilash</button>}/>{persistenceError&&<div className="pro-alert danger"><strong>Platforma ma’lumotlari yuklanmadi.</strong><span>{persistenceError}</span><button className="pro-btn secondary" onClick={()=>reloadStore()}>Qayta urinish</button></div>}
     {tab==="dashboard"&&<div className="pro-stat-grid"><StatCard icon={FiUsers} label="Tashkilotlar" value={Number(platformOverview?.organizations||0)} hint="Jami mijozlar" tone="blue"/><StatCard icon={FiShield} label="Faol tariflar" value={active} hint="Faol tashkilotlar" tone="green"/><StatCard icon={FiCreditCard} label="Tekshiruvdagi to‘lovlar" value={review} hint="Tasdiq kutilmoqda" tone="orange"/><StatCard icon={FiFileText} label="Jami filiallar" value={stores} hint="Barcha tashkilotlar" tone="purple"/></div>}
