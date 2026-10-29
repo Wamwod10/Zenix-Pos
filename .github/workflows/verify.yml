@@ -6,7 +6,9 @@ permissions:
   contents: read
 jobs:
   frontend:
-    runs-on: ubuntu-latest
+    # Playwright Python 1.56 Chromium installer does not support ubuntu26.04.
+    # Pin a supported runner without removing browser smoke coverage.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
