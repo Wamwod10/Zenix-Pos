@@ -1,7 +1,11 @@
-// Preview-only diagnostics for Node 24 DEP0169 origin attribution.
-// Never enable extra stack logging in production; remove after attribution.
+// Temporary preview-only DEP0169 stack attribution. Remove after diagnosis.
+// Runtime warnings otherwise omit their callsite. Avoid logging request data.
 if (process.env.VERCEL_ENV === "preview") {
-  process.traceProcessWarnings = true;
+  process.on("warning", warning => {
+    if (warning?.code === "DEP0169") {
+      console.warn("[preview:DEP0169] " + String(warning.stack || warning.message || "").slice(0, 3000));
+    }
+  });
 }
 
 const HOP_BY_HOP_HEADERS=new Set([
