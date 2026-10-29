@@ -118,23 +118,28 @@ function PlatformAdmin(){
   const [resetBusy,setResetBusy]=useState(false);
   const [resetMode,setResetMode]=useState("token");
   const resetRequestRef=useRef(0);
-  const closeReset=()=>{resetRequestRef.current+=1;setResetTarget(null);setResetToken(null);setResetMode("token");setResetBusy(false);setResetForm({password:"",reason:""})};
-  const openReset=user=>{resetRequestRef.current+=1;setResetTarget(user);setResetToken(null);setResetMode("token");setResetBusy(false);setResetForm({password:"",reason:""})};
+  const resetActionInFlightRef=useRef(null);
+  const closeReset=()=>{resetRequestRef.current+=1;resetActionInFlightRef.current=null;setResetTarget(null);setResetToken(null);setResetMode("token");setResetBusy(false);setResetForm({password:"",reason:""})};
+  const openReset=user=>{resetRequestRef.current+=1;resetActionInFlightRef.current=null;setResetTarget(user);setResetToken(null);setResetMode("token");setResetBusy(false);setResetForm({password:"",reason:""})};
   useEffect(()=>()=>{resetRequestRef.current+=1},[]);
   const [promoLoading,setPromoLoading]=useState(false);
   const [promoError,setPromoError]=useState('');
   const [promoTotal,setPromoTotal]=useState(0);
   const promoRequestRef=useRef(0);
   const issueResetToken=async()=>{
-    if(!detail?.id||!resetTarget||resetBusy)return;
+    if(!detail?.id||!resetTarget||resetBusy||resetActionInFlightRef.current)return;
     if(resetForm.reason.trim().length<10){notify({tone:'danger',title:'Shaxsni tekshirish sababini kamida 10 belgi bilan kiriting'});return}
     const request=resetRequestRef.current,organizationId=detail.id,userId=resetTarget.id,reason=resetForm.reason;
-    const allowed=await confirm({title:'Shaxs tasdiqlandimi?',message:'Tiklash tokeni 15 daqiqa amal qiladi. Eski sessiyalar bekor qilinadi.',confirmLabel:'Token yaratish'});
-    if(!allowed||request!==resetRequestRef.current)return;
+    const lock={};
+    resetActionInFlightRef.current=lock;
     setResetBusy(true);
-    try{const result=await api.post(`/api/platform/organizations/${organizationId}/users/${userId}/reset-token`,{reason,identityVerified:true});if(request===resetRequestRef.current)setResetToken(result.reset)}
-    catch(e){if(request===resetRequestRef.current)notify({tone:'danger',title:'Tiklash tokeni yaratilmagan',message:e.message})}
-    finally{if(request===resetRequestRef.current)setResetBusy(false)}
+    try{
+      const allowed=await confirm({title:'Shaxs tasdiqlandimi?',message:'Tiklash tokeni 15 daqiqa amal qiladi. Eski sessiyalar bekor qilinadi.',confirmLabel:'Token yaratish'});
+      if(!allowed||request!==resetRequestRef.current)return;
+      const result=await api.post(`/api/platform/organizations/${organizationId}/users/${userId}/reset-token`,{reason,identityVerified:true});
+      if(request===resetRequestRef.current)setResetToken(result.reset);
+    }catch(e){if(request===resetRequestRef.current)notify({tone:'danger',title:'Tiklash tokeni yaratilmagan',message:e.message})}
+    finally{if(resetActionInFlightRef.current===lock)resetActionInFlightRef.current=null;if(request===resetRequestRef.current)setResetBusy(false)}
   };
   const loadPromos=async()=>{
     const request=++promoRequestRef.current;
@@ -149,18 +154,20 @@ function PlatformAdmin(){
   }catch(e){notify({tone:"danger",title:"Promokod yaratilmagan",message:e?.message||"Xatolik"})}finally{setPromoBusy(false)}};
   const deactivatePromo=async(id)=>{const yes=await confirm({title:"Promokodni to‘xtatish",message:"Bu kodni yangi foydalanishlar uchun o‘chirasizmi?",confirmLabel:"To‘xtatish"});if(!yes)return;try{await api.post(`/api/platform/promos/${id}/deactivate`,{});await loadPromos()}catch(e){notify({tone:"danger",title:"Amal bajarilmadi",message:e.message})}};
   const resetPassword=async()=>{
-    if(!detail?.id||!resetTarget||resetBusy)return;
+    if(!detail?.id||!resetTarget||resetBusy||resetActionInFlightRef.current)return;
     if(resetForm.password.length<12||resetForm.reason.trim().length<10){notify({tone:"danger",title:"Parol 12 belgi, sabab 10 belgi bo'lishi kerak"});return}
     const request=resetRequestRef.current,organizationId=detail.id,userId=resetTarget.id,form={...resetForm};
-    const allowed=await confirm({title:"Xodim parolini tiklash",message:"Mijoz shaxsi tekshirilganmi? Barcha sessiyalar bekor qilinadi.",confirmLabel:"Tiklash"});
-    if(!allowed||request!==resetRequestRef.current)return;
+    const lock={};
+    resetActionInFlightRef.current=lock;
     setResetBusy(true);
     try{
+      const allowed=await confirm({title:"Xodim parolini tiklash",message:"Mijoz shaxsi tekshirilganmi? Barcha sessiyalar bekor qilinadi.",confirmLabel:"Tiklash"});
+      if(!allowed||request!==resetRequestRef.current)return;
       await api.post(`/api/platform/organizations/${organizationId}/users/${userId}/reset-password`,{...form,identityVerified:true});
       if(request!==resetRequestRef.current)return;
       closeReset();notify({tone:"success",title:"Parol tiklandi",message:"Keyingi kirishda yangi parol talab qilinadi."});
     }catch(e){if(request===resetRequestRef.current)notify({tone:"danger",title:"Xato",message:e.message})}
-    finally{if(request===resetRequestRef.current)setResetBusy(false)}
+    finally{if(resetActionInFlightRef.current===lock)resetActionInFlightRef.current=null;if(request===resetRequestRef.current)setResetBusy(false)}
   };
   const {visible:paymentColumns,toggle:togglePaymentColumn,show:showPaymentColumn}=usePersistentColumns("zenix_platform_payment_columns",paymentColumnDefs,{required:["status"]});
   const {visible:customerColumns,toggle:toggleCustomerColumn,show:showCustomerColumn}=usePersistentColumns("zenix_platform_customer_columns",customerColumnDefs,{required:["plan"]});
