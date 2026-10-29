@@ -192,26 +192,3 @@
 @media(max-width:900px){.pos-pro .pp-cart:has(.pp-cart-line){height:auto;max-height:none}.pos-pro .pp-cart:has(.pp-cart-line) .pp-cart-lines{flex:0 1 auto;max-height:clamp(360px,65dvh,540px)}}
 
 @media(max-width:900px){.pos-pro:not(.pp-touch) .pp-products{height:340px;min-height:340px}}
-
-
-/* Manual device acceptance belongs to the existing POS Pro visual system. */
-.pos-pro .pp-device-checklist {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border, rgba(128,128,128,.25));
-  h3 { margin: 0; font-size: 15px; font-weight: 650; }
-  p { margin: 0; overflow-wrap: anywhere; }
-  .pp-device-checklist-items { display: grid; gap: 8px; }
-  .pp-device-checklist-item {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 10px; border: 1px solid var(--border, rgba(128,128,128,.25));
-    border-radius: 10px; min-width: 0; cursor: pointer;
-    input { flex: none; margin-top: 4px; accent-color: var(--accent, #3b82f6); }
-    span { display: grid; min-width: 0; gap: 3px; }
-    strong { font-size: 13px; font-weight: 600; }
-    small { line-height: 1.5; opacity: .82; overflow-wrap: anywhere; }
-  }
-  > button { justify-self: start; }
-}
