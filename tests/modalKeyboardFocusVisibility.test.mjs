@@ -15,3 +15,15 @@ test('shared modal traps keyboard focus and ignores hidden responsive controls',
  assert.match(source,/top !== node/,'only the topmost nested modal handles Escape or Tab');
  assert.match(source,/previous\?\.focus\?\.\(\)/,'restore prior focus after closing');
 });
+
+test('nested dialogs share one scroll lock and restore overflow after final close',()=>{
+ const source=readFileSync(new URL('../src/components/Modal.jsx',import.meta.url),'utf8');
+ assert.match(source,/let activeScrollLocks = 0;/);
+ assert.match(source,/if \(activeScrollLocks === 0\) \{\s*overflowBeforeFirstModal = body\.style\.overflow;/);
+ assert.match(source,/activeScrollLocks \+= 1/);
+ assert.match(source,/activeScrollLocks -= 1/);
+ assert.match(source,/if \(activeScrollLocks === 0\) body\.style\.overflow = overflowBeforeFirstModal/);
+ assert.match(source,/const unlockScroll = lockBackgroundScroll\(\)/);
+ assert.match(source,/unlockScroll\(\)/);
+ assert.doesNotMatch(source,/bodyOverflow/);
+});
