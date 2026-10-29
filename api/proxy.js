@@ -1,3 +1,9 @@
+// Preview-only diagnostics for Node 24 DEP0169 origin attribution.
+// Never enable extra stack logging in production; remove after attribution.
+if (process.env.VERCEL_ENV === "preview") {
+  process.traceProcessWarnings = true;
+}
+
 const HOP_BY_HOP_HEADERS=new Set([
   "connection","keep-alive","proxy-authenticate","proxy-authorization","te","trailer","transfer-encoding","upgrade","host","content-length","expect"
 ]);
