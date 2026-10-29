@@ -82,6 +82,7 @@ function PlatformAdmin(){
   const [storeQuota,setStoreQuota]=useState(null);
   const [storeHoldReason,setStoreHoldReason]=useState("");
   const [storeHoldBusy,setStoreHoldBusy]=useState(false);
+  const storeHoldInFlightRef=useRef(false);
   const [recoveryBusy,setRecoveryBusy]=useState(false);
   const showRecoveryPreview=async()=>{
     if(!detail?.id||recoveryBusy)return;
@@ -100,17 +101,21 @@ function PlatformAdmin(){
     finally{setRecoveryBusy(false)};
   };
   const changeStoreHold=async(store,action)=>{
-    if(!detail?.id||!store?.id||storeHoldBusy)return;
-    if(storeHoldReason.trim().length<10){notify({tone:"danger",title:"Sababni kamida 10 belgi bilan kiriting"});return;}
-    const approved=await confirm({title:action==="HOLD"?"Filialda yangi savdolarni cheklash":"Filial savdosini qayta ochish",message:`${store.name}. Eski savdolar va ombor ma’lumotlari o‘chirilmaydi.`,confirmLabel:action==="HOLD"?"Cheklash":"Qayta ochish"});
-    if(!approved)return;
+    if(!detail?.id||!store?.id||storeHoldBusy||storeHoldInFlightRef.current)return;
+    const reason=storeHoldReason.trim();
+    if(reason.length<10){notify({tone:"danger",title:"Sababni kamida 10 belgi bilan kiriting"});return;}
+    const organizationId=detail.id,storeId=store.id,storeName=store.name;
+    // The lock must be acquired before the async confirmation can be opened twice.
+    storeHoldInFlightRef.current=true;
     setStoreHoldBusy(true);
     try{
-      await api.post(`/api/platform/organizations/${detail.id}/stores/${store.id}/trading-hold`,{action,reason:storeHoldReason.trim()});
+      const approved=await confirm({title:action==="HOLD"?"Filialda yangi savdolarni cheklash":"Filial savdosini qayta ochish",message:`${storeName}. Eski savdolar va ombor ma’lumotlari o‘chirilmaydi.`,confirmLabel:action==="HOLD"?"Cheklash":"Qayta ochish"});
+      if(!approved)return;
+      await api.post(`/api/platform/organizations/${encodeURIComponent(organizationId)}/stores/${encodeURIComponent(storeId)}/trading-hold`,{action,reason});
       setStoreHoldReason("");await showRecoveryPreview();
       notify({tone:"success",title:action==="HOLD"?"Yangi savdolar cheklangan":"Filial savdosi qayta ochildi"});
     }catch(e){notify({tone:"danger",title:"Filial boshqaruvi",message:e?.message||"Amal bajarilmadi"})}
-    finally{setStoreHoldBusy(false)}
+    finally{storeHoldInFlightRef.current=false;setStoreHoldBusy(false)}
   };
   const [resetTarget,setResetTarget]=useState(null);
   const [resetForm,setResetForm]=useState({password:"",reason:""});
