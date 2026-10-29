@@ -1,6 +1,23 @@
 import { useEffect, useRef } from "react";
 import { FiX } from "react-icons/fi";
 
+// Multiple dialogs may close in the same render. Each must release one shared
+// scroll lock, not restore its own stale "hidden" snapshot out of order.
+let activeScrollLocks = 0;
+let overflowBeforeFirstModal = "";
+function lockBackgroundScroll() {
+  const body = document.body;
+  if (activeScrollLocks === 0) {
+    overflowBeforeFirstModal = body.style.overflow;
+    body.style.overflow = "hidden";
+  }
+  activeScrollLocks += 1;
+  return () => {
+    activeScrollLocks -= 1;
+    if (activeScrollLocks === 0) body.style.overflow = overflowBeforeFirstModal;
+  };
+}
+
 export default function Modal({ open, onClose, title, subtitle, children, size = "md", footer, closeOnBackdrop = true, className = "" }) {
   const ref = useRef(null);
   const onCloseRef = useRef(onClose);
@@ -10,8 +27,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
   useEffect(() => {
     if (!open) return undefined;
     const previous = document.activeElement;
-    const bodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockBackgroundScroll();
     const node = ref.current;
     const focusables = () => Array.from(node?.querySelectorAll('button,[href],input,select,textarea,[contenteditable="true"],[tabindex]:not([tabindex="-1"])') || [])
       .filter((el) => !el.disabled && !el.closest('[hidden],[inert],[aria-hidden="true"]') &&
@@ -47,7 +63,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
     return () => {
       window.clearTimeout(id);
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = bodyOverflow;
+      unlockScroll();
       previous?.focus?.();
     };
   }, [open]);
