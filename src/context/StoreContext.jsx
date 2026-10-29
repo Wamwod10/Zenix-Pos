@@ -170,11 +170,15 @@ export const StoreProvider = ({ children }) => {
   const activeShift = activeShifts[currentStoreId] || null;
   const readOnly=workspaceAccessState({organization:organizations.find(item=>item.id===currentUser?.organizationId)}).readOnly;
   const hasPermission = useCallback((permission, role=currentUser?.appRole)=>{
+    // Mirror the backend: only the platform role can receive platformAdmin,
+    // and malformed persisted values (including "false") never grant access.
+    if(permission==='platformAdmin'||permission==='*')return role===ROLES.PLATFORM_ADMIN;
+    if(role===ROLES.PLATFORM_ADMIN)return false;
     if(readOnly&&['productWrite','inventoryAdjust','transferCreate','transferApprove','transferReceive','transferCancel','supplierWrite','returns','expensesWrite','shiftRecon','inventoryCountApprove','closeBusinessDay','settingsWrite','customerFinancialWrite'].includes(permission))return false;
     if(role===ROLES.OWNER)return true;
     const overrides=currentUser?.permissionOverrides;
-    if(role===currentUser?.appRole&&overrides&&Object.prototype.hasOwnProperty.call(overrides,permission)) return Boolean(overrides[permission]);
-    return Boolean(rolePermissions?.[role]?.[permission]);
+    if(role===currentUser?.appRole&&overrides&&Object.prototype.hasOwnProperty.call(overrides,permission)) return overrides[permission]===true;
+    return rolePermissions?.[role]?.[permission]===true;
   },[rolePermissions,currentUser?.appRole,currentUser?.permissionOverrides,readOnly]);
   const effectiveWorkspaceSettings = useMemo(()=>{
     const override=workspaceSettings.storeOverrides?.[currentStoreId]||{};
