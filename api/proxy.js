@@ -60,7 +60,11 @@ export function previewBackendOrigin(source=process.env){
 }
 
 export default async function handler(req,res){
-  const backend=previewBackendOrigin();
+  const previewPath=Array.isArray(req.query?.path)?req.query.path.join("/"):req.query?.path;
+  // Temporary diagnostic: only GET /health may reach the public health endpoint
+  // from a preview without staging backend configuration. Never proxy tenant APIs.
+  const previewHealthProbe=process.env.VERCEL_ENV==="preview"&&req.method==="GET"&&previewPath==="health";
+  const backend=previewBackendOrigin()||(previewHealthProbe?"https://zenix-pos-backend.onrender.com":null);
   if(!backend){
     res.statusCode=503;
     res.setHeader("content-type","application/json; charset=utf-8");
