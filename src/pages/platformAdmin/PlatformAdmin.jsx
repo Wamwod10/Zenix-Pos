@@ -76,6 +76,7 @@ function PlatformAdmin(){
   const [promos,setPromos]=useState([]);
   const [promo,setPromo]=useState({code:"",plan:"BOTH",percent:100,maxUses:5,perBusiness:1,startsAt:"",expiresAt:"",active:true});
   const [promoBusy,setPromoBusy]=useState(false);
+  const promoActionRef=useRef(false);
   const [usage,setUsage]=useState(null);
   const [usageError,setUsageError]=useState("");
   const [recoveryPreview,setRecoveryPreview]=useState(null);
@@ -153,11 +154,29 @@ function PlatformAdmin(){
     catch(e){if(request===promoRequestRef.current){setPromos([]);setPromoError(e?.message||'Promokodlar yuklanmadi')}}
     finally{if(request===promoRequestRef.current)setPromoLoading(false)}
   };
-  const savePromo=async()=>{setPromoBusy(true);try{
-    await api.post("/api/platform/promos",{code:promo.code,plan:promo.plan,percent:Number(promo.percent),maxUses:Number(promo.maxUses),perBusiness:Number(promo.perBusiness),startsAt:promo.startsAt?new Date(`${promo.startsAt}T00:00:00+05:00`).toISOString():null,active:promo.active,expiresAt:promo.expiresAt?new Date(`${promo.expiresAt}T23:59:59+05:00`).toISOString():null});
-    setPromo(prev=>({...prev,code:""}));await loadPromos();notify({tone:"success",title:"Promokod yaratildi"});
-  }catch(e){notify({tone:"danger",title:"Promokod yaratilmagan",message:e?.message||"Xatolik"})}finally{setPromoBusy(false)}};
-  const deactivatePromo=async(id)=>{const yes=await confirm({title:"Promokodni to‘xtatish",message:"Bu kodni yangi foydalanishlar uchun o‘chirasizmi?",confirmLabel:"To‘xtatish"});if(!yes)return;try{await api.post(`/api/platform/promos/${id}/deactivate`,{});await loadPromos()}catch(e){notify({tone:"danger",title:"Amal bajarilmadi",message:e.message})}};
+  const savePromo=async()=>{
+    if(promoActionRef.current)return;
+    promoActionRef.current=true;
+    setPromoBusy(true);
+    const form={...promo};
+    try{
+      await api.post("/api/platform/promos",{code:form.code,plan:form.plan,percent:Number(form.percent),maxUses:Number(form.maxUses),perBusiness:Number(form.perBusiness),startsAt:form.startsAt?new Date(`${form.startsAt}T00:00:00+05:00`).toISOString():null,active:form.active,expiresAt:form.expiresAt?new Date(`${form.expiresAt}T23:59:59+05:00`).toISOString():null});
+      setPromo(prev=>({...prev,code:""}));await loadPromos();notify({tone:"success",title:"Promokod yaratildi"});
+    }catch(e){notify({tone:"danger",title:"Promokod yaratilmagan",message:e?.message||"Xatolik"})}
+    finally{promoActionRef.current=false;setPromoBusy(false)}
+  };
+  const deactivatePromo=async(id)=>{
+    if(promoActionRef.current)return;
+    promoActionRef.current=true;
+    setPromoBusy(true);
+    try{
+      const yes=await confirm({title:"Promokodni to‘xtatish",message:"Bu kodni yangi foydalanishlar uchun o‘chirasizmi?",confirmLabel:"To‘xtatish"});
+      if(!yes)return;
+      await api.post(`/api/platform/promos/${encodeURIComponent(id)}/deactivate`,{});
+      await loadPromos();
+    }catch(e){notify({tone:"danger",title:"Amal bajarilmadi",message:e.message})}
+    finally{promoActionRef.current=false;setPromoBusy(false)}
+  };
   const resetPassword=async()=>{
     if(!detail?.id||!resetTarget||resetBusy||resetActionInFlightRef.current)return;
     if(resetForm.password.length<12||resetForm.reason.trim().length<10){notify({tone:"danger",title:"Parol 12 belgi, sabab 10 belgi bo'lishi kerak"});return}
@@ -385,7 +404,7 @@ function PlatformAdmin(){
       </div>
       {promo.code.length<4&&<p className="platform-support-caption" role="status">Kod kamida 4 belgidan iborat bo‘lishi kerak.</p>}<button className="pro-btn primary" disabled={promoBusy||promo.code.length<4} onClick={savePromo}>{promoBusy?"Saqlanmoqda...":"Promokod yaratish"}</button></>}
       <div className="pro-table-wrap mobile-card-wrap" style={{marginTop:18}}><table className="pro-table mobile-card-table"><thead><tr><th>Kod</th><th>Tarif</th><th>Chegirma</th><th>Foydalanilgan</th><th>Sanalar</th><th>Holat</th><th>Amal</th></tr></thead><tbody>
-      {promos.map(item=><tr key={item.id}><td data-label="Kod"><strong>{item.code}</strong></td><td data-label="Tarif">{planLabel(item.plan)}</td><td data-label="Chegirma">{item.percent}%</td><td data-label="Foydalanish"><strong>{item.uses}/{item.maxUses}</strong><small>Band: {item.reserved||0} · Qolgan: {item.remaining} · Har biznes: {item.perBusiness}</small></td><td data-label="Sanalar">{item.startsAt?new Date(item.startsAt).toLocaleDateString("uz-UZ"):"Darhol"} → {item.expiresAt?new Date(item.expiresAt).toLocaleDateString("uz-UZ"):"Cheksiz"}</td><td data-label="Holat"><StatusBadge tone={item.active&&(!item.startsAt||Date.parse(item.startsAt)<=Date.now())&&(!item.expiresAt||Date.parse(item.expiresAt)>Date.now())&&item.remaining>0?"success":"neutral"}>{item.active&&(!item.startsAt||Date.parse(item.startsAt)<=Date.now())&&(!item.expiresAt||Date.parse(item.expiresAt)>Date.now())&&item.remaining>0?"Faol":"Yopilgan"}</StatusBadge></td><td data-label="Amal">{item.active&&<button className="pro-btn secondary" onClick={()=>deactivatePromo(item.id)}>O‘chirish</button>}</td></tr>)}
+      {promos.map(item=><tr key={item.id}><td data-label="Kod"><strong>{item.code}</strong></td><td data-label="Tarif">{planLabel(item.plan)}</td><td data-label="Chegirma">{item.percent}%</td><td data-label="Foydalanish"><strong>{item.uses}/{item.maxUses}</strong><small>Band: {item.reserved||0} · Qolgan: {item.remaining} · Har biznes: {item.perBusiness}</small></td><td data-label="Sanalar">{item.startsAt?new Date(item.startsAt).toLocaleDateString("uz-UZ"):"Darhol"} → {item.expiresAt?new Date(item.expiresAt).toLocaleDateString("uz-UZ"):"Cheksiz"}</td><td data-label="Holat"><StatusBadge tone={item.active&&(!item.startsAt||Date.parse(item.startsAt)<=Date.now())&&(!item.expiresAt||Date.parse(item.expiresAt)>Date.now())&&item.remaining>0?"success":"neutral"}>{item.active&&(!item.startsAt||Date.parse(item.startsAt)<=Date.now())&&(!item.expiresAt||Date.parse(item.expiresAt)>Date.now())&&item.remaining>0?"Faol":"Yopilgan"}</StatusBadge></td><td data-label="Amal">{item.active&&<button type="button" className="pro-btn secondary" disabled={promoBusy} onClick={()=>deactivatePromo(item.id)}>O‘chirish</button>}</td></tr>)}
       </tbody></table></div>{promoLoading&&<div className="pro-empty">Yuklanmoqda...</div>}{promoError&&<div className="pro-alert danger" role="alert">{promoError}</div>}{!promoLoading&&!promoError&&!promos.length&&<div className="pro-empty">Promokod topilmadi</div>}{promoTotal>pageSize&&<div className="platform-pagination"><span>{promoTotal} ta · {page}/{totalPages}</span><button className="pro-btn secondary" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Oldingi</button><button className="pro-btn secondary" disabled={page>=totalPages} onClick={()=>setPage(p=>p+1)}>Keyingi</button></div>}
     </section>}
 
