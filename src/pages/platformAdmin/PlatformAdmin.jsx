@@ -72,6 +72,7 @@ function PlatformAdmin(){
   const [reviewBusyId,setReviewBusyId]=useState(null);
   const [licenseForm,setLicenseForm]=useState({plan:"ANNUAL",expiryDate:"",storeLimit:2,reason:""});
   const [controlBusy,setControlBusy]=useState(false);
+  const controlInFlightRef=useRef(false);
   const [promos,setPromos]=useState([]);
   const [promo,setPromo]=useState({code:"",plan:"BOTH",percent:100,maxUses:5,perBusiness:1,startsAt:"",expiresAt:"",active:true});
   const [promoBusy,setPromoBusy]=useState(false);
@@ -290,21 +291,25 @@ function PlatformAdmin(){
   };
   const closeDetail=()=>{closeReset();detailRequestRef.current+=1;detailOrganizationRef.current=null;setUsage(null);setDetailLoaded(false);setDetailPayments([]);setDetail(null);setDetailAuditLoading(false);setDetailAuditHasMore(false)};
   const controlBusiness=async(action)=>{
-    if(!detail?.id||!detailLoaded||controlBusy)return;
-    if(licenseForm.reason.trim().length<8){notify({tone:"danger",title:"Sababni kiriting",message:"Kamida 8 ta belgidan iborat izoh yozing."});return}
-    const accepted=await confirm({title:"Biznes sozlamalarini o‘zgartirish",message:`${detail.name} · ${action==="SUSPEND"?"Kirishni vaqtincha cheklash":action==="RESTORE"?"Faollikni tiklash":action==="PAYWALL"?"To‘lovgacha bloklash":action==="RELEASE_PAYWALL"?"To‘lov cheklovini yechish":action==="SEND_NOTICE"?"Mijozga ogohlantirish yuborish":"Tarif va filial limitini qo‘lda o‘zgartirish"}. Bu amal audit tarixiga yoziladi.`,confirmLabel:"Tasdiqlash",cancelLabel:"Bekor qilish",tone:"primary"});
-    if(!accepted)return;
+    if(!detail?.id||!detailLoaded||controlBusy||controlInFlightRef.current)return;
+    const form={...licenseForm};
+    if(form.reason.trim().length<8){notify({tone:"danger",title:"Sababni kiriting",message:"Kamida 8 ta belgidan iborat izoh yozing."});return}
+    const organizationId=detail.id,organizationName=detail.name;
+    // Acquire before confirmation, not after: multiple quick clicks must share one action.
+    controlInFlightRef.current=true;
     setControlBusy(true);
     try{
-      const body={action,reason:licenseForm.reason.trim()};
-      if(action==="SET_LICENSE")Object.assign(body,{plan:licenseForm.plan,expiryDate:licenseForm.expiryDate,storeLimit:Number(licenseForm.storeLimit)});
-      const result=await api.post(`/api/platform/organizations/${encodeURIComponent(detail.id)}/control`,body);
-      setDetail(previous=>previous?.id===detail.id?{...previous,...result.organization}:previous);
+      const accepted=await confirm({title:"Biznes sozlamalarini o‘zgartirish",message:`${organizationName} · ${action==="SUSPEND"?"Kirishni vaqtincha cheklash":action==="RESTORE"?"Faollikni tiklash":action==="PAYWALL"?"To‘lovgacha bloklash":action==="RELEASE_PAYWALL"?"To‘lov cheklovini yechish":action==="SEND_NOTICE"?"Mijozga ogohlantirish yuborish":"Tarif va filial limitini qo‘lda o‘zgartirish"}. Bu amal audit tarixiga yoziladi.`,confirmLabel:"Tasdiqlash",cancelLabel:"Bekor qilish",tone:"primary"});
+      if(!accepted)return;
+      const body={action,reason:form.reason.trim()};
+      if(action==="SET_LICENSE")Object.assign(body,{plan:form.plan,expiryDate:form.expiryDate,storeLimit:Number(form.storeLimit)});
+      const result=await api.post(`/api/platform/organizations/${encodeURIComponent(organizationId)}/control`,body);
+      setDetail(previous=>previous?.id===organizationId?{...previous,...result.organization}:previous);
       setLicenseForm(previous=>({...previous,reason:""}));
       notify({tone:"success",title:"Biznes yangilandi",message:"O‘zgarish auditga yozildi."});
       await reloadStore();
     }catch(error){notify({tone:"danger",title:"Amal bajarilmadi",message:error?.message||"Biznesni yangilab bo‘lmadi."})}
-    finally{setControlBusy(false)}
+    finally{controlInFlightRef.current=false;setControlBusy(false)}
   };
 
   return <div className="pro-page platform-pro">
