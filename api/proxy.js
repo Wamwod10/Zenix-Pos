@@ -57,14 +57,16 @@ export default async function handler(req,res){
     return res.end(JSON.stringify({ok:false,error:{code:"BACKEND_NOT_CONFIGURED",message:"Zenix POS backend manzili sozlanmagan"}}));
   }
 
-  const rawPath=Array.isArray(req.query?.path)?req.query.path.join("/"):req.query?.path;
+  // Vercel Node 24's query getter calls deprecated url.parse().
+  // Parse the request URL directly with WHATWG URL instead.
+  const originalUrl=new URL(req.url||"/",`https://${req.headers.host||"localhost"}`);
+  const rawPath=originalUrl.searchParams.getAll("path").join("/");
   const suffix=upstreamPath(rawPath);
   if (!suffix) {
     res.statusCode=400;
     res.setHeader('content-type','application/json; charset=utf-8');
     return res.end(JSON.stringify({ok:false,error:{code:'INVALID_PROXY_PATH',message:'API yo‘li noto‘g‘ri'}}));
   }
-  const originalUrl=new URL(req.url||"/",`https://${req.headers.host||"localhost"}`);
   originalUrl.searchParams.delete("path");
   const query=originalUrl.searchParams.toString();
   const target=`${backend}${suffix}${query?`?${query}`:""}`;
