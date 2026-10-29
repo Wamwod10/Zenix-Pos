@@ -118,3 +118,20 @@ test('proxy rejects path traversal and encoded separators', async () => {
     } finally { globalThis.fetch = original; }
   });
 });
+
+test('proxy preserves repeated query params without invoking Vercel legacy query getter',async()=>{
+  await withEnvironment('https://pos.example.test',async()=>{
+    const originalFetch=globalThis.fetch;
+    const observed=[];
+    globalThis.fetch=async(url)=>{observed.push(url);return Response.json({ok:true})};
+    try{
+      const req=request({path:'products'});
+      req.url='/api/proxy?path=products&filter=first%20value&filter=second&literal=%2B%26';
+      Object.defineProperty(req,'query',{get(){throw new Error('Deprecated Vercel query getter accessed')},configurable:true});
+      const res=mockResponse();
+      await handler(req,res);
+      assert.equal(res.statusCode,200);
+      assert.deepEqual(observed,['https://pos.example.test/api/products?filter=first+value&filter=second&literal=%2B%26']);
+    }finally{globalThis.fetch=originalFetch}
+  });
+});
