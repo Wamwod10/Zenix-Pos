@@ -12,7 +12,7 @@ const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
 async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER'}={}){
- const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0;
+ const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0,activeShiftId=shift;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
  if(cartSize)await page.addInitScript(({key,cart})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({v:1,cart,cartDiscountPct:0,checkoutReference:'PRO-browser-stable'}))},{key:`${posDraftKey(org,'owner',store)}:pro`,cart:Array.from({length:cartSize},(_,i)=>({...product(i),cartQty:1,discountPercent:0}))});
@@ -20,7 +20,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   const req=route.request(),url=new URL(req.url());if(url.origin!==base)return route.abort();if(!url.pathname.startsWith('/api/'))return route.continue();
   let data={users:[],sessions:[],revision:'1',holds:[]};
   if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole,storeId:store,name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
-  if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:shift,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
+  if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:activeShiftId,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
   if(url.pathname==='/api/bootstrap'&&otherShiftCashier){const otherStore='77777777-7777-4777-8777-777777777777';data.stores.push({id:otherStore,name:'2-Filial',active:true});data.activeShifts[otherStore]={id:shift,storeId:otherStore,storeName:'2-Filial',cashierId:otherShiftCashier,cashierAccountId:otherShiftCashier,status:'open',openedAtISO:'2026-10-11T09:10:43.000Z',openedAt:'14:10',openingCash:0,cashMovements:[]}}
   if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20}}};
   if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
@@ -38,7 +38,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   if(url.pathname==='/api/bootstrap/catalog'&&priceOverride)data.products=data.products.map(p=>p.id===product(0).id?{...p,sellPrice:priceOverride}:p);
   if(url.pathname==='/api/sales/pos-pro/summary'){
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
-   data={shift:closed?null:{id:shift},count:sales.length,total:sales.reduce((s,p)=>s+Number(p.total),0),cash:0,card:0,recent:[],popular:[{product_id:product(2).id}]};
+   data={shift:closed?null:{id:activeShiftId},count:sales.length,total:sales.reduce((s,p)=>s+Number(p.total),0),cash:0,card:0,recent:[],popular:[{product_id:product(2).id}]};
   }
   if(url.pathname==='/api/shifts/open'&&req.method()==='POST'){if(shiftConflict)return route.fulfill({status:409,json:{ok:false,error:{code:shiftConflict,message:'internal-private-detail'}}});closed=false;data={shift:{id:shift,store_id:store,cashier_id:'owner',opening_cash:req.postDataJSON().openingCash,status:'open',opened_at:new Date().toISOString(),metadata:{}}}}
   if(url.pathname==='/api/customers')data={items:[{id:'55555555-5555-4555-8555-555555555555',name:'Ali',phone:'+998901234567'}]};
@@ -57,7 +57,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
  });
  const start=performance.now();await page.goto(base+'/pos-pro');await expect(page.locator('.pp-product').first()).toBeEnabled();
  results.push({kind:'load',cartSize,catalogSize,width,ms:performance.now()-start});
- return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value},set rejectStatus(value){rejectStatus=value},set priceOverride(value){priceOverride=value}};
+ return {page,context,get sales(){return sales},get holds(){return holds},get posts(){return posts},set delay(ms){delay=ms},set fail(value){fail=value},set holdStatus(value){holdStatus=value},set barcodeDelay(value){barcodeDelay=value},set searchDelay(value){searchDelay=value},set reconcileUnavailable(value){reconcileUnavailable=value},set rejectStatus(value){rejectStatus=value},set priceOverride(value){priceOverride=value},set activeShiftId(value){activeShiftId=value}};
 }
 try{
  const benchmark=process.env.POS_PRO_SEARCH_BENCHMARK;
@@ -418,6 +418,34 @@ try{
  }
  if(!uxOnly||uxOnly==='currency'){
   const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');await expect(p.locator('.pp-payment-total')).toBeVisible();assert.equal((await p.locator('.pp-payment-total').textContent()).match(/so‘m/g)?.length,1);await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='shift-recovery'){
+  // The sale was committed but its HTTP acknowledgement was lost. A new shift
+  // must not create another sale or change the original shift attribution.
+  const r=await setup(),p=r.page;
+  await p.locator('.pp-product').first().click();
+  await p.keyboard.press('F8');
+  await p.getByText('Bank terminali / o‘tkazma muvaffaqiyatini tekshirdim.',{exact:false}).click();
+  await p.getByText('Chek va to‘lov summasini tekshirdim.',{exact:false}).click();
+  r.fail=true;r.reconcileUnavailable=true;
+  await p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.locator('.pp-recovery')).toBeVisible();
+  assert.equal(r.posts,1);assert.equal(r.sales.length,1);
+  assert.equal(r.sales[0].request.shiftId,shift,'the original shift owns the sale');
+  r.activeShiftId='88888888-8888-4888-8888-888888888888';
+  await p.reload();
+  await expect(p.locator('.pp-recovery')).toBeVisible();
+  await expect(p.locator('.pp-shift-status')).toHaveText('Smena ochiq');
+  await r.context.setOffline(true);
+  await expect(p.getByRole('button',{name:'Natijani tekshirish',exact:true})).toBeDisabled();
+  assert.equal(r.posts,1,'offline recovery cannot replay the sale');
+  await r.context.setOffline(false);
+  r.reconcileUnavailable=false;
+  await p.getByRole('button',{name:'Natijani tekshirish',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.posts,1,'shift change and reconnection must not create another sale');
+  assert.equal(r.sales[0].request.shiftId,shift);
+  await r.context.close();
  }
  if(!uxOnly||uxOnly==='payment-rejection'){
   const r=await setup(),p=r.page;await p.locator('.pp-product').first().click();await p.keyboard.press('F7');
