@@ -1,4 +1,4 @@
-import {useState,useEffect} from 'react';
+import {useState,useEffect,useRef} from 'react';
 import {api} from '../../services/apiClient';
 import {formatPrice} from '../../utils/formatPrice';
 import {StatCard} from '../../components/Ui';
@@ -22,8 +22,25 @@ export function PlatformAudit(){
 
 export function BusinessDiagnostics({organization,usage,usageError,view="business"}){
   const [support,setSupport]=useState(null),[supportPage,setSupportPage]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const diagnose=async(page=0)=>{setBusy(true);setError('');try{const data=await api.get(`/api/platform/organizations/${organization.id}/support?limit=20&offset=${page*20}`);setSupport(data.support);setSupportPage(page)}catch(e){setError(e.message)}finally{setBusy(false)}};
+  const activeOrganizationRef=useRef(organization.id);
+  activeOrganizationRef.current=organization.id;
+  const supportRequestRef=useRef(0);
   const [copyResult,setCopyResult]=useState("");
+  useEffect(()=>{
+    supportRequestRef.current+=1;
+    setSupport(null);setSupportPage(0);setBusy(false);setError("");setCopyResult("");
+    return ()=>{supportRequestRef.current+=1};
+  },[organization.id]);
+  const diagnose=async(page=0)=>{
+    const organizationId=organization.id,request=++supportRequestRef.current;
+    setBusy(true);setError("");
+    try{
+      const data=await api.get(`/api/platform/organizations/${encodeURIComponent(organizationId)}/support?limit=20&offset=${page*20}`);
+      if(request!==supportRequestRef.current||activeOrganizationRef.current!==organizationId)return;
+      setSupport(data.support);setSupportPage(page);
+    }catch(e){if(request===supportRequestRef.current&&activeOrganizationRef.current===organizationId)setError(e.message)}
+    finally{if(request===supportRequestRef.current&&activeOrganizationRef.current===organizationId)setBusy(false)}
+  };
   const copyOrganizationId=async()=>{
     if(!navigator.clipboard?.writeText){setCopyResult("Brauzerda nusxalash mavjud emas");return}
     try{await navigator.clipboard.writeText(organization.id);setCopyResult("Biznes ID nusxalandi")}
@@ -38,9 +55,34 @@ export function BusinessDiagnostics({organization,usage,usageError,view="busines
 
 export function RecoveryDashboard({organizationId,initialHistory}){
   const [history,setHistory]=useState(initialHistory),[page,setPage]=useState(0),[preview,setPreview]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  useEffect(()=>{setHistory(initialHistory);setPage(0);setPreview(null);setError('')},[organizationId,initialHistory]);
-  const load=async(next=page)=>{setBusy(true);setError('');try{const result=await api.get(`/api/platform/organizations/${organizationId}/backups?limit=20&offset=${next*20}`);setHistory(result.backups);setPage(next)}catch(e){setError(e.message)}finally{setBusy(false)}};
-  const dryRun=async(snapshotId)=>{setBusy(true);setError('');setPreview(null);try{const result=await api.get(`/api/platform/organizations/${organizationId}/recovery-preview?${new URLSearchParams({snapshotId})}`);setPreview(result.preview)}catch(e){setError(e.message)}finally{setBusy(false)}};
+  const requestRef=useRef(0);
+  const activeOrganizationRef=useRef(organizationId);
+  activeOrganizationRef.current=organizationId;
+  useEffect(()=>{
+    requestRef.current+=1;
+    setHistory(initialHistory);setPage(0);setPreview(null);setError('');setBusy(false);
+    return ()=>{requestRef.current+=1};
+  },[organizationId,initialHistory]);
+  const load=async(next=page)=>{
+    const id=organizationId,request=++requestRef.current;
+    setBusy(true);setError('');
+    try{
+      const result=await api.get(`/api/platform/organizations/${encodeURIComponent(id)}/backups?limit=20&offset=${next*20}`);
+      if(request!==requestRef.current||activeOrganizationRef.current!==id)return;
+      setHistory(result.backups);setPage(next);
+    }catch(e){if(request===requestRef.current&&activeOrganizationRef.current===id)setError(e.message)}
+    finally{if(request===requestRef.current&&activeOrganizationRef.current===id)setBusy(false)}
+  };
+  const dryRun=async(snapshotId)=>{
+    const id=organizationId,request=++requestRef.current;
+    setBusy(true);setError('');setPreview(null);
+    try{
+      const result=await api.get(`/api/platform/organizations/${encodeURIComponent(id)}/recovery-preview?${new URLSearchParams({snapshotId})}`);
+      if(request!==requestRef.current||activeOrganizationRef.current!==id)return;
+      setPreview(result.preview);
+    }catch(e){if(request===requestRef.current&&activeOrganizationRef.current===id)setError(e.message)}
+    finally{if(request===requestRef.current&&activeOrganizationRef.current===id)setBusy(false)}
+  };
   const displayDate=value=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('uz-UZ'):'Tekshirilmagan';
   const displayStatus=value=>({SUCCESS:"Muvaffaqiyatli",AVAILABLE:"Mavjud",COMPLETED:"Yakunlangan",FAILED:"Xatolik",PENDING:"Kutilmoqda",CREATING:"Yaratilmoqda",ACTIVE:"Faol",READY:"Tayyor"})[String(value||"").toUpperCase()]||value||"Noma’lum";
   const displayAge=value=>{const parsed=Date.parse(value);return Number.isFinite(parsed)?Math.max(0,Math.floor((Date.now()-parsed)/3600000))+" soat":"Noma’lum"};
