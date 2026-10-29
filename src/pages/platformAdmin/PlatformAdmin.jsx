@@ -66,6 +66,10 @@ function PlatformAdmin(){
   const [detailAuditHasMore,setDetailAuditHasMore]=useState(false);
   const [reject,setReject]=useState(null);
   const [reason,setReason]=useState("");
+  // Lock synchronously, before the async confirmation opens, so rapid clicks
+  // cannot launch duplicate reviews while React has not yet re-rendered.
+  const reviewInFlightRef=useRef(null);
+  const [reviewBusyId,setReviewBusyId]=useState(null);
   const [licenseForm,setLicenseForm]=useState({plan:"ANNUAL",expiryDate:"",storeLimit:2,reason:""});
   const [controlBusy,setControlBusy]=useState(false);
   const [promos,setPromos]=useState([]);
@@ -183,33 +187,44 @@ function PlatformAdmin(){
   useEffect(()=>()=>{if(receiptUrl&&!receiptUrl.startsWith("data:"))URL.revokeObjectURL(receiptUrl)},[receiptUrl]);
 
   const update=async(payment,next)=>{
-    if(next==="APPROVED"){
-      const accepted=await confirm({
-        title:"To‘lovni tasdiqlaysizmi?",
-        message:`${payment.organization||"Mijoz"} · ${formatPrice(payment.amount||0,"UZS")}. Tasdiqlangach tarif yoki filial limiti darhol yangilanadi.`,
-        confirmLabel:"Tasdiqlash",
-        cancelLabel:"Bekor qilish",
-        tone:"primary",
+    const paymentId=payment?.id||payment?.orderId;
+    if(!paymentId||reviewInFlightRef.current)return;
+    reviewInFlightRef.current=paymentId;
+    setReviewBusyId(paymentId);
+    try{
+      if(next==="APPROVED"){
+        const accepted=await confirm({
+          title:"To‘lovni tasdiqlaysizmi?",
+          message:`${payment.organization||"Mijoz"} · ${formatPrice(payment.amount||0,"UZS")}. Tasdiqlangach tarif yoki filial limiti darhol yangilanadi.`,
+          confirmLabel:"Tasdiqlash",
+          cancelLabel:"Bekor qilish",
+          tone:"primary",
+        });
+        if(!accepted)return;
+      }
+      const result=await commitBillingReview({
+        paymentId,
+        status:next,
+        reason,
       });
-      if(!accepted)return;
+      if(!result?.success){
+        notify({tone:"danger",title:"Amal bajarilmadi",message:result?.message||"To‘lov holatini yangilab bo‘lmadi."});
+        return;
+      }
+      notify({
+        tone:next==="APPROVED"?"success":"warning",
+        title:next==="APPROVED"?"To‘lov tasdiqlandi":"To‘lov rad etildi",
+        message:payment.organization||payment.orderId||"To‘lov",
+      });
+      setReject(null);
+      setReason("");
+      await reloadStore();
+    }catch(error){
+      notify({tone:"danger",title:"To‘lovni tekshirishda xato",message:error?.message||"Qayta urinib ko‘ring."});
+    }finally{
+      reviewInFlightRef.current=null;
+      setReviewBusyId(null);
     }
-    const result=await commitBillingReview({
-      paymentId:payment.id||payment.orderId,
-      status:next,
-      reason,
-    });
-    if(!result?.success){
-      notify({tone:"danger",title:"Amal bajarilmadi",message:result?.message||"To‘lov holatini yangilab bo‘lmadi."});
-      return;
-    }
-    notify({
-      tone:next==="APPROVED"?"success":"warning",
-      title:next==="APPROVED"?"To‘lov tasdiqlandi":"To‘lov rad etildi",
-      message:payment.organization||payment.orderId||"To‘lov",
-    });
-    setReject(null);
-    setReason("");
-    await reloadStore();
   };
 
   const openReceipt=async payment=>{
@@ -329,7 +344,7 @@ function PlatformAdmin(){
         {showPaymentColumn("amount")&&<td data-label="Summa"><strong>{formatPrice(payment.amount,"UZS")}</strong></td>}
         {showPaymentColumn("receipt")&&<td data-label="Chek"><button className="pro-btn secondary" disabled={!payment.receiptId} title={payment.receiptId?"Chekni ochish":"Chek biriktirilmagan"} onClick={()=>openReceipt(payment)}><FiEye/> {payment.receiptId?"Ko‘rish":"Chek yo‘q"}</button></td>}
         {showPaymentColumn("status")&&<td data-label="Holat"><StatusBadge tone={tone(payment.status)}>{STATUS_LABELS[payment.status]||payment.status}</StatusBadge></td>}
-        <td data-label="Amal">{payment.status==="REVIEW"?<div className="pro-row-actions"><button className="pro-btn success platform-row-action" title="Tasdiqlash" aria-label="To‘lovni tasdiqlash" onClick={()=>update(payment,"APPROVED")}><FiCheck/> Tasdiqlash</button><button className="pro-btn danger platform-row-action" title="Rad etish" aria-label="To‘lovni rad etish" onClick={()=>setReject(payment)}><FiX/> Rad etish</button></div>:"—"}</td>
+        <td data-label="Amal">{payment.status==="REVIEW"?<div className="pro-row-actions"><button className="pro-btn success platform-row-action" title="Tasdiqlash" aria-label="To‘lovni tasdiqlash" disabled={!!reviewBusyId} onClick={()=>update(payment,"APPROVED")}><FiCheck/> {reviewBusyId===(payment.id||payment.orderId)?"Tekshirilmoqda...":"Tasdiqlash"}</button><button className="pro-btn danger platform-row-action" title="Rad etish" aria-label="To‘lovni rad etish" disabled={!!reviewBusyId} onClick={()=>setReject(payment)}><FiX/> Rad etish</button></div>:"—"}</td>
       </tr>):<tr><td colSpan={3+paymentColumns.length}><div className="pro-empty"><FiCreditCard/><strong>To‘lov topilmadi</strong></div></td></tr>:pagedRows.map(org=><tr key={org.id}>
         <td data-label="Tashkilot"><strong>{org.name}</strong><small>{org.phone||"Telefon kiritilmagan"}</small></td>
         {showCustomerColumn("owner")&&<td data-label="Egasi"><strong>{org.owner}</strong><small>{org.phone}</small></td>}
@@ -358,7 +373,7 @@ function PlatformAdmin(){
     </section>}
 
     <Modal open={!!receipt} onClose={closeReceipt} title="To‘lov cheki" subtitle={paymentDisplayLabel(receipt)} size="sm"><div className="admin-receipt-preview" style={{maxWidth:"100%",overflowX:"auto",gridTemplateColumns:"minmax(0,1fr)"}}>{receiptLoading?<div className="pro-empty"><FiFileText/><strong>Chek ochilmoqda...</strong></div>:receiptUrl&&receipt?.receiptType?.startsWith("image/")?<img src={receiptUrl} alt="To‘lov cheki" style={{maxWidth:receiptZoom?"none":"100%",width:receiptZoom?"200%":"auto",maxHeight:receiptZoom?"none":360,borderRadius:12,cursor:"zoom-in"}}/>:receiptUrl&&receipt?.receiptType==="application/pdf"?<iframe title="PDF chek" src={receiptUrl} style={{width:"100%",height:360,border:0,borderRadius:12}}/>:<FiFileText/>}<strong>{receipt?.receiptName||"To‘lov cheki"}</strong><span>{receipt?.organization}</span><b>{formatPrice(receipt?.amount||0,"UZS")}</b></div>{receiptUrl&&<div className="platform-receipt-actions">{receipt?.receiptType?.startsWith("image/")&&<button className="pro-btn secondary" type="button" aria-pressed={receiptZoom} onClick={()=>setReceiptZoom(v=>!v)}>{receiptZoom?"Kichraytirish":"2× kattalashtirish"}</button>}<a className="pro-btn secondary" target="_blank" rel="noopener noreferrer" href={receiptUrl}>Originalni ochish</a><a className="pro-btn secondary" href={receiptUrl} download={receipt?.receiptName||"zenix-chek"}>Yuklab olish</a></div>}{receipt?.rejectReason&&<div className="pro-alert danger">Rad etish sababi: {receipt.rejectReason}</div>}</Modal>
-    <Modal open={!!reject} onClose={()=>setReject(null)} title="To‘lovni rad etish" subtitle="Sabab mijozning Tarif va to‘lovlar sahifasida ko‘rinadi." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setReject(null)}>Bekor qilish</button><button className="pro-btn danger" disabled={!reason.trim()} onClick={()=>update(reject,"REJECTED")}>Rad etish</button></>}><label className="pro-field"><span>Sabab</span><textarea data-modal-autofocus value={reason} onChange={event=>setReason(event.target.value)} placeholder="Masalan: chekdagi summa mos kelmadi"/></label></Modal>
+    <Modal open={!!reject} onClose={()=>setReject(null)} title="To‘lovni rad etish" subtitle="Sabab mijozning Tarif va to‘lovlar sahifasida ko‘rinadi." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setReject(null)}>Bekor qilish</button><button className="pro-btn danger" disabled={!reason.trim()||!!reviewBusyId} onClick={()=>update(reject,"REJECTED")}>{reviewBusyId?"Tekshirilmoqda...":"Rad etish"}</button></>}><label className="pro-field"><span>Sabab</span><textarea data-modal-autofocus value={reason} onChange={event=>setReason(event.target.value)} placeholder="Masalan: chekdagi summa mos kelmadi"/></label></Modal>
     <Modal open={!!detail} onClose={closeDetail} title={detail?.name||"Mijoz"} subtitle={`Biznes profili · ${detailTabs.find(([id])=>id===detailSection)?.[1]||"Umumiy"}`} size="lg" className="platform-customer-modal"><div className="platform-customer-detail">
       <div className="platform-customer-identity">
         <span>{detail?.owner||"Egasi ko‘rsatilmagan"}</span>
