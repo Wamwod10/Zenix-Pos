@@ -24,7 +24,7 @@ function prodEndpoint(endpoints, id) {
  * Fail closed if root capacity is exhausted or the expected snapshot changes.
  */
 export function prepareIsolatedRestore({
-  snapshot, production, branches, endpoint, name, maxRootBranches,
+  snapshot, production, branches, endpoint, name, maxRootBranches, productionSnapshotSchedule,
 }) {
   required(name,'restore branch name');
   assert.ok(/^zenix-[a-z0-9-]+$/.test(name),'Use an explicit zenix- restore branch name');
@@ -37,6 +37,7 @@ export function prepareIsolatedRestore({
     'Production database endpoint provenance mismatch');
   assert.ok(Array.isArray(branches)&&branches.some(b=>b.id===production.id),'Current branch inventory required');
   assert.ok(!branches.some(b=>b.name===name),'Restore name already in use');
+  assert.ok(Array.isArray(productionSnapshotSchedule) && productionSnapshotSchedule.length>0,'Production snapshot schedule evidence required');
   assert.ok(Number.isSafeInteger(maxRootBranches)&&maxRootBranches>0,'Root-branch capacity must be verified');
   assert.ok(branches.filter(b=>!b.parent_id).length < maxRootBranches,
     'Root branch limit reached: do not delete any branch automatically');
@@ -47,6 +48,7 @@ export function prepareIsolatedRestore({
     productionEndpointId:endpoint.id,
     productionEndpointHost:endpoint.host,
     snapshotId:snapshot.id,
+    productionSnapshotSchedule:structuredClone(productionSnapshotSchedule),
     maxRootBranches,
   };
   return {
@@ -63,7 +65,7 @@ export function prepareIsolatedRestore({
 }
 
 /** After restore, verify no switch, no promotion and no endpoint movement. */
-export function verifyIsolatedRestore({before, production, defaultBranch, endpoint, restored}) {
+export function verifyIsolatedRestore({before, production, defaultBranch, endpoint, restored, productionSnapshotSchedule}) {
   assert.ok(before?.productionBranchId && before?.productionEndpointId && before?.snapshotId,
     'Signed-off preflight evidence required');
   assert.equal(defaultBranch?.id,before.productionBranchId,'INCIDENT: production default branch switched');
@@ -72,6 +74,8 @@ export function verifyIsolatedRestore({before, production, defaultBranch, endpoi
   assert.equal(endpoint?.id,before.productionEndpointId,'Production compute replaced');
   assert.equal(endpoint?.branch_id,before.productionBranchId,'INCIDENT: production compute moved to another branch');
   assert.equal(endpoint?.host,before.productionEndpointHost,'Production endpoint host changed');
+  assert.deepEqual(productionSnapshotSchedule,before.productionSnapshotSchedule,
+    'INCIDENT: production automatic snapshot schedule moved or disappeared');
   assert.ok(restored?.id && restored.id!==before.productionBranchId,'Restore must be independent');
   assert.equal(restored?.restored_from,before.snapshotId,'Wrong snapshot restored');
   assert.ok(!branchIsDefault(restored),'INCIDENT: restored branch was promoted');
