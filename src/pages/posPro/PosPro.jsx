@@ -102,7 +102,8 @@ function Workspace({user,store}){
  const clear=async()=>{if(session.locked||pendingScans.current||!session.cart.length)return;const ok=await confirm({title:'Chekni bekor qilish',message:'Joriy chek tozalanadi. Serverda savdo yaratilmaydi.',confirmLabel:'Chekni bekor qilish',tone:'danger'});if(ok)session.reset()};
  const holdCurrent=()=>{if(session.locked||pendingScans.current||!online||settings.pos.holdCartEnabled===false)return;void session.hold()};
  const holds=()=>{if(session.locked||pendingScans.current)return;setModal('holds');void session.loadHolds()};
- const print=()=>{const sale=session.receipt||lastSale.current;if(sale)printReceipt(sale,options);else session.setError('Avval server tasdiqlagan savdoni yakunlang')};
+ const printError=error=>{if(active.current)session.setError(error?.message||'Printer oynasini ochib bo‘lmadi')};
+ const print=()=>{const sale=session.receipt||lastSale.current;if(sale)printReceipt(sale,options,printError);else session.setError('Avval server tasdiqlagan savdoni yakunlang')};
  actions.current={session,enqueue,openPayment,holdCurrent,holds,print,modal,payment};
  useEffect(()=>{
   const scanner=createHidScanner(code=>actions.current.enqueue(code));
@@ -161,6 +162,6 @@ function Workspace({user,store}){
   <Modal open={modal==='hardware'} onClose={()=>setModal('')} title="Qurilmalar va chek"><div className="pp-hardware"><p>Klaviatura / HID kiritishi mavjud. Fizik scanner tekshirilmagan; ulanish holati brauzer orqali aniqlanmaydi. Scanner Enter suffix yuborishi kerak.</p><label className="pp-field">Chek eni<PremiumSelect value={width} onChange={e=>setWidth(e.target.value)}><option value="58">58 mm</option><option value="80">80 mm</option></PremiumSelect></label><p>Brauzer orqali chop etish mavjud. Printer dialogida mos qog‘ozni tanlang.</p><p>Web Serial API: {caps.serialAPI?'brauzerda mavjud':'mavjud emas'}. WebUSB API: {caps.usbAPI?'mavjud':'mavjud emas'}.</p><button disabled>Elektron tarozi — qurilma adapteri ulanmagan</button><button disabled>ESC/POS / kassa tortmasi — bridge ulanmagan</button><p>Bank terminali: qo‘lda tasdiqlash. Fiskal provider ulanmagan. Soxta QR yaratilmaydi.</p><button disabled={!store.hasPermission('settingsWrite')} onClick={()=>{setConfigError('');setModal('scale')}}>Tarozi barcode sxemasi</button><DeviceReadiness online={online} capabilities={caps}/></div></Modal>
   <Modal open={modal==='scale'} onClose={()=>setModal('hardware')} title="Tarozi yorlig‘i dekoderi" subtitle="Faqat qurilmangizga mos aniq sxemani kiriting. [] — o‘chirilgan." footer={<button className="pro-btn primary" onClick={saveSchemes}>Tekshirish va saqlash</button>}><p>Mahsulot kodi katalogdagi aniq barcode bilan teng bo‘lishi kerak. EAN-13 checksum majburiy. Oddiy barcode avval tekshiriladi.</p><pre>{'[ { "prefix":"21", "productStart":2, "productLength":5, "valueStart":7, "valueLength":5, "divisor":1000, "unit":"kg", "encoding":"weight" } ]'}</pre><textarea aria-label="Tarozi sxemasi JSON" rows={8} value={schemeText} onChange={e=>setSchemeText(e.target.value)}/>{configError&&<p role="alert">{configError}</p>}</Modal>
   <BarcodeScannerModal open={camera} onClose={()=>setCamera(false)} onDetected={code=>{setCamera(false);enqueue(code)}}/>
-  <Receipt sale={session.receipt} options={options} onClose={()=>{session.setReceipt(null);barcodeRef.current?.focus()}}/>
+  <Receipt sale={session.receipt} options={options} onClose={()=>{session.setReceipt(null);barcodeRef.current?.focus()}} onPrintError={printError}/>
  </div>;
 }
