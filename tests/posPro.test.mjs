@@ -102,3 +102,17 @@ test('quantity buttons use 50g/50ml measured-unit steps and one piece',()=>{
  for(const unit of ['g','gramm','gr','ml'])assert.equal(quantityStep(unit),50);
  assert.equal(quantityStep('dona'),1);assert.equal(Math.round((.75-quantityStep('kg'))*1000)/1000,.7);
 });
+
+test('POS Pro payment cannot be edited during checkout and quick cash buttons revoke stale terminal confirmation',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const source=readFileSync(new URL('../src/pages/posPro/Payment.jsx',import.meta.url),'utf8');
+ assert.match(source,/const changeTendered=next=>\{if\(busy\)return;setTendered\(next\);setConfirmed\(false\);setReviewed\(false\)\}/);
+ for(const label of ['Karta summasi','O‘tkazma summasi','Mijoz bergan naqd']){
+   assert.ok(source.includes('aria-label="'+label+'" disabled={busy}'),label+' locked while saving');
+ }
+ assert.ok(source.includes('aria-label="Nasiya muddati" disabled={busy}'));
+ assert.ok(source.includes('disabled={busy} checked={externalConfirmed}'));
+ for(const action of ['Aniq summa','Tozalash']){
+   assert.ok(source.includes('disabled={busy} onClick={()=>changeTendered('),action+' respects busy guard');
+ }
+});
