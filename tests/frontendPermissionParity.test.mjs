@@ -20,7 +20,7 @@ test('Settings permission matrix and employee overrides fail closed for non-bool
  const source=readFileSync(new URL('../src/pages/settings/Settings.jsx',import.meta.url),'utf8');
  assert.match(source,/emp\.permissionOverrides\[permission\]===true/);
  assert.match(source,/rolePermissions\?\.\[emp\?\.role\]\?\.\[permission\]===true/);
- assert.match(source,/const defaults=rolePermissions\?\.\[emp\.role\]\?\.\[permission\]===true/);
+ assert.ok(source.includes('const defaults=rolePermissions?.[emp?.role]?.[permission]===true'));
  assert.match(source,/\[permission\]:prev\?\.\[role\]\?\.\[permission\]!==true/);
  assert.match(source,/rolePermissions\?\.\[role\]\?\.\[id\]===true/);
  assert.match(source,/rolePermissions\?\.\[mobilePermissionRole\]\?\.\[id\]===true/);
