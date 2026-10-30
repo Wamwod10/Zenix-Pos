@@ -10,14 +10,14 @@ export function PlatformSummary({overview,showMetrics=true}){
 }
 
 export function PlatformAudit(){
-  const [q,setQ]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0),[logs,setLogs]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[more,setMore]=useState(false);
+  const [q,setQ]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0),[retryKey,setRetryKey]=useState(0),[logs,setLogs]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[more,setMore]=useState(false);
   useEffect(()=>{const id=setTimeout(()=>{setQuery(q);setPage(0)},250);return()=>clearTimeout(id)},[q]);
   useEffect(()=>{
     const controller=new AbortController();setBusy(true);setError('');
-    api.get(`/api/platform/audit-logs?${new URLSearchParams({q:query,limit:'20',offset:String(page*20)})}`,{signal:controller.signal}).then(data=>{if(!controller.signal.aborted){setLogs(data.logs||[]);setMore(Boolean(data.hasMore))}}).catch(e=>{if(!controller.signal.aborted)setError(e.message)}).finally(()=>{if(!controller.signal.aborted)setBusy(false)});
+    api.get(`/api/platform/audit-logs?${new URLSearchParams({q:query,limit:'20',offset:String(page*20)})}`,{signal:controller.signal}).then(data=>{if(!controller.signal.aborted){setLogs(data.logs||[]);setMore(Boolean(data.hasMore))}}).catch(e=>{if(!controller.signal.aborted){setLogs([]);setMore(false);setError(e.message)}}).finally(()=>{if(!controller.signal.aborted)setBusy(false)});
     return()=>controller.abort();
-  },[query,page]);
-  return <section className="pro-card"><h2>Audit va monitoring</h2><label className="pro-field"><span>Audit qidiruvi</span><input value={q} onChange={e=>setQ(e.target.value)}/></label>{busy?<div className="pro-empty">Yuklanmoqda...</div>:error?<div role="alert" className="pro-alert danger">{error}</div>:logs.length?<div className="platform-detail-list">{logs.map(log=><div key={log.id}><span><strong>{log.title||log.action}</strong><small>{log.userName} · {log.description}</small></span><small>{new Date(log.createdAt).toLocaleString('uz-UZ')}</small></div>)}</div>:<div className="pro-empty">Audit yozuvi topilmadi</div>}<div className="platform-pagination"><button className="pro-btn secondary" disabled={busy||page===0} onClick={()=>setPage(p=>p-1)}>Oldingi</button><span>{page+1} sahifa</span><button className="pro-btn secondary" disabled={busy||!more} onClick={()=>setPage(p=>p+1)}>Keyingi</button></div></section>;
+  },[query,page,retryKey]);
+  return <section className="pro-card"><h2>Audit va monitoring</h2><label className="pro-field"><span>Audit qidiruvi</span><input value={q} onChange={e=>setQ(e.target.value)}/></label>{busy?<div className="pro-empty">Yuklanmoqda...</div>:error?<div role="alert" className="pro-alert danger">{error} <button type="button" className="pro-btn secondary" onClick={()=>setRetryKey(n=>n+1)}>Qayta urinish</button></div>:logs.length?<div className="platform-detail-list">{logs.map(log=><div key={log.id}><span><strong>{log.title||log.action}</strong><small>{log.userName} · {log.description}</small></span><small>{new Date(log.createdAt).toLocaleString('uz-UZ')}</small></div>)}</div>:<div className="pro-empty">Audit yozuvi topilmadi</div>}<div className="platform-pagination"><button className="pro-btn secondary" disabled={busy||!!error||page===0} onClick={()=>setPage(p=>p-1)}>Oldingi</button><span>{page+1} sahifa</span><button className="pro-btn secondary" disabled={busy||!!error||!more} onClick={()=>setPage(p=>p+1)}>Keyingi</button></div></section>;
 }
 
 export function BusinessDiagnostics({organization,usage,usageError,view="business"}){
