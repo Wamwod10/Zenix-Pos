@@ -40,6 +40,7 @@ function PlatformAdmin(){
   const [resultTotal,setResultTotal]=useState(0);
   const [pageLoading,setPageLoading]=useState(false);
   const [pageError,setPageError]=useState("");
+  const [pageRetryKey,setPageRetryKey]=useState(0);
   const [detailPayments,setDetailPayments]=useState([]);
   const receiptRequestRef=useRef(0);
   const detailRequestRef=useRef(0);
@@ -64,6 +65,7 @@ function PlatformAdmin(){
   const [detailAudit,setDetailAudit]=useState([]);
   const [detailAuditLoading,setDetailAuditLoading]=useState(false);
   const [detailAuditHasMore,setDetailAuditHasMore]=useState(false);
+  const detailAuditOffsetRef=useRef(0);
   const [reject,setReject]=useState(null);
   const [reason,setReason]=useState("");
   // Lock synchronously, before the async confirmation opens, so rapid clicks
@@ -211,7 +213,7 @@ function PlatformAdmin(){
       .catch(error=>{if(controller.signal.aborted)return;setPageRows([]);setResultTotal(0);setPageError(error?.message||"Ro‘yxat yuklanmadi")})
       .finally(()=>{if(!controller.signal.aborted)setPageLoading(false)});
     return ()=>controller.abort();
-  },[tab,debouncedQuery,status,page,workspaceReady,platformOverview]);
+  },[tab,debouncedQuery,status,page,workspaceReady,platformOverview,pageRetryKey]);
   useEffect(()=>{if(tab==="promos"&&workspaceReady)void loadPromos();return()=>{promoRequestRef.current+=1}},[tab,workspaceReady,debouncedQuery,page]);
   const review=Number(platformOverview?.review||0);
   const active=Number(platformOverview?.active||0);
@@ -286,7 +288,7 @@ function PlatformAdmin(){
     api.get(`/api/platform/organizations/${encodeURIComponent(organizationId)}/usage`).then(data=>{
       if(requestId===detailRequestRef.current&&organizationId===detailOrganizationRef.current&&data?.usage)setUsage(data.usage);
     }).catch(error=>{if(requestId===detailRequestRef.current)setUsageError(error.message||"Hajm yuklanmadi")});
-    setDetail(org);setDetailLoaded(false);setDetailPayments([]);setDetailAudit([]);setDetailAuditLoading(true);setDetailAuditHasMore(false);
+    setDetail(org);setDetailLoaded(false);setDetailPayments([]);detailAuditOffsetRef.current=0;setDetailAudit([]);setDetailAuditLoading(true);setDetailAuditHasMore(false);
     setLicenseForm({plan:org.plan||"ANNUAL",expiryDate:String(org.expiryDate||"").slice(0,10),storeLimit:Number(org.storeLimit||2),reason:""});
     try{
       const [detailResult,auditResult]=await Promise.allSettled([
@@ -302,6 +304,7 @@ function PlatformAdmin(){
         setDetailPayments(detailResult.value.payments||[]);
       }else {setDetailError(detailResult.reason?.message||"Tashkilot tafsilotlarini yuklab bo‘lmadi.");notify({tone:"danger",title:"Tashkilot tafsiloti yuklanmadi",message:detailResult.reason?.message||"Ma’lumotni olib bo‘lmadi."});}
       if(auditResult.status==="fulfilled"){
+        detailAuditOffsetRef.current=(auditResult.value.logs||[]).length;
         setDetailAudit(auditResult.value.logs||[]);
         setDetailAuditHasMore(Boolean(auditResult.value.hasMore));
       }else notify({tone:"danger",title:"Audit yuklanmadi",message:auditResult.reason?.message||"Audit tarixini olib bo‘lmadi."});
@@ -312,15 +315,16 @@ function PlatformAdmin(){
     const requestId=detailRequestRef.current,organizationId=detail.id;
     setDetailAuditLoading(true);
     try{
-      const response=await api.get(`/api/platform/audit-logs?organizationId=${encodeURIComponent(organizationId)}&limit=50&offset=${detailAudit.length}`);
+      const response=await api.get(`/api/platform/audit-logs?organizationId=${encodeURIComponent(organizationId)}&limit=50&offset=${detailAuditOffsetRef.current}`);
       if(requestId!==detailRequestRef.current)return;
       const next=response.logs||[];
+       detailAuditOffsetRef.current+=next.length;
       setDetailAudit(previous=>[...previous,...next.filter(log=>!previous.some(old=>old.id===log.id))]);
       setDetailAuditHasMore(Boolean(response.hasMore));
     }catch(error){if(requestId===detailRequestRef.current)notify({tone:"danger",title:"Audit yuklanmadi",message:error?.message||"Keyingi yozuvlar yuklanmadi."})}
     finally{if(requestId===detailRequestRef.current)setDetailAuditLoading(false)}
   };
-  const closeDetail=()=>{closeReset();detailRequestRef.current+=1;detailOrganizationRef.current=null;setUsage(null);setDetailLoaded(false);setDetailPayments([]);setDetail(null);setDetailAuditLoading(false);setDetailAuditHasMore(false)};
+  const closeDetail=()=>{closeReset();detailRequestRef.current+=1;detailOrganizationRef.current=null;setUsage(null);setDetailLoaded(false);setDetailPayments([]);setDetail(null);detailAuditOffsetRef.current=0;setDetailAuditLoading(false);setDetailAuditHasMore(false)};
   const controlBusiness=async(action)=>{
     if(!detail?.id||!detailLoaded||controlBusy||controlInFlightRef.current)return;
     const form={...licenseForm};
@@ -389,7 +393,7 @@ function PlatformAdmin(){
         {showCustomerColumn("expiry")&&<td data-label="Muddati">{org.expiryDate?new Date(org.expiryDate).toLocaleDateString("uz-UZ"):"—"}</td>}
         <td data-label="Amal"><button className="pro-btn secondary platform-row-action" onClick={()=>openDetail(org,tab==="storage"?"storage":tab==="support"?"support":tab==="recovery"?"recovery":"overview")} aria-label={tab==="storage"?"Saqlash hajmini ko‘rish":tab==="support"?"Yordam diagnostikasini ko‘rish":tab==="recovery"?"Tiklash holatini ko‘rish":"Tashkilotni ko‘rish"}><FiEye/> {tab==="storage"?"Saqlash":tab==="support"?"Yordam":tab==="recovery"?"Tiklash":"Ko‘rish"}</button></td>
       </tr>)}{tab!=="payments"&&!["promos","audit"].includes(tab)&&!pagedRows.length&&!pageLoading&&!pageError&&<tr><td colSpan={customerColumns.length+2}><div className="pro-empty"><FiUsers/><strong>Tashkilot topilmadi</strong></div></td></tr>}</tbody></table></div>}{!pageLoading&&!pageError&&!["promos","audit"].includes(tab)&&resultTotal>pageSize&&<div className="platform-pagination"><span>{resultTotal} ta natija · {page}/{totalPages} sahifa</span><div><button className="pro-btn secondary" disabled={page<=1} onClick={()=>setPage(value=>Math.max(1,value-1))}>Oldingi</button><button className="pro-btn secondary" disabled={page>=totalPages} onClick={()=>setPage(value=>Math.min(totalPages,value+1))}>Keyingi</button></div></div>}
-      {pageLoading&&<div className="pro-empty" role="status">Ro‘yxat yuklanmoqda...</div>}{pageError&&<div className="pro-alert danger">{pageError}</div>}
+      {pageLoading&&<div className="pro-empty" role="status">Ro‘yxat yuklanmoqda...</div>}{pageError&&<div className="pro-alert danger" role="alert">{pageError} <button type="button" className="pro-btn secondary" onClick={()=>setPageRetryKey(value=>value+1)}>Qayta urinish</button></div>}
     </section>
     {tab==="audit"&&<PlatformAudit/>}
     {tab==="promos"&&<section className="pro-card" style={{padding:18,marginTop:16}}>
