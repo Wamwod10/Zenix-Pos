@@ -14,8 +14,26 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
   :{[sale.paymentMethod||sale.metadata?.paymentMethod]:sale.total});
  return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>Chek ${escape(sale.saleNumber||sale.sale_number||sale.id)}</title><style>@page{size:${width}mm auto;margin:2mm}*{box-sizing:border-box}body{font:12px monospace;color:#000;background:white;width:${Number(width)-4}mm;margin:0;padding:2mm}h1{font-size:17px;text-align:center}p{margin:5px 0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}td{vertical-align:top;padding:3px 0;overflow-wrap:anywhere}td:last-child{text-align:right}hr{border:0;border-top:1px dashed #000}.total{font-size:18px;font-weight:bold}small{display:block;text-align:center;margin-top:12px}</style></head><body><h1>${escape(business)}</h1><p>${escape(branch||sale.store)}</p><p>Chek: ${escape(sale.saleNumber||sale.sale_number||sale.id)}</p><p>${escape(new Date(sale.createdAt||sale.created_at||Date.now()).toLocaleString('uz-UZ'))}</p><p>Kassir: ${escape(sale.sellerName||cashier)}</p><hr><table>${rows}</table><hr><p>Chegirma: ${escape(formatPrice(sale.discountTotal||0))}</p><p class="total">JAMI: ${escape(formatPrice(sale.total))}</p>${Object.entries(payments).filter(([,n])=>Number(n)>0).map(([k,n])=>`<p>${escape(labels[k]||k)}: ${escape(formatPrice(n))}</p>`).join('')}${sale.creditAmount>0?`<p>Nasiya: ${escape(formatPrice(sale.creditAmount))}</p>`:''}<p>Berildi: ${escape(formatPrice(sale.cashTendered??sale.metadata?.cashTendered??0))}</p><p>Qaytim: ${escape(formatPrice(sale.change??sale.metadata?.change??0))}</p><small>Xaridingiz uchun rahmat.<br>Bu fiskal soliq cheki emas.</small></body></html>`;
 }
-export function printReceipt(sale,options){
- const frame=document.createElement('iframe');frame.title='POS Pro chek';frame.style.cssText='position:fixed;width:1px;height:1px;bottom:0;left:0;border:0';
- frame.onload=()=>{frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});frame.contentWindow.focus();frame.contentWindow.print()};
- frame.srcdoc=receiptHtml(sale,options);document.body.append(frame);
+export function printReceipt(sale,options,onError){
+ let markup;
+ try{markup=receiptHtml(sale,options)}catch(error){onError?.(error);return}
+ const frame=document.createElement('iframe');
+ frame.title='POS Pro chek';
+ frame.style.cssText='position:fixed;width:1px;height:1px;bottom:0;left:0;border:0';
+ let cleaned=false;
+ const cleanup=()=>{if(cleaned)return;cleaned=true;clearTimeout(fallback);frame.remove()};
+ // Some browsers never dispatch afterprint, including blocked or cancelled print dialogs.
+ const fallback=setTimeout(cleanup,180000);
+ const fail=error=>{cleanup();onError?.(error instanceof Error?error:new Error('Printer oynasini ochib bo‘lmadi'))};
+ frame.onerror=()=>fail(new Error('Chekni chop etish oynasi yuklanmadi'));
+ frame.onload=()=>{
+  if(cleaned)return;
+  try{
+   const target=frame.contentWindow;
+   if(!target?.print)throw Error('Brauzer chop etishni qo‘llab-quvvatlamadi');
+   target.addEventListener('afterprint',cleanup,{once:true});
+   target.focus();target.print();
+  }catch(error){fail(error)}
+ };
+ try{frame.srcdoc=markup;document.body.append(frame)}catch(error){fail(error)}
 }
