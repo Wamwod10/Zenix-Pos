@@ -52,7 +52,8 @@ See [incident #97](https://github.com/Wamwod10/Zenix-Pos/issues/97).
 
 1. Obtain independent operator approval for a rehearsed restore, identify the
    *scheduled* snapshot ID, protected/default original production branch ID,
-   production read-write compute ID/hostname, and the root-branch quota. Never
+   production read-write compute ID/hostname, **current production automatic
+   snapshot schedule**, and the root-branch quota. Never
    delete an old branch autonomously as a quota workaround.
 2. Run the pure preflight helper `prepareIsolatedRestore` from
    `scripts/neonRestoreSafety.mjs` using fresh Neon API metadata. The generated
@@ -64,7 +65,8 @@ See [incident #97](https://github.com/Wamwod10/Zenix-Pos/issues/97).
    Run `verifyIsolatedRestore` to ensure the default remains original,
    original production branch remains protected, existing production endpoint
    ID/hostname is unchanged and still points to the original branch, and the
-   new restore is nondefault/nonpromoted with `restore_status=restored`.
+   new restore is nondefault/nonpromoted with `restore_status=restored`,
+   and production's automatic snapshot schedule has NOT moved or disappeared.
    **ABORT/ESCALATE IMMEDIATELY** on any mismatch; do not finalize.
 4. Only then provision a **read-only** compute on the new branch and perform
    table counts, sorted row hashes, foreign-key and payment/credit/refund audits.
@@ -89,3 +91,12 @@ See [incident #97](https://github.com/Wamwod10/Zenix-Pos/issues/97).
 - Original 26-Oct rehearsal root branch was retired; manual archive snapshot
   `snap-summer-surf-b1l8l230` retained. Do not delete the new restored
   root branch or audit compute without an explicit resource review.
+
+**Post-incident schedule repair:** The 2026-10-30 implicit promotion also
+moved the daily 21:00 UTC / 7-day-retention scheduled snapshot configuration
+to the temporary snapshot clone. Once the original production branch was
+restored, the live branch reported an empty schedule. That live schedule was
+reinstated and read back as `daily hour=21 retention_seconds=604800`; the
+nonproduction restored clone's redundant schedule was disabled to avoid
+unintended billable duplicate snapshots. The safety gate now compares the
+schedule before and after restore as a release-blocking invariant.
