@@ -61,3 +61,15 @@ test('receipt print frame cleans up after print and reports printer failures',as
   }
  }finally{globalThis.document=originalDocument}
 });
+
+test('POS Pro customer lookup never offers stale search results on query change or request failure',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const source=readFileSync(new URL('../src/pages/posPro/PosPro.jsx',import.meta.url),'utf8');
+ assert.match(source,/const controller=new AbortController\(\)/);
+ assert.match(source,/\{signal:controller\.signal\}/);
+ assert.match(source,/return\(\)=>\{current=false;clearTimeout\(t\);controller\.abort\(\)\}/);
+ assert.match(source,/setCustomers\(\[\]\);setCustomerError\(''\);setCustomerLoading\(true\)/);
+ assert.match(source,/if\(current\)\{setCustomers\(\[\]\);setCustomerError\(/);
+ assert.match(source,/!customerLoading&&!customerError&&customers\.map/);
+ assert.match(source,/customerRetry,n=>n\+1|setCustomerRetry\(n=>n\+1\)/);
+});
