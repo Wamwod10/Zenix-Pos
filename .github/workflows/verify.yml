@@ -1,6 +1,7 @@
 name: Verify Frontend
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
