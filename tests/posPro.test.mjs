@@ -52,6 +52,26 @@ test('58/80mm receipt escapes content and preserves exact paid/change amounts',(
  for(const width of ['58','80']){const html=receiptHtml(sale,{width,business:'Test market'});assert.ok(html.includes(`size:${width}mm auto`));assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('1.25 kg'));assert.match(html,/2[ ,]849[.,]75/);assert.ok(!html.includes('<script>'));assert.ok(!html.includes('https://'))}
  assert.throws(()=>receiptHtml(sale,{width:'200'}));
 });
+test('printed receipt sums repeated payment rows with exact cents and never loses a method',()=>{
+ const sale={id:'S-many-payments',total:200,createdAt:'2026-10-30T00:00:00Z',
+   items:[{name:'Test product',quantity:1,sellPrice:200,lineTotal:200}],
+   payments:[
+     {method:'cash',amount:'40.10'},
+     {method:'cash',amount:'60.20'},
+     {method:'card',amount:'39.70'},
+     {method:'card',amount:'60.00'},
+   ],
+ };
+ const html=receiptHtml(sale);
+ assert.match(html,/Naqd: 100[,.]3(?:0)? so‘m/);
+ assert.match(html,/Karta \(qo‘lda tasdiqlangan\): 99[,.]7(?:0)? so‘m/);
+ assert.equal((html.match(/Naqd:/g)||[]).length,1);
+ assert.equal((html.match(/Karta \(qo‘lda tasdiqlangan\):/g)||[]).length,1);
+ assert.equal(sale.payments[0].amount,'40.10','printing must not mutate source rows');
+ const canonical=receiptHtml({...sale,paymentBreakdown:{cash:110,card:90}});
+ assert.match(canonical,/Naqd: 110 so‘m/,'canonical breakdown remains authoritative');
+});
+
 test('500-line draft roundtrip is separate from ordinary Sales',()=>{
  const data=new Map(),storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
  const base=posDraftKey('org','user','store'),key=base+':pro';
