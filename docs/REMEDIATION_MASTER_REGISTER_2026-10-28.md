@@ -165,3 +165,30 @@ Independent full E2E, mobile/desktop visual review, credentials/role matrix, sta
 - **Other accounting:** Backend Issue #20 legacy return movement unit-cost provenance is still subject to manual WAC/ledger reconciliation; do not backfill historical inventory or profit figures without signed-off evidence.
 
 **Status:** all eight phases are **NOT COMPLETE**. Current production release is healthy on read-only probes, but latest Neon automatic-snapshot restore, external Telegram alert delivery, real device acceptance and full financial E2E remain blocking gates. No production customer data were mutated for these checks.
+
+
+## 2026-10-30 — Current production and eight-phase status readback (15:56 Asia/Tashkent)
+
+This is a read-only continuation checkpoint, not an assertion that all acceptance tests have passed.
+
+- **Frontend exact main:** `572b7c829f8de3d2a8ca4dee7dde5b88c664c7e3`. Latest Vercel production deployment `dpl_DaZXN2nGFxarUdZaANurDca1mW3N` reports READY, source branch `main`, matching commit SHA; GitHub combined commit status includes Vercel success. The exact-main GitHub Actions workflow conclusion for this newest SHA has **not** been independently verified in this checkpoint.
+- **Backend exact main:** `8293b190073c19371d19039651692d6babd3a2c1`. Render manual deployment `dep-dbi413gm7kps73bqvvpg` reports LIVE at the same SHA. Latest backend GitHub Actions conclusion not independently verified here.
+- **Live read-only health (2026-10-30 10:56 UTC):** `https://www.zenixpos.uz/health` HTTP 200 (`ok:true`); `/ready` HTTP 200 (`database:ready`). This is service availability only, not transactional or device acceptance.
+- **Neon production:** `br-small-dew-b197rvkz` is again default, primary, protected and ready according to readback. Its `restore_status: finalized` metadata reflects the October 30 recovery; review incident before any further restore operation.
+- **Phase 5 shared modal:** workflow `40884939567` latest frontend job SUCCESS; Issues #75 and #77 independently read back **CLOSED**. Previous register already documents PR #76 exact-sha release. No duplicate fix or issue closure needed.
+- **Critical October 30 Neon incident:** GitHub issue titled “INCIDENT: snapshot restore implicitly switched Neon production endpoint (recovered 2026-10-30)” documents an unintended endpoint swap at 08:17–08:21 UTC during a restore which omitted explicit `finalize:false`; original production branch and endpoint were subsequently restored. Incident reports possible customer API errors; partial database digest reconciliation is positive but cannot establish zero impact. **Do not attempt another production-connected restore, finalize, branch swap, or cleanup without isolated safety review and explicit approval.**
+
+### Phase acceptance classifications (strict evidence)
+
+| Phase | Status at this checkpoint | Why not full closure |
+| --- | --- | --- |
+| 1 — Production Safety | PARTIAL / OPEN | Snapshot incident follow-up, safe independent restore/RPO-RTO proof, deployment and alerting acceptance |
+| 2 — POS / POS Pro | PARTIAL / OPEN | Physical scanner/printer/cash drawer and offline/device checkout, full financial E2E |
+| 3 — Inventory / Financial | PARTIAL / OPEN | End-to-end WAC/COGS, concurrency and ledger reconciliation matrix remains to be signed off |
+| 4 — Auth / Billing / Permissions | PARTIAL / OPEN | Cross-tenant/role and billing lifecycle acceptance pending despite shipped focused fixes |
+| 5 — Full UI/UX | IN PROGRESS | Modal #75/#77 completed; broad authenticated module-by-module visual/functionality acceptance incomplete |
+| 6 — Performance & Stability | NOT ACCEPTED | Representative catalog, API concurrency, memory and slow-query acceptance missing |
+| 7 — Professional Features | PARTIAL / NOT ACCEPTED | Device-readiness work exists; comprehensive features and acceptance not independently verified |
+| 8 — Final QA | NOT ACCEPTED | Real hardware, independent E2E, security, release and rollback sign-off outstanding |
+
+Do not infer final phase completion from CI, deployed features, or health checks. Avoid additional database writes in investigative probes.
