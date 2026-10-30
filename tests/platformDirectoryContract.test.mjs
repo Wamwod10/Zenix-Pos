@@ -29,3 +29,14 @@ test('platform directory retries failed loads and detail audit pages by raw serv
   assert.match(src,/detailAuditOffsetRef\.current\+=next\.length/);
   assert.doesNotMatch(src,/limit=50&offset=\$\{detailAudit\.length\}/);
 });
+
+test('stale organization recovery diagnostics cannot overwrite current loading or show old errors',()=>{
+  const src=readFileSync(new URL('../src/pages/platformAdmin/PlatformAdmin.jsx',import.meta.url),'utf8');
+  const start=src.indexOf('const showRecoveryPreview=async()=>{');
+  const end=src.indexOf('const changeStoreHold=async',start);
+  assert.ok(start>=0&&end>start);
+  const action=src.slice(start,end);
+  assert.match(action,/catch\(error\)\{if\(detailRequestRef\.current===requestId\)notify/);
+  assert.match(action,/finally\{if\(detailRequestRef\.current===requestId\)setRecoveryBusy\(false\)\}/);
+  assert.match(src,/setStoreQuota\(null\);setRecoveryBusy\(false\)/);
+});
