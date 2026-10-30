@@ -39,7 +39,7 @@ function Settings(){
   const [settingsQuery,setSettingsQuery]=useState("");const [scope,setScope]=useState("global");const [saveState,setSaveState]=useState("saved");
   const saveTimer=useRef(null);const auditTimers=useRef(new Map());const storeNameBaselines=useRef(new Map());const telegramSavePending=useRef(false);const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
   const [employeeModal,setEmployeeModal]=useState(false);const [employeeBusy,setEmployeeBusy]=useState(false);const [employeeError,setEmployeeError]=useState("");
-  const [permissionEmployee,setPermissionEmployee]=useState(null);
+  const [permissionEmployee,setPermissionEmployee]=useState(null);const [permissionSaveBusy,setPermissionSaveBusy]=useState(false);const permissionSaveRef=useRef(false);
   const [mobilePermissionRole,setMobilePermissionRole]=useState(ROLES.MANAGER);
   const [passwordEmployee,setPasswordEmployee]=useState(null);const [passwordValue,setPasswordValue]=useState("");const [passwordError,setPasswordError]=useState("");const [passwordBusy,setPasswordBusy]=useState(false);
   const [employeeForm,setEmployeeForm]=useState({name:"",phone:"+998",login:"",password:"",role:ROLES.CASHIER,storeId:""});
@@ -229,18 +229,31 @@ function Settings(){
     if(emp?.permissionOverrides&&Object.prototype.hasOwnProperty.call(emp.permissionOverrides,permission))return emp.permissionOverrides[permission]===true;
     return rolePermissions?.[emp?.role]?.[permission]===true;
   };
+  const commitEmployeePermission=async(emp,overrides)=>{
+    if(permissionSaveRef.current||!canManagePermissions||!emp?.accountId||emp.role===ROLES.OWNER)return;
+    permissionSaveRef.current=true;setPermissionSaveBusy(true);
+    try{
+      const result=await updateWorkspaceUser(emp.id,{permissionOverrides:overrides});
+      if(!result?.success){
+        notify({tone:"danger",title:"Ruxsat saqlanmadi",message:result?.message||"Server xatosi. Qayta urinib ko‘ring."});
+        return;
+      }
+      setEmployees(items=>items.map(item=>item.id===emp.id?{...item,permissionOverrides:overrides}:item));
+    }catch(error){
+      notify({tone:"danger",title:"Ruxsat saqlanmadi",message:error?.message||"Server bilan bog‘lanib bo‘lmadi"});
+    }finally{
+      permissionSaveRef.current=false;setPermissionSaveBusy(false);
+    }
+  };
   const setEmployeePermission=async(emp,permission,value)=>{
-    if(!canManagePermissions||!emp?.accountId||emp.role===ROLES.OWNER)return;
-    const defaults=rolePermissions?.[emp.role]?.[permission]===true;
-    const overrides={...(emp.permissionOverrides||{})};
+    if(permissionSaveRef.current)return;
+    const defaults=rolePermissions?.[emp?.role]?.[permission]===true;
+    const overrides={...(emp?.permissionOverrides||{})};
     if((value===true)===defaults)delete overrides[permission];else overrides[permission]=value===true;
-    setEmployees(items=>items.map(item=>item.id===emp.id?{...item,permissionOverrides:overrides}:item));
-    await updateWorkspaceUser(emp.id,{permissionOverrides:overrides});
+    await commitEmployeePermission(emp,overrides);
   };
   const resetEmployeePermissions=async(emp)=>{
-    if(!canManagePermissions||!emp?.accountId||emp.role===ROLES.OWNER)return;
-    setEmployees(items=>items.map(item=>item.id===emp.id?{...item,permissionOverrides:{}}:item));
-    await updateWorkspaceUser(emp.id,{permissionOverrides:{}});
+    await commitEmployeePermission(emp,{});
   };
   const startTelegramConnect=async()=>{
     if(!canWrite||telegramBusy)return;
@@ -450,8 +463,8 @@ function Settings(){
       {passwordError&&<div className="pro-alert danger">{passwordError}</div>}
       <label className="pro-field"><span>Yangi vaqtinchalik parol</span><input autoFocus type="password" value={passwordValue} onChange={e=>setPasswordValue(e.target.value)} placeholder="Kamida 8 ta belgi" autoComplete="new-password"/><small>Xodim bu parol bilan kirgach, uni shaxsiy paroliga almashtirishga majbur bo‘ladi.</small></label>
     </Modal>
-    <Modal open={!!permissionEmployee} onClose={()=>setPermissionEmployee(null)} title={`${permissionEmployee?.name||"Xodim"} — individual ruxsatlar`} subtitle="Rol sozlamalaridan faqat kerakli amallarni alohida o‘zgartiring." size="lg" footer={<><button className="pro-btn secondary" onClick={()=>permissionEmployee&&resetEmployeePermissions(employees.find(item=>item.id===permissionEmployee.id)||permissionEmployee)}>Rol sozlamalariga qaytarish</button><button className="pro-btn primary" onClick={()=>setPermissionEmployee(null)}>Tayyor</button></>}>
-      {permissionEmployee&&(()=>{const emp=employees.find(item=>item.id===permissionEmployee.id)||permissionEmployee;const overrides=emp.permissionOverrides||{};const overrideCount=Object.keys(overrides).length;return <div className="employee-permission-editor"><div className="employee-permission-summary"><FiShield/><span><strong>{ROLE_LABELS[emp.role]||emp.role} roli asosida</strong><small>{overrideCount?`${overrideCount} ta individual o‘zgarish bor`:"Hozir barcha ruxsatlar rol sozlamalaridan olinadi"}</small></span></div><div className="employee-permission-groups"><section><h3>Modullar</h3>{modulePermissionDefs.map(([key,label])=><SwitchRow key={key} title={label} desc={Object.prototype.hasOwnProperty.call(overrides,key)?"Alohida sozlangan":"Rol bo‘yicha"} checked={employeePermissionValue(emp,key)} onChange={value=>setEmployeePermission(emp,key,value)} disabled={!canManagePermissions}/>)}</section><section><h3>Amallar</h3>{actionPermissionDefs.map(([key,label])=><SwitchRow key={key} title={label} desc={Object.prototype.hasOwnProperty.call(overrides,key)?"Alohida sozlangan":"Rol bo‘yicha"} checked={employeePermissionValue(emp,key)} onChange={value=>setEmployeePermission(emp,key,value)} disabled={!canManagePermissions}/>)}</section></div></div>})()}
+    <Modal open={!!permissionEmployee} onClose={()=>!permissionSaveBusy&&setPermissionEmployee(null)} title={`${permissionEmployee?.name||"Xodim"} — individual ruxsatlar`} subtitle="Rol sozlamalaridan faqat kerakli amallarni alohida o‘zgartiring." size="lg" footer={<><button className="pro-btn secondary" disabled={permissionSaveBusy} onClick={()=>permissionEmployee&&resetEmployeePermissions(employees.find(item=>item.id===permissionEmployee.id)||permissionEmployee)}>Rol sozlamalariga qaytarish</button><button className="pro-btn primary" disabled={permissionSaveBusy} onClick={()=>setPermissionEmployee(null)}>Tayyor</button></>}>
+      {permissionEmployee&&(()=>{const emp=employees.find(item=>item.id===permissionEmployee.id)||permissionEmployee;const overrides=emp.permissionOverrides||{};const overrideCount=Object.keys(overrides).length;return <div className="employee-permission-editor"><div className="employee-permission-summary"><FiShield/><span><strong>{ROLE_LABELS[emp.role]||emp.role} roli asosida</strong><small>{overrideCount?`${overrideCount} ta individual o‘zgarish bor`:"Hozir barcha ruxsatlar rol sozlamalaridan olinadi"}</small></span></div><div className="employee-permission-groups"><section><h3>Modullar</h3>{modulePermissionDefs.map(([key,label])=><SwitchRow key={key} title={label} desc={Object.prototype.hasOwnProperty.call(overrides,key)?"Alohida sozlangan":"Rol bo‘yicha"} checked={employeePermissionValue(emp,key)} onChange={value=>setEmployeePermission(emp,key,value)} disabled={!canManagePermissions||permissionSaveBusy}/>)}</section><section><h3>Amallar</h3>{actionPermissionDefs.map(([key,label])=><SwitchRow key={key} title={label} desc={Object.prototype.hasOwnProperty.call(overrides,key)?"Alohida sozlangan":"Rol bo‘yicha"} checked={employeePermissionValue(emp,key)} onChange={value=>setEmployeePermission(emp,key,value)} disabled={!canManagePermissions||permissionSaveBusy}/>)}</section></div></div>})()}
     </Modal>
     <Modal open={employeeModal} onClose={closeEmployeeModal} title="Yangi xodim" subtitle="Xodim uchun filial, rol va alohida login yarating." size="sm" footer={<><button className="pro-btn secondary" disabled={employeeBusy} onClick={closeEmployeeModal}>Bekor qilish</button><button className="pro-btn primary" disabled={employeeBusy} onClick={createEmployee}>{employeeBusy?"Yaratilmoqda...":"Xodimni yaratish"}</button></>}>
       {employeeError&&<div className="pro-alert danger">{employeeError}</div>}
