@@ -26,3 +26,17 @@ test('Settings permission matrix and employee overrides fail closed for non-bool
  assert.match(source,/rolePermissions\?\.\[mobilePermissionRole\]\?\.\[id\]===true/);
  assert.doesNotMatch(source,/Boolean\(emp\.permissionOverrides\[permission\]\)|!!rolePermissions\?\.\[/);
 });
+
+test('employee permission editor waits for successful backend save before showing grants',()=>{
+ const source=readFileSync(new URL('../src/pages/settings/Settings.jsx',import.meta.url),'utf8');
+ const start=source.indexOf('  const commitEmployeePermission=async(');
+ const end=source.indexOf('  const startTelegramConnect=',start);
+ assert.ok(start>=0&&end>start);
+ const handler=source.slice(start,end);
+ assert.match(handler,/permissionSaveRef\.current/);
+ assert.match(handler,/if\(!result\?\.success\)/);
+ assert.ok(handler.indexOf('await updateWorkspaceUser(')<handler.indexOf('setEmployees('));
+ assert.match(handler,/Ruxsat saqlanmadi/);
+ assert.match(handler,/finally\s*\{/);
+ assert.match(source,/disabled=\{!canManagePermissions\|\|permissionSaveBusy\}/);
+});
