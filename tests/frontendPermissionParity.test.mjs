@@ -15,3 +15,14 @@ test('frontend permission resolver fails closed like backend for string override
  assert.match(resolver,/role===ROLES\.PLATFORM_ADMIN/);
  assert.match(resolver,/if\(role===ROLES\.OWNER\)return true/);
 });
+
+test('Settings permission matrix and employee overrides fail closed for non-boolean grants',()=>{
+ const source=readFileSync(new URL('../src/pages/settings/Settings.jsx',import.meta.url),'utf8');
+ assert.match(source,/emp\.permissionOverrides\[permission\]===true/);
+ assert.match(source,/rolePermissions\?\.\[emp\?\.role\]\?\.\[permission\]===true/);
+ assert.match(source,/const defaults=rolePermissions\?\.\[emp\.role\]\?\.\[permission\]===true/);
+ assert.match(source,/\[permission\]:prev\?\.\[role\]\?\.\[permission\]!==true/);
+ assert.match(source,/rolePermissions\?\.\[role\]\?\.\[id\]===true/);
+ assert.match(source,/rolePermissions\?\.\[mobilePermissionRole\]\?\.\[id\]===true/);
+ assert.doesNotMatch(source,/Boolean\(emp\.permissionOverrides\[permission\]\)|!!rolePermissions\?\.\[/);
+});
