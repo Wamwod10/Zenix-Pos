@@ -100,8 +100,8 @@ function PlatformAdmin(){
       if(detailRequestRef.current!==requestId)return;
       setRecoveryPreview(snapshot.snapshot?{...snapshot.snapshot,backups:snapshot.backups}:null);
       setStoreQuota(quota.reconciliation||null);
-    }catch(error){notify({tone:"danger",title:"Diagnostika yuklanmadi",message:error?.message||"Qayta urining"})}
-    finally{setRecoveryBusy(false)};
+    }catch(error){if(detailRequestRef.current===requestId)notify({tone:"danger",title:"Diagnostika yuklanmadi",message:error?.message||"Qayta urining"})}
+    finally{if(detailRequestRef.current===requestId)setRecoveryBusy(false)};
   };
   const changeStoreHold=async(store,action)=>{
     if(!detail?.id||!store?.id||storeHoldBusy||storeHoldInFlightRef.current)return;
@@ -284,7 +284,7 @@ function PlatformAdmin(){
     const requestId=++detailRequestRef.current;
     const organizationId=org.id;
     detailOrganizationRef.current=organizationId;
-    setUsage(null);setUsageError("");setRecoveryPreview(null);setStoreQuota(null);
+    setUsage(null);setUsageError("");setRecoveryPreview(null);setStoreQuota(null);setRecoveryBusy(false);
     api.get(`/api/platform/organizations/${encodeURIComponent(organizationId)}/usage`).then(data=>{
       if(requestId===detailRequestRef.current&&organizationId===detailOrganizationRef.current&&data?.usage)setUsage(data.usage);
     }).catch(error=>{if(requestId===detailRequestRef.current)setUsageError(error.message||"Hajm yuklanmadi")});
@@ -324,7 +324,7 @@ function PlatformAdmin(){
     }catch(error){if(requestId===detailRequestRef.current)notify({tone:"danger",title:"Audit yuklanmadi",message:error?.message||"Keyingi yozuvlar yuklanmadi."})}
     finally{if(requestId===detailRequestRef.current)setDetailAuditLoading(false)}
   };
-  const closeDetail=()=>{closeReset();detailRequestRef.current+=1;detailOrganizationRef.current=null;setUsage(null);setDetailLoaded(false);setDetailPayments([]);setDetail(null);detailAuditOffsetRef.current=0;setDetailAuditLoading(false);setDetailAuditHasMore(false)};
+  const closeDetail=()=>{closeReset();detailRequestRef.current+=1;detailOrganizationRef.current=null;setRecoveryBusy(false);setUsage(null);setDetailLoaded(false);setDetailPayments([]);setDetail(null);detailAuditOffsetRef.current=0;setDetailAuditLoading(false);setDetailAuditHasMore(false)};
   const controlBusiness=async(action)=>{
     if(!detail?.id||!detailLoaded||controlBusy||controlInFlightRef.current)return;
     const form={...licenseForm};
