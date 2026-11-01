@@ -88,3 +88,6 @@
 .zenix-ai-panel[data-keyboard="true"] { .zenix-ai-context,.zenix-ai-scope-note { display: none; } .zenix-ai-panel-head { padding-bottom: 8px; .zenix-ai-state { display: none; } } .zenix-ai-compose textarea { max-height: 96px; } }
 .zenix-ai-workspace[data-keyboard="true"] { height: calc(var(--ai-viewport-height,100dvh) - var(--header-height) - 12px - env(safe-area-inset-top,0px)); }
 .ai-open:has(.zenix-ai-panel[data-keyboard="true"]) .mobile-bottom-nav { visibility: hidden; }
+
+/* UI-020/022: mobile launcher and welcome rhythm */
+@media(max-width:760px){.zenix-ai-floating{--zenix-ai-bottom-gap:96px;right:calc(12px + env(safe-area-inset-right,0px));width:42px;height:42px;opacity:.86}.zenix-ai-floating svg{width:22px;height:22px}.zenix-ai-panel .zenix-ai-panel-head{gap:7px}.zenix-ai-panel .zenix-ai-welcome h1{font-size:clamp(21px,6vw,27px);line-height:1.25}.zenix-ai-panel .zenix-ai-suggestion-cards{gap:8px;margin-top:16px}}
