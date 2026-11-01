@@ -1159,3 +1159,29 @@ body.dark-mode .billing-renewal-extra{
 .subscription-usage-grid progress{height:7px;min-height:7px;border-radius:99px;overflow:hidden}
 .billing-promo-verify{display:inline-flex;align-self:flex-start;margin-top:12px;min-height:42px}
 @media(max-width:700px){.subscription-usage{margin-bottom:16px}.subscription-usage-grid>div{min-height:0}.mobile-card-table tbody>tr>td::before{font-size:11.5px}}
+
+
+/* UI-019 — mobile payment history: compact rows with accessible disclosure */
+.billing-mobile-history{display:none}
+@media(max-width:700px){
+ .billing-history .pro-card-head{gap:10px;align-items:flex-start}
+ .billing-history .pro-card-head .column-picker{flex-shrink:0}
+ .billing-history>.pro-table-wrap{display:none}
+ .billing-mobile-history{display:grid;gap:9px;margin-top:12px}
+ .billing-mobile-entry{border:1px solid var(--border);border-radius:15px;background:var(--surface);min-width:0;overflow:hidden}
+ .billing-mobile-entry>summary{list-style:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 13px;cursor:pointer}
+ .billing-mobile-entry>summary::-webkit-details-marker{display:none}
+ .billing-mobile-entry>summary:focus-visible{outline:2px solid var(--primary);outline-offset:-3px}
+ .billing-mobile-title,.billing-mobile-price{display:flex;flex-direction:column;min-width:0;gap:6px}
+ .billing-mobile-title{flex:1}
+ .billing-mobile-title strong{font-size:13px;line-height:1.35;color:var(--text);font-weight:620}
+ .billing-mobile-title small{font-size:11px;color:var(--muted);overflow-wrap:anywhere;line-height:1.5}
+ .billing-mobile-price{align-items:flex-end;text-align:right;flex:0 0 auto}
+ .billing-mobile-price b{font-size:13px;white-space:nowrap;color:var(--text);font-variant-numeric:tabular-nums}
+ .billing-mobile-entry[open]{border-color:color-mix(in srgb,var(--primary) 24%,var(--border))}
+ .billing-mobile-entry-detail{display:grid;gap:0;border-top:1px solid var(--border);padding:4px 13px 10px}
+ .billing-mobile-entry-detail>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+ .billing-mobile-entry-detail>div span{font-size:11px;color:var(--muted)}
+ .billing-mobile-entry-detail>div strong{font-size:12px;font-weight:550;text-align:right;overflow-wrap:anywhere}
+ .billing-mobile-entry-detail>.pro-btn{justify-self:start;margin-top:12px;min-height:44px}
+}
