@@ -137,3 +137,7 @@ body.dark-mode .menu-item.active .menu-icon{background:var(--accent-soft);color:
 .notification-view-tabs button:hover{background:var(--surface);color:var(--text)}
 .notification-view-tabs button.active{background:var(--accent-soft);color:var(--primary)}
 .notification-view-tabs button.active span{background:color-mix(in srgb,var(--primary) 13%,var(--card-bg));color:var(--primary)}
+
+/* UI-021/023: mobile nav readability */
+@media(max-width:760px){.header{gap:5px}.header-right{gap:4px}.mobile-header-context{min-width:0}.mobile-header-context strong{font-size:13px}.mobile-bottom-nav a,.mobile-bottom-nav button{font-size:10.5px;font-weight:600;gap:3px}.mobile-bottom-nav{gap:2px}}
+@media(max-width:360px){.header{gap:3px;padding-left:7px;padding-right:7px}.header-right{gap:2px}.header .menu-toggle,.header .mobile-search-trigger,.header .notification-btn{width:40px;flex-basis:40px}.header .header-icon{width:40px}.mobile-header-context strong{font-size:12px}}
