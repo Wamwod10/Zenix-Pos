@@ -72,3 +72,7 @@
 .pos-pro .pp-payments button[aria-pressed=true]{background:var(--pp-tint);border-color:var(--accent-border)}
 
 .pos-pro.pp-touch .pp-remove{width:44px;min-height:44px}
+
+/* UI-005: touch workspace readability and target sizes */
+@media(min-width:1101px){.pos-pro.pp-touch .pp-workspace{grid-template-rows:minmax(250px,1.05fr) minmax(280px,1.05fr) auto;gap:12px}.pos-pro.pp-touch .pp-product{min-height:112px}}
+.pos-pro.pp-touch .pp-payments button{min-height:48px}
