@@ -5,7 +5,7 @@ import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FiPlus,FiSearch,FiUser,FiCreditCard,FiShoppingBag,FiClock,FiPhone,FiEdit2,FiUsers,FiAlertTriangle } from "react-icons/fi";
 import { api } from "../../services/apiClient";
-import { PageHeader,StatCard,StatusBadge,PremiumSelect , LoadingNotice , LoadingNotice } from "../../components/Ui";
+import { PageHeader,StatCard,StatusBadge,PremiumSelect, LoadingNotice } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import { formatPrice } from "../../utils/formatPrice";
 import { useStore } from "../../context/StoreContext";
