@@ -16,7 +16,7 @@
 | UI-006 | Customers CRM single-row toolbar | Staged | Desktop grid alignment and responsive wrap |
 | UI-007 | Customer details modal payment form | Staged | Two-column payment controls and single-width CTA |
 | UI-008 | Sales history pagination placement | Staged | Pagination moved to table footer |
-| UI-009 | Sales history details modal polish | Pending | Full modal interaction/layout review not yet implemented |
+| UI-009 | Sales history details modal polish | Partial | Detail title and sections organized; print, focus and visual acceptance still required |
 | UI-010 | Products columns control alignment | Staged | Columns picker aligned to toolbar end |
 | UI-011 | Billing plan/card separation | Staged | Subscription usage vertical rhythm |
 | UI-012 | Promo validation button spacing | Staged | Dedicated class and margin |
