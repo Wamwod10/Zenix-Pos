@@ -9,7 +9,7 @@ import useBranchFilter from "../../utils/useBranchFilter";
 import { ROLE_LABELS } from "../../config/roles";
 import { formatWorkspaceDate, workspaceDateISO } from "../../utils/workspaceDate";
 import { matchesStore, recordInPeriod } from "../../utils/reporting";
-import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput, ColumnPicker } from "../../components/Ui";
+import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput, ColumnPicker , LoadingNotice } from "../../components/Ui";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { hasAuditValue, formatAuditValue, normalizeActivityChanges } from "../../utils/auditChanges";
 import "./activityLog.scss";
@@ -109,7 +109,7 @@ function ActivityLog() {
 
       <div className="activity-filters">{filterTabs.map(([value,label]) => <button className={activeFilter === value ? "active" : ""} key={value} onClick={() => setActiveFilter(value)} type="button">{label}</button>)}</div>
 
-      {loading&&<div className="pro-empty">Yuklanmoqda...</div>}{error&&<div className="pro-alert danger">{error}</div>}<div className="activity-timeline">
+      {loading&&<LoadingNotice compact>Amallar yuklanmoqda…</LoadingNotice>}{error&&<div className="pro-alert danger">{error}</div>}<div className="activity-timeline">
         {loading?null:filteredLogs.length === 0 ? <div className="activity-empty"><FiActivity/><h2>Amal topilmadi</h2><p>Filtrlarni o‘zgartiring yoki boshqa davrni tanlang.</p></div> : filteredLogs.map((log) => {
           const [label,tone] = typeConfig[log.type] || ["Amal", "neutral"];
           return <div className="activity-log-item" key={log.id}>

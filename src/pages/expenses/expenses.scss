@@ -41,3 +41,23 @@
  .expenses-mobile-actions{display:flex;flex-wrap:wrap;gap:8px;padding-top:12px}
  .expenses-mobile-actions button{min-height:44px;white-space:nowrap}
 }
+
+
+/* Batch 2 / UI-036: category names must fit inside the narrow mobile KPI. */
+.expenses-pro .pro-stat-grid > .pro-stat:nth-child(3) .pro-stat-copy {min-width:0;max-width:100%;overflow:hidden}
+.expenses-pro .pro-stat-grid > .pro-stat:nth-child(3) .pro-stat-copy strong {
+  max-width:100%;
+  min-width:0;
+  font-size:clamp(12px,1.05vw + 10px,16px);
+  line-height:1.25;
+  white-space:normal;
+  overflow-wrap:break-word;
+  word-break:normal;
+}
+@media(max-width:700px){
+  .expenses-pro .pro-stat-grid{gap:10px}
+  .expenses-pro .pro-stat-grid > .pro-stat{min-width:0;padding:11px;gap:9px}
+  .expenses-pro .pro-stat-grid > .pro-stat:nth-child(3) .pro-stat-copy strong{font-size:clamp(12px,3.7vw,14px);letter-spacing:-.015em}
+  .expenses-pro .pro-stat-grid > .pro-stat:nth-child(3) .pro-stat-copy span{font-size:10.5px;line-height:1.3}
+  .expenses-pro .pro-stat-grid > .pro-stat:nth-child(3) .pro-stat-copy small{overflow-wrap:anywhere;line-height:1.35}
+}

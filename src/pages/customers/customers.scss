@@ -42,3 +42,21 @@
 .customer-detail .customer-payment>.pro-btn{grid-column:1/-1;justify-self:stretch;width:100%;min-height:44px;white-space:normal;overflow-wrap:normal;padding:10px 16px}
 .customer-detail .customer-detail-kpis strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 @media(max-width:620px){.customer-detail .customer-payment{grid-template-columns:minmax(0,1fr);padding:12px}.customer-detail .customer-payment>input,.customer-detail .customer-payment>.premium-select,.customer-detail .customer-payment>.field-hint,.customer-detail .customer-payment>.pro-btn{grid-column:1;grid-row:auto}.customer-profile-head{gap:9px}}
+
+
+/* Batch 2 / UI-038: separate overview information from payment intake. */
+.customer-detail .customer-overview {display:flex;flex-direction:column;gap:0;min-width:0}
+.customer-detail .customer-overview .customer-info-grid {margin-bottom:0}
+.customer-detail .customer-overview .customer-payment {
+  margin-top:18px;
+  padding:18px;
+  row-gap:12px;
+  column-gap:12px;
+}
+.customer-detail .customer-overview .customer-payment .field-hint {margin:0;line-height:1.55}
+.customer-detail .customer-overview .customer-payment > .pro-btn{margin-top:2px;min-height:44px}
+@media(max-width:620px){
+  .customer-detail .customer-overview .customer-payment{margin-top:16px;padding:13px;gap:10px}
+  .customer-detail .customer-overview .customer-payment > input,
+  .customer-detail .customer-overview .customer-payment > .premium-select{min-width:0;width:100%}
+}

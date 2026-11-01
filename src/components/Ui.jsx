@@ -6,6 +6,14 @@ export function PageHeader({ title, subtitle, actions }) {
   return <div className="pro-page-head"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{actions && <div className="pro-page-actions">{actions}</div>}</div>;
 }
 
+/** Consistent, accessible loading status shared by reports and module lists. */
+export function LoadingNotice({children="Ma’lumotlar yuklanmoqda…",compact=false}) {
+  return <div className={`pro-loading-notice${compact?" compact":""}`} role="status" aria-live="polite">
+    <span className="pro-loading-notice-spinner" aria-hidden="true"/>
+    <span>{children}</span>
+  </div>;
+}
+
 export function StatCard({ label, value, hint, icon: Icon, tone = "blue", trend }) {
   return <div className="pro-stat"><div className={`pro-stat-icon ${tone}`}>{Icon && <Icon />}</div><div className="pro-stat-copy"><span>{label}</span><strong>{value}</strong><div className="pro-stat-foot">{hint && <small>{hint}</small>}{trend && <em className={trend.tone || "neutral"}>{trend.label}</em>}</div></div></div>;
 }
