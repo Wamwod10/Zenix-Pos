@@ -126,3 +126,10 @@
  .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome h1{font-size:20px;margin:8px 0}
  .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome>p{display:none}
 }
+
+
+/* UI-022: Mobile header already exposes the AI entry point. Avoid a second floating
+   launcher obscuring transaction rows, action buttons and the bottom navigation. */
+@media(max-width:760px){
+  .ai-available .zenix-ai-floating{display:none}
+}
