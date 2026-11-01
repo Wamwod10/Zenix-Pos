@@ -9,7 +9,7 @@ import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
 import { buildSellerAnalyticsRows, matchesStore, recordInPeriod,periodRange } from "../../utils/reporting";
-import { PageHeader, StatCard, StatusBadge, PremiumSelect, ColumnPicker } from "../../components/Ui";
+import { PageHeader, StatCard, StatusBadge, PremiumSelect, ColumnPicker , LoadingNotice } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import ResponsiveChart from "../../components/ResponsiveChart";
@@ -68,7 +68,7 @@ function SellerAnalytics() {
 
   return <div className="pro-page seller-pro">
     {report.error&&<div className="pro-alert danger" role="alert">{report.error}</div>}
-    {report.loading&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
+    {report.loading&&<LoadingNotice>Hisobot yuklanmoqda…</LoadingNotice>}
     <PageHeader
       title={isCashier ? "Mening natijalarim" : "Sotuvchi tahlili"}
       subtitle={isCashier ? "Savdo, foyda, o‘rtacha chek va qaytarish ko‘rsatkichlaringiz." : "Sotuvchilar natijalarini bir xil davr va filial kesimida taqqoslang."}
