@@ -169,3 +169,13 @@ body.dark-mode .day-close-btn{background:color-mix(in srgb,var(--primary) 10%,va
 .today-sale-products{display:grid;gap:5px;margin:8px 0;font-size:12px;}
 .today-sale-products summary{cursor:pointer;color:var(--muted);}
 .today-sale-amounts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;font-size:12px;}
+
+/* UI-002/003: accessible subtle scrollbars and load-more spacing */
+.pos-categories,.quick-products,.pos-product-grid,.cart-list{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--muted) 22%,transparent) transparent}
+.pos-categories::-webkit-scrollbar,.quick-products::-webkit-scrollbar{height:3px}
+.pos-product-grid::-webkit-scrollbar,.cart-list::-webkit-scrollbar{width:4px}
+.pos-categories::-webkit-scrollbar-track,.quick-products::-webkit-scrollbar-track,.pos-product-grid::-webkit-scrollbar-track,.cart-list::-webkit-scrollbar-track{background:transparent}
+.pos-categories::-webkit-scrollbar-thumb,.quick-products::-webkit-scrollbar-thumb,.pos-product-grid::-webkit-scrollbar-thumb,.cart-list::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 22%,transparent);border:0;border-radius:99px}
+.pos-categories:hover,.pos-product-grid:hover{scrollbar-color:color-mix(in srgb,var(--muted) 45%,transparent) transparent}
+.pos-catalog .pos-load-more{margin:14px 0 9px;min-height:42px;align-self:flex-start;padding:0 16px}
+@media(min-width:951px){.pos-layout-pro{grid-template-columns:minmax(0,1.18fr) minmax(400px,.82fr)}.pos-product-grid{gap:10px}.pos-checkout{min-width:0}}
