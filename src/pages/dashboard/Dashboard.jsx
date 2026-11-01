@@ -160,7 +160,7 @@ function Dashboard(){
 
   return <div className="pro-page dashboard-pro">
     {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
-    {(report.loading||summary.loading)&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
+    {(report.loading||summary.loading)&&<div className="pro-alert dashboard-loading" role="status"><span className="dashboard-loading-spinner" aria-hidden="true"/>Hisobot yuklanmoqda…</div>}
     <PageHeader
       title="Boshqaruv paneli"
       subtitle={`${selectedStore?.name||"Barcha filiallar"} · biznes holati va asosiy ko‘rsatkichlar`}
