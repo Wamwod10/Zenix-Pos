@@ -23,3 +23,22 @@
 .customer-toolbar{gap:12px;flex-wrap:wrap;align-items:center}.customer-directory-controls{display:flex;gap:8px;flex-wrap:wrap}.customer-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;color:var(--muted);font-size:12px}.customer-pagination>div{display:flex;gap:8px}.customer-pagination button:disabled{cursor:default;opacity:.5}@media(max-width:700px){.customer-pagination{flex-wrap:wrap}.customer-pagination>div{width:100%}.customer-pagination button{flex:1}.customer-directory-controls{width:100%}}
 @media(max-width:700px){.customer-payment{grid-template-columns:minmax(0,1fr)}.customer-payment>.pro-btn,.customer-payment input,.customer-payment .premium-select{grid-column:1}}
 .customer-tag-controls{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.customer-tag-controls label{display:flex;align-items:center;gap:5px;color:var(--text);font-size:12px}.customer-tag-config{display:grid;gap:8px}.customer-tag-config input{width:100%;min-width:0;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text)}.customer-history-controls{display:grid;gap:8px;justify-items:start}.customer-ledger>.customer-history-controls,.customer-sales>.customer-history-controls{display:grid;border:0}
+
+/* UI-006: single-row desktop CRM toolbar */
+@media(min-width:1050px){
+ .customer-toolbar{display:grid;grid-template-columns:minmax(210px,1.35fr) minmax(0,2.9fr);align-items:center;gap:12px}
+ .customer-toolbar .pro-search{min-width:0;max-width:none;width:100%}
+ .customer-directory-controls{width:100%;min-width:0;display:flex;align-items:center;justify-content:flex-end;flex-wrap:nowrap;gap:8px}
+ .customer-directory-controls>.pro-btn{flex:0 0 auto;white-space:nowrap}
+ .customer-directory-controls>.premium-select{min-width:0;flex:1 1 135px;max-width:230px}
+}
+@media(max-width:1049px){.customer-toolbar .pro-search{flex:1 1 260px;max-width:none}.customer-directory-controls{flex:1 1 100%}}
+/* UI-007: separate cash-credit form to prevent compressed submit button */
+.customer-detail .customer-payment{display:grid;grid-template-columns:minmax(0,1fr) minmax(165px,.8fr);align-items:start;gap:10px 12px;padding:16px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
+.customer-detail .customer-payment>svg{display:none}
+.customer-detail .customer-payment>input{grid-column:1;grid-row:1;width:100%;min-width:0;min-height:44px;background:var(--card-bg)}
+.customer-detail .customer-payment>.premium-select{grid-column:2;grid-row:1;width:100%;min-width:0;background:var(--card-bg)}
+.customer-detail .customer-payment>.field-hint{grid-column:1/-1;display:block;min-width:0;margin:0;line-height:1.5;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.customer-detail .customer-payment>.pro-btn{grid-column:1/-1;justify-self:stretch;width:100%;min-height:44px;white-space:normal;overflow-wrap:normal;padding:10px 16px}
+.customer-detail .customer-detail-kpis strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+@media(max-width:620px){.customer-detail .customer-payment{grid-template-columns:minmax(0,1fr);padding:12px}.customer-detail .customer-payment>input,.customer-detail .customer-payment>.premium-select,.customer-detail .customer-payment>.field-hint,.customer-detail .customer-payment>.pro-btn{grid-column:1;grid-row:auto}.customer-profile-head{gap:9px}}
