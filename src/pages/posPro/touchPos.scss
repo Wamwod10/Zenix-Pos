@@ -72,3 +72,17 @@
 .pos-pro .pp-payments button[aria-pressed=true]{background:var(--pp-tint);border-color:var(--accent-border)}
 
 .pos-pro.pp-touch .pp-remove{width:44px;min-height:44px}
+
+
+/* UI-005: touch-first visual hierarchy without modifying tested workspace heights */
+.pos-pro.pp-touch .pp-products{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--pp-muted) 26%,transparent) transparent}
+.pos-pro.pp-touch .pp-product{border-radius:12px;transition:background .12s ease,border-color .12s ease}
+.pos-pro.pp-touch .pp-product:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.pos-pro.pp-touch .pp-cart-line[data-selected=true]{border-color:color-mix(in srgb,var(--primary) 35%,var(--pp-border))}
+.pos-pro.pp-touch .pp-cart-heading{color:var(--pp-muted);font-weight:550}
+.pos-pro.pp-touch .pp-touch-keypad button{border-radius:10px;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.pos-pro.pp-touch .pp-touch-keypad button:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.pos-pro.pp-touch .pp-touch-value{font-variant-numeric:tabular-nums}
+.pos-pro.pp-touch .pp-payments button[aria-pressed=true]{border-color:var(--primary);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 32%,transparent)}
+.pos-pro.pp-touch .pp-checkout:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media(max-width:900px){.pos-pro.pp-touch .pp-product{border-radius:12px}.pos-pro.pp-touch .pp-payments button{font-size:13px}}

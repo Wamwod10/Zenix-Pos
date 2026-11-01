@@ -88,3 +88,48 @@
 .zenix-ai-panel[data-keyboard="true"] { .zenix-ai-context,.zenix-ai-scope-note { display: none; } .zenix-ai-panel-head { padding-bottom: 8px; .zenix-ai-state { display: none; } } .zenix-ai-compose textarea { max-height: 96px; } }
 .zenix-ai-workspace[data-keyboard="true"] { height: calc(var(--ai-viewport-height,100dvh) - var(--header-height) - 12px - env(safe-area-inset-top,0px)); }
 .ai-open:has(.zenix-ai-panel[data-keyboard="true"]) .mobile-bottom-nav { visibility: hidden; }
+
+/* UI-020/022: mobile launcher and welcome rhythm */
+@media(max-width:760px){.zenix-ai-floating{--zenix-ai-bottom-gap:96px;right:calc(12px + env(safe-area-inset-right,0px));width:42px;height:42px;opacity:.86}.zenix-ai-floating svg{width:22px;height:22px}.zenix-ai-panel .zenix-ai-panel-head{gap:7px}.zenix-ai-panel .zenix-ai-welcome h1{font-size:clamp(21px,6vw,27px);line-height:1.25}.zenix-ai-panel .zenix-ai-suggestion-cards{gap:8px;margin-top:16px}}
+
+
+/* UI-020 — purposeful, quiet chat hierarchy; all AI functions are retained */
+.zenix-ai-workspace:not(.zenix-ai-compact) .zenix-ai-panel{--ai-content-width:780px}
+.zenix-ai-workspace .zenix-ai-welcome{max-width:660px}
+.zenix-ai-workspace .zenix-ai-welcome h1{font-weight:620;letter-spacing:-.035em}
+.zenix-ai-workspace .zenix-ai-suggestion-cards{max-width:630px;margin-left:auto;margin-right:auto;gap:10px}
+.zenix-ai-workspace .zenix-ai-suggestion-cards button{min-height:82px;box-shadow:none;align-items:flex-start}
+.zenix-ai-workspace .zenix-ai-compose{width:min(100%,780px);margin-inline:auto;padding:12px 14px 9px;border-radius:18px;box-shadow:0 5px 18px rgba(0,0,0,.035)}
+.zenix-ai-workspace .zenix-ai-compose textarea{font-size:14px;line-height:1.55}
+.zenix-ai-workspace .zenix-ai-compose-footer .pro-btn{min-height:38px;width:38px;border-radius:11px}
+.zenix-ai-workspace .zenix-ai-safety{font-size:11px;line-height:1.5}
+.zenix-ai-workspace .zenix-ai-context{gap:8px 12px}
+.zenix-ai-workspace .zenix-ai-panel-head{gap:8px 12px;padding-bottom:11px}
+@media(max-width:760px){
+ .zenix-ai-workspace .zenix-ai-compose{padding:10px 12px 8px;border-radius:16px}
+ .zenix-ai-workspace .zenix-ai-compose textarea{font-size:16px;min-height:50px;max-height:120px}
+ .zenix-ai-workspace .zenix-ai-suggestion-cards{gap:8px}
+ .zenix-ai-workspace .zenix-ai-suggestion-cards button{min-height:70px;padding:11px 10px}
+ .zenix-ai-workspace .zenix-ai-welcome{padding-top:8px}
+ .zenix-ai-workspace .zenix-ai-safety{font-size:10.5px}
+ .zenix-ai-workspace[data-keyboard="true"] .zenix-ai-suggestion-cards{display:none}
+ .zenix-ai-workspace[data-keyboard="true"] .zenix-ai-welcome{padding-top:0}
+}
+
+
+/* UI-020: shrink idle content when the mobile software keyboard is active */
+@media(max-width:760px){
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-suggestion-cards,.zenix-ai-panel[data-keyboard="true"] .zenix-ai-examples,.zenix-ai-panel[data-keyboard="true"] .zenix-ai-scope-note{display:none}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome{padding-top:0}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome-mark{width:32px;height:32px;border-radius:11px}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome-mark svg{width:19px;height:19px}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome h1{font-size:20px;margin:8px 0}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome>p{display:none}
+}
+
+
+/* UI-022: Mobile header already exposes the AI entry point. Avoid a second floating
+   launcher obscuring transaction rows, action buttons and the bottom navigation. */
+@media(max-width:760px){
+  .ai-available .zenix-ai-floating{display:none}
+}

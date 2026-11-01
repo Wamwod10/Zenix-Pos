@@ -117,6 +117,8 @@ function Dashboard(){
     return rows;
   },[allSales,period,store,stores,organizationSettings.timezone,organizationSettings.dateFormat]);
 
+  const trendHasActivity=trend.some(row=>Number(row.sales)!==0||Number(row.profit)!==0);
+
   const topProducts=useMemo(()=>rankProductEvents(sales.map(sale=>({...sale,items:(sale.items||[]).map(item=>({...item,unit:item.unit||item.metadata?.unit||"dona"}))}))),[sales]);
 
   const expenseBreakdown=useMemo(()=>{
@@ -160,7 +162,7 @@ function Dashboard(){
 
   return <div className="pro-page dashboard-pro">
     {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
-    {(report.loading||summary.loading)&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
+    {(report.loading||summary.loading)&&<div className="pro-alert dashboard-loading" role="status"><span className="dashboard-loading-spinner" aria-hidden="true"/>Hisobot yuklanmoqda…</div>}
     <PageHeader
       title="Boshqaruv paneli"
       subtitle={`${selectedStore?.name||"Barcha filiallar"} · biznes holati va asosiy ko‘rsatkichlar`}
@@ -181,7 +183,7 @@ function Dashboard(){
     <div className="dashboard-main-grid">
       <section className="pro-card dashboard-chart">
         <div className="pro-card-head"><div><h2>Savdo dinamikasi</h2><p>{period==="all"?"Barcha davr summalari · grafik oxirgi 14 kunni ko‘rsatadi.":"Kunlik savdo va yalpi foyda o‘zgarishi."}</p></div><div className="chart-legend"><span><i className="sales"/>Savdo</span><span><i className="profit"/>Foyda</span></div></div>
-        <div className="dashboard-chart-area"><ResponsiveChart><AreaChart data={trend} margin={{left:2,right:4,top:10,bottom:0}}><defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".18"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient><linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6c927b" stopOpacity=".12"/><stop offset="100%" stopColor="#6c927b" stopOpacity="0"/></linearGradient></defs><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 7"/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill:"var(--muted)",fontSize:11}}/><YAxis tickFormatter={formatChartTick} tickLine={false} axisLine={false} width={48} tick={{fill:"var(--muted)",fontSize:10}}/><Tooltip formatter={v=>formatPrice(v)} contentStyle={{border:"1px solid var(--border)",borderRadius:14,background:"var(--card-bg)",boxShadow:"var(--shadow-soft)"}}/><Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesFill)" strokeWidth={2.3} dot={false}/><Area type="monotone" dataKey="profit" stroke="#6c927b" fill="url(#profitFill)" strokeWidth={1.8} dot={false}/></AreaChart></ResponsiveChart></div>
+        <div className={`dashboard-chart-area ${!report.loading&&!report.error&&!trendHasActivity?"is-empty":""}`}>{!report.loading&&!report.error&&!trendHasActivity?<div className="dashboard-chart-empty" role="status"><FiTrendingUp aria-hidden="true"/><strong>Bu davrda savdo dinamikasi yo‘q</strong><span>Savdo amalga oshirilgach, kunlik ko‘rsatkichlar shu yerda paydo bo‘ladi.</span></div>:<ResponsiveChart><AreaChart data={trend} margin={{left:2,right:4,top:10,bottom:0}}><defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".18"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient><linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6c927b" stopOpacity=".12"/><stop offset="100%" stopColor="#6c927b" stopOpacity="0"/></linearGradient></defs><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 7"/><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{fill:"var(--muted)",fontSize:11}}/><YAxis tickFormatter={formatChartTick} tickLine={false} axisLine={false} width={48} tick={{fill:"var(--muted)",fontSize:10}}/><Tooltip formatter={v=>formatPrice(v)} contentStyle={{border:"1px solid var(--border)",borderRadius:14,background:"var(--card-bg)",boxShadow:"var(--shadow-soft)"}}/><Area type="monotone" dataKey="sales" stroke="var(--primary)" fill="url(#salesFill)" strokeWidth={2.3} dot={false}/><Area type="monotone" dataKey="profit" stroke="#6c927b" fill="url(#profitFill)" strokeWidth={1.8} dot={false}/></AreaChart></ResponsiveChart>}</div>
       </section>
 
       <section className="pro-card dashboard-payment"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Tanlangan davrdagi to‘lov tarkibi.</p></div><FiCreditCard/></div>{[["Naqd",payment.cash,"cash"],["Karta",payment.card,"card"],["O‘tkazma",payment.transfer,"transfer"]].map(([label,value,tone])=><div className="pay-row" key={label}><div><span>{label}</span><strong>{formatPrice(value)}</strong></div><div className="pay-bar"><i className={tone} style={{width:`${Math.round(value/paymentTotal*100)}%`}}/></div><small>{Math.round(value/paymentTotal*100)}%</small></div>)}<div className="payment-insight"><span>Eng faol vaqt</span><strong>{peakHour}</strong></div></section>

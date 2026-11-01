@@ -26,3 +26,37 @@
   }
   .history-table-card .mobile-card-table tbody>tr>td .pro-badge{justify-self:start}
 }
+
+/* UI-008/013: pagination and compact mobile sale rows */
+.history-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+.history-pagination>div{display:flex;gap:10px;align-items:center}.history-pagination strong{color:var(--text);white-space:nowrap}
+@media(max-width:700px){
+ .history-pro .history-table-card{padding:12px}
+ .history-pro .history-filter-grid{gap:8px;margin-bottom:14px}
+ .history-pro .history-table-card .mobile-card-table tbody>tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;box-shadow:none}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td{display:block;grid-column:1;min-width:0;padding:2px 0!important;border:0!important;text-align:left}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td::before{display:none}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sana / Savdo"]{grid-column:1;grid-row:1}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sana / Savdo"] small{font-size:10px;max-width:185px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sof"]{grid-column:2;grid-row:1;text-align:right;white-space:nowrap}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Amal"]{grid-column:2;grid-row:2;justify-self:end}
+ .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Filial / Smena"],.history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Jami"],.history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Qaytarish"]{display:none}
+ .history-pagination{flex-wrap:wrap}.history-pagination>div{width:100%;justify-content:space-between}
+}
+
+/* UI-009: essential sale identity remains visible when mobile list rows are compact */
+.sale-detail-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 16px}
+.sale-detail-meta>div{min-width:0;display:grid;align-content:start;gap:5px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.sale-detail-meta span{font-size:11px;color:var(--muted)}
+.sale-detail-meta strong{font-size:12px;font-weight:600;line-height:1.4;overflow-wrap:anywhere;color:var(--text)}
+.sale-detail-meta>div:first-child{grid-column:1/-1}
+@media(max-width:520px){.sale-detail-meta{gap:7px}.sale-detail-meta>div{padding:9px 10px}.sale-detail-meta strong{font-size:11.5px}}
+
+
+/* UI-013: mobile history summary stays compact without clipping long customer names. */
+@media(max-width:700px){
+  .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sana / Savdo"]{min-width:0}
+  .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sotuvchi"]{min-width:0}
+  .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sotuvchi"] strong,.history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sotuvchi"] small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+  .history-pro .history-table-card .mobile-card-table tbody>tr>td[data-label="Sof"] strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+}

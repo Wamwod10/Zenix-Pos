@@ -8,3 +8,36 @@
 .expense-receipt-preview>svg{font-size:42px;color:var(--muted)}
 .expense-receipt-preview>strong{font-size:13px;font-weight:600}
 .expense-receipt-preview>span{font-size:13px;color:var(--muted)}
+
+/* UI-017: compact mobile expense rows */
+@media(max-width:700px){
+ .expenses-pro .mobile-card-table tbody>tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px 12px;padding:12px;box-shadow:none}
+ .expenses-pro .mobile-card-table tbody>tr>td{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;padding:4px 0!important;border:0!important;text-align:left}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Xarajat"]{grid-column:1/-1;grid-row:1}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Xarajat"] strong{font-size:14px}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Amallar"]{grid-column:1/-1}
+ .expenses-pro .mobile-card-table .pro-row-actions{justify-content:flex-start}
+}
+
+
+/* UI-017: compact mobile expense summaries, with every field retained on expansion. */
+.expenses-mobile-list{display:none}
+@media(max-width:700px){
+ .expenses-pro .pro-table-wrap.mobile-card-wrap{display:none}
+ .expenses-mobile-list{display:grid;gap:9px;margin-top:12px}
+ .expenses-mobile-item{min-width:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+ .expenses-mobile-item>summary{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:76px;padding:14px 13px;cursor:pointer;list-style:none}
+ .expenses-mobile-item>summary::-webkit-details-marker{display:none}
+ .expenses-mobile-item>summary:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+ .expenses-mobile-main{min-width:0;display:grid;gap:7px}
+ .expenses-mobile-main strong{font-size:13.5px;color:var(--text);line-height:1.35;overflow-wrap:anywhere}
+ .expenses-mobile-main small{font-size:11.5px;color:var(--muted);line-height:1.4}
+ .expenses-mobile-total{font-size:13px;font-weight:650;white-space:nowrap;color:var(--danger);font-variant-numeric:tabular-nums}
+ .expenses-mobile-item[open]{border-color:color-mix(in srgb,var(--primary) 24%,var(--border))}
+ .expenses-mobile-detail{display:grid;gap:0;padding:3px 13px 12px;border-top:1px solid var(--border)}
+ .expenses-mobile-detail>div:not(.expenses-mobile-actions){display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+ .expenses-mobile-detail>div>span{color:var(--muted);font-size:11px;flex:0 0 78px}
+ .expenses-mobile-detail>div>strong{font-size:12px;line-height:1.45;font-weight:550;text-align:right;overflow-wrap:anywhere;min-width:0}
+ .expenses-mobile-actions{display:flex;flex-wrap:wrap;gap:8px;padding-top:12px}
+ .expenses-mobile-actions button{min-height:44px;white-space:nowrap}
+}

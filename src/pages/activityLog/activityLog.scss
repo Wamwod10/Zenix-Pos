@@ -366,3 +366,26 @@
   .activity-filters{margin-left:0;margin-right:0;padding-bottom:2px}
   .activity-filters button{min-height:44px;padding-inline:14px}
 }
+
+
+/* UI-018 — lean audit timeline while preserving complete log information */
+@media(max-width:620px){
+ .activity-panel{padding:12px}
+ .activity-toolbar{gap:8px;margin-bottom:12px}
+ .activity-timeline{gap:10px}
+ .activity-log-item{grid-template-columns:30px minmax(0,1fr);gap:7px}
+ .activity-node{width:30px;height:30px;border-radius:10px}
+ .activity-log-item::before{left:14px;top:30px}
+ .activity-log-card{padding:12px;border-radius:14px}
+ .activity-log-top{gap:8px;align-items:start}
+ .activity-log-top h3{font-size:13px;line-height:1.35}
+ .activity-log-top p{font-size:11.5px;line-height:1.5;overflow-wrap:anywhere}
+ .activity-log-top .pro-badge{flex:0 0 auto}
+ .activity-log-meta{margin-top:10px;padding-top:9px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px;font-size:11px;line-height:1.45}
+ .activity-log-meta span:last-child{grid-column:1/-1}
+ .activity-change{display:flex;flex-wrap:wrap;line-height:1.45;font-size:11px}
+ .activity-change-list{gap:5px;margin-top:8px}
+ .activity-change-row{gap:6px;padding:7px;background:var(--card-bg);border:1px solid var(--border);border-radius:9px}
+ .activity-change-row :is(span,strong){min-width:0;overflow-wrap:anywhere}
+ .activity-panel .platform-pagination{gap:8px}
+}
