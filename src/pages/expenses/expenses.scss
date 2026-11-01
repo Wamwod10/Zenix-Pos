@@ -8,3 +8,13 @@
 .expense-receipt-preview>svg{font-size:42px;color:var(--muted)}
 .expense-receipt-preview>strong{font-size:13px;font-weight:600}
 .expense-receipt-preview>span{font-size:13px;color:var(--muted)}
+
+/* UI-017: compact mobile expense rows */
+@media(max-width:700px){
+ .expenses-pro .mobile-card-table tbody>tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px 12px;padding:12px;box-shadow:none}
+ .expenses-pro .mobile-card-table tbody>tr>td{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;padding:4px 0!important;border:0!important;text-align:left}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Xarajat"]{grid-column:1/-1;grid-row:1}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Xarajat"] strong{font-size:14px}
+ .expenses-pro .mobile-card-table tbody>tr>td[data-label="Amallar"]{grid-column:1/-1}
+ .expenses-pro .mobile-card-table .pro-row-actions{justify-content:flex-start}
+}
