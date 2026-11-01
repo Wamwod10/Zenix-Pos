@@ -115,3 +115,14 @@
  .zenix-ai-workspace[data-keyboard="true"] .zenix-ai-suggestion-cards{display:none}
  .zenix-ai-workspace[data-keyboard="true"] .zenix-ai-welcome{padding-top:0}
 }
+
+
+/* UI-020: shrink idle content when the mobile software keyboard is active */
+@media(max-width:760px){
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-suggestion-cards,.zenix-ai-panel[data-keyboard="true"] .zenix-ai-examples,.zenix-ai-panel[data-keyboard="true"] .zenix-ai-scope-note{display:none}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome{padding-top:0}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome-mark{width:32px;height:32px;border-radius:11px}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome-mark svg{width:19px;height:19px}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome h1{font-size:20px;margin:8px 0}
+ .zenix-ai-panel[data-keyboard="true"] .zenix-ai-welcome>p{display:none}
+}
