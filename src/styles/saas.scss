@@ -1192,3 +1192,133 @@ body.dark-mode .billing-renewal-extra{
 .subscription-usage-grid progress::-webkit-progress-bar{background:var(--border);border-radius:99px}
 .subscription-usage-grid progress::-webkit-progress-value{background:var(--primary);border-radius:99px}
 .subscription-usage-grid progress::-moz-progress-bar{background:var(--primary);border-radius:99px}
+
+
+/* Batch 2 / UI-033–035: real horizontal tables must not inherit mobile card alignment.
+   A minimum name-column width prevents letter-by-letter wrapping on 320–430px screens. */
+@media (max-width: 700px) {
+  .products-pro .native-scroll-table,
+  .inventory-pro .native-scroll-table,
+  .suppliers-pro .native-scroll-table {
+    display: block !important;
+    max-width: 100%;
+    width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted) 38%, transparent) transparent;
+  }
+  .products-pro .native-scroll-table > table,
+  .inventory-pro .native-scroll-table > table,
+  .suppliers-pro .native-scroll-table > table {
+    display: table !important;
+    width: max-content !important;
+    min-width: 1120px !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+  .products-pro .native-scroll-table thead,
+  .inventory-pro .native-scroll-table thead,
+  .suppliers-pro .native-scroll-table thead {
+    display: table-header-group !important;
+  }
+  .products-pro .native-scroll-table thead th,
+  .inventory-pro .native-scroll-table thead th,
+  .suppliers-pro .native-scroll-table thead th {
+    display: table-cell !important;
+    text-align: left !important;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .products-pro .native-scroll-table tbody,
+  .inventory-pro .native-scroll-table tbody,
+  .suppliers-pro .native-scroll-table tbody {display: table-row-group !important;}
+  .products-pro .native-scroll-table tbody > tr,
+  .inventory-pro .native-scroll-table tbody > tr,
+  .suppliers-pro .native-scroll-table tbody > tr {
+    display: table-row !important;
+    width: auto !important;
+    height: auto;
+  }
+  .products-pro .native-scroll-table tbody > tr > td,
+  .inventory-pro .native-scroll-table tbody > tr > td,
+  .suppliers-pro .native-scroll-table tbody > tr > td {
+    display: table-cell !important;
+    min-width: 108px !important;
+    width: auto;
+    text-align: left !important;
+    vertical-align: middle !important;
+    white-space: nowrap;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    border-top: 0 !important;
+  }
+  .products-pro .native-scroll-table tbody > tr > td > *,
+  .inventory-pro .native-scroll-table tbody > tr > td > *,
+  .suppliers-pro .native-scroll-table tbody > tr > td > * {
+    justify-self: start !important;
+    text-align: left !important;
+  }
+  .products-pro .native-scroll-table tbody > tr > td::before,
+  .inventory-pro .native-scroll-table tbody > tr > td::before,
+  .suppliers-pro .native-scroll-table tbody > tr > td::before {display:none !important;}
+  .products-pro .native-scroll-table tbody > tr > td[data-label="Mahsulot"],
+  .inventory-pro .native-scroll-table tbody > tr > td[data-label="Mahsulot"] {
+    min-width: 260px !important;
+    max-width: 320px;
+    white-space: normal !important;
+  }
+  .suppliers-pro .native-scroll-table tbody > tr > td[data-label="Ta’minotchi"] {
+    min-width: 240px !important;
+    max-width: 320px;
+    white-space: normal !important;
+  }
+  .products-pro .native-scroll-table td[data-label="Mahsulot"] .product-table-name {
+    min-width: 230px !important;
+    width: 100%;
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    text-align: left !important;
+  }
+  .products-pro .native-scroll-table .product-table-name > span:last-child {
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    text-align: left !important;
+  }
+  .products-pro .native-scroll-table td[data-label="Mahsulot"] strong,
+  .inventory-pro .native-scroll-table td[data-label="Mahsulot"] strong,
+  .suppliers-pro .native-scroll-table td[data-label="Ta’minotchi"] strong {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    text-align: left !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .products-pro .native-scroll-table td[data-label="Mahsulot"] small,
+  .inventory-pro .native-scroll-table td[data-label="Mahsulot"] small,
+  .suppliers-pro .native-scroll-table td[data-label="Ta’minotchi"] small {
+    display: block;
+    margin-top: 4px;
+    text-align: left !important;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .products-pro .native-scroll-table .product-select-col {min-width: 48px !important; width: 48px;}
+  .products-pro .native-scroll-table td[data-label="Amallar"],
+  .inventory-pro .native-scroll-table td[data-label="Amallar"],
+  .suppliers-pro .native-scroll-table td[data-label="Amallar"] {min-width: 172px !important;}
+}
