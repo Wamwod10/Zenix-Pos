@@ -1185,3 +1185,10 @@ body.dark-mode .billing-renewal-extra{
  .billing-mobile-entry-detail>div strong{font-size:12px;font-weight:550;text-align:right;overflow-wrap:anywhere}
  .billing-mobile-entry-detail>.pro-btn{justify-self:start;margin-top:12px;min-height:44px}
 }
+
+
+/* UI-026: resource bars follow Zenix light/dark theme rather than browser-native white */
+.subscription-usage-grid progress{appearance:none;-webkit-appearance:none;display:block;width:100%;height:7px;border:0;background:var(--border);border-radius:99px;overflow:hidden;color:var(--primary)}
+.subscription-usage-grid progress::-webkit-progress-bar{background:var(--border);border-radius:99px}
+.subscription-usage-grid progress::-webkit-progress-value{background:var(--primary);border-radius:99px}
+.subscription-usage-grid progress::-moz-progress-bar{background:var(--primary);border-radius:99px}
