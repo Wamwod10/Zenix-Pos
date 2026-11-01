@@ -1143,3 +1143,19 @@ body.dark-mode .billing-renewal-extra{
  .platform-customer-modal .platform-customer-danger-zone .pro-row-actions{flex-direction:column;align-items:stretch}
  .platform-customer-modal .platform-customer-danger-zone .pro-row-actions .pro-btn{width:100%;min-height:44px}
 }
+
+/* UI-014/015/016: user-selected mobile table retains table layout */
+@media(max-width:700px){
+ .mobile-card-wrap.native-scroll-table{display:block!important;width:100%;max-width:100%;overflow-x:auto!important;overflow-y:hidden;border:1px solid var(--border);scrollbar-width:thin}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table{display:table!important;min-width:920px!important;width:max-content!important;border-collapse:collapse!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table thead{display:table-header-group!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table tbody{display:table-row-group!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table tbody>tr{display:table-row!important;box-shadow:none!important;background:transparent!important;border:0!important;border-radius:0!important;padding:0!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table tbody>tr>td{display:table-cell!important;padding:11px 12px!important;text-align:left!important;border-bottom:1px solid var(--border)!important;vertical-align:middle!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table tbody>tr>td::before{display:none!important}
+ .mobile-card-wrap.native-scroll-table .mobile-card-table td .pro-row-actions{display:flex;flex-wrap:nowrap;justify-content:flex-start}
+}
+.subscription-usage{margin-bottom:18px}.subscription-usage-grid>div{min-height:140px;align-content:start;gap:10px}
+.subscription-usage-grid progress{height:7px;min-height:7px;border-radius:99px;overflow:hidden}
+.billing-promo-verify{display:inline-flex;align-self:flex-start;margin-top:12px;min-height:42px}
+@media(max-width:700px){.subscription-usage{margin-bottom:16px}.subscription-usage-grid>div{min-height:0}.mobile-card-table tbody>tr>td::before{font-size:11.5px}}
