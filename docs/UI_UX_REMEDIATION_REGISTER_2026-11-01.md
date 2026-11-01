@@ -12,11 +12,11 @@
 | UI-002 | Sales category/catalog scrollbars | Staged | Subtle scrollbars; scroll behavior retained |
 | UI-003 | Sales catalog load-more button spacing | Staged | Separated footer button from product grid |
 | UI-004 | Classic POS ergonomic layout | Partial | Catalog/panel proportions adjusted; real-device acceptance needed |
-| UI-005 | Touch POS ergonomic layout | Pending | Unsafe new row height reverted after Playwright pointer obstruction; needs safe redesign |
+| UI-005 | Touch POS ergonomic layout | Partial | Conservative touch focus, active-payment and keypad styling; workspace heights unchanged after previous pointer obstruction |
 | UI-006 | Customers CRM single-row toolbar | Staged | Desktop grid alignment and responsive wrap |
 | UI-007 | Customer details modal payment form | Staged | Two-column payment controls and single-width CTA |
 | UI-008 | Sales history pagination placement | Staged | Pagination moved to table footer |
-| UI-009 | Sales history details modal polish | Partial | Detail title and sections organized; print, focus and visual acceptance still required |
+| UI-009 | Sales history details modal polish | Partial | Explicit sale identity, cashier, customer, branch and shift metadata; visual/print acceptance pending |
 | UI-010 | Products columns control alignment | Staged | Columns picker aligned to toolbar end |
 | UI-011 | Billing plan/card separation | Staged | Subscription usage vertical rhythm |
 | UI-012 | Promo validation button spacing | Staged | Dedicated class and margin |
@@ -27,14 +27,14 @@
 | UI-017 | Expenses mobile cards | Partial | Mobile two-column density; browser visual pass pending |
 | UI-018 | Activity timeline mobile layout | Partial | Tighter spacing and metadata without removing audit data |
 | UI-019 | Billing transaction history compact mobile | Staged | Native details disclosure with full payment details |
-| UI-020 | Zenix AI premium minimal UX | Partial | Composer and suggestion hierarchy improved; full visual acceptance pending |
+| UI-020 | Zenix AI premium minimal UX | Partial | Composer and suggestion hierarchy refined; keyboard-open screen hides decorative suggestions; full device acceptance pending |
 | UI-021 | Mobile header control density | Partial | Icon spacing adjusted; visual tests pending |
 | UI-022 | Floating Zenix AI button coverage | Partial | Mobile launcher moved above bottom nav; verify content occlusion |
 | UI-023 | Mobile bottom navigation readability | Partial | Label typography improved |
 | UI-024 | Zenix Pulse single-signal layout | Staged | Single signal uses full panel width |
-| UI-025 | Dashboard no-sales chart empty state | Pending | Graph height adjusted for mobile, but true empty-state pending |
-| UI-026 | Billing quota indicator consistency | Partial | Usage card height/progress visual refinement |
-| UI-027 | Products row action density | Pending | Requires deliberate overflow/action grouping UX |
+| UI-025 | Dashboard no-sales chart empty state | Staged | Explicit no-data state replaces empty chart when loaded trend has no activity |
+| UI-026 | Billing quota indicator consistency | Staged | Progress indicators now use the shared theme in light/dark modes |
+| UI-027 | Products row action density | Staged | Routine actions remain visible; archive/delete moved to expandable secondary controls |
 | UI-028 | Shift history mobile readability | Staged | Dense table supports horizontal scroll |
 | UI-029 | Settings staff table mobile readability | Staged | Editable staff table preserves desktop columns horizontally |
 | UI-030 | Seller analytics mobile detail table | Staged | Comparison table scrolls horizontally |
