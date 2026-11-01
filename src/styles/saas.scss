@@ -1322,3 +1322,24 @@ body.dark-mode .billing-renewal-extra{
   .inventory-pro .native-scroll-table td[data-label="Amallar"],
   .suppliers-pro .native-scroll-table td[data-label="Amallar"] {min-width: 172px !important;}
 }
+
+
+/* Batch 2 / UI-037: one calm loading state on every report and directory. */
+.pro-loading-notice {
+  display:flex;align-items:center;gap:11px;
+  min-height:48px;margin:0 0 16px;padding:12px 15px;
+  border:1px solid var(--border);border-radius:13px;
+  background:var(--surface);color:var(--text);
+  font-size:12.5px;font-weight:550;line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.pro-loading-notice.compact{min-height:44px;margin-bottom:10px;padding:11px 13px}
+.pro-loading-notice-spinner {
+  flex:0 0 17px;width:17px;height:17px;display:block;
+  border:2px solid color-mix(in srgb,var(--muted) 25%,transparent);
+  border-top-color:var(--primary);border-radius:50%;
+  animation:pro-loading-rotate .85s linear infinite;
+}
+@keyframes pro-loading-rotate{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pro-loading-notice-spinner{animation:none}}
+@media(max-width:700px){.pro-loading-notice{min-height:46px;padding:11px 12px;margin-bottom:13px}}
