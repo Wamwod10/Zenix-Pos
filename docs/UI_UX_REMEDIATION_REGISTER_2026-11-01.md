@@ -24,7 +24,7 @@
 | UI-014 | Products mobile card/table behavior | Staged | Mobile default cards; responsive table with horizontal scrolling |
 | UI-015 | Inventory mobile card/table behavior | Staged | Native table displayed when user chooses list view |
 | UI-016 | Suppliers mobile card/table behavior | Staged | Native table displayed when user chooses list view |
-| UI-017 | Expenses mobile cards | Partial | Mobile two-column density; browser visual pass pending |
+| UI-017 | Expenses mobile cards | Staged | Compact expandable mobile summaries; date/category/amount immediately visible, full fields/actions retained in disclosure |
 | UI-018 | Activity timeline mobile layout | Partial | Tighter spacing and metadata without removing audit data |
 | UI-019 | Billing transaction history compact mobile | Staged | Native details disclosure with full payment details |
 | UI-020 | Zenix AI premium minimal UX | Partial | Composer and suggestion hierarchy refined; keyboard-open screen hides decorative suggestions; full device acceptance pending |
