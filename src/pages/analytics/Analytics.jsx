@@ -10,7 +10,7 @@ import {
   financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
   saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale, netItemContribution,
 } from "../../utils/reporting";
-import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput } from "../../components/Ui";
+import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput , LoadingNotice } from "../../components/Ui";
 import ResponsiveChart from "../../components/ResponsiveChart";
 import {filterAnalyticsPeriod} from "./analyticsPeriod.js";
 import "./analytics.scss";
@@ -174,7 +174,7 @@ function Analytics() {
 
   return <div className="pro-page analytics-pro">
     {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
-    {(report.loading||summary.loading)&&<div className="pro-alert" role="status">Hisobot yuklanmoqda…</div>}
+    {(report.loading||summary.loading)&&<LoadingNotice>Hisobot yuklanmoqda…</LoadingNotice>}
     <PageHeader title="Analitika" subtitle="Sof savdo, foyda, xarajat, qoldiq va qaytarishlarni bir xil hisoblash qoidasi bilan kuzating." actions={<button className="pro-btn secondary" onClick={exportCsv}><FiDownload/> CSV eksport</button>}/>
 
     <section className="analytics-filterbar pro-card">
