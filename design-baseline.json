@@ -5,13 +5,13 @@
   "src/pages/activityLog/activityLog.scss": "91e0026132fa0a95ad28556dfa28ea02c16c75cb0eb9330c430f95321ccdd058",
   "src/pages/analytics/analytics.scss": "a30afd33e53cb36dcf715f64d76179da175ffd7d294b929eca8f2ace8d2908b5",
   "src/pages/customers/customers.scss": "f2c288fcc69149e80d4c75a5e26b274733d913d1827b5e684fcc762e7b7acbad",
-  "src/pages/dashboard/dashboard.scss": "2dd0ec48a72f2f9087d6b57de13dc90709895ee38be02871f3cc4c04cef1fa88",
+  "src/pages/dashboard/dashboard.scss": "1b8622e60d14aec7d6bd579c356150747a97c674acb663c964186ac42612eed6",
   "src/pages/expenses/expenses.scss": "85b548889cc79d846a2b91587dadc4b0afd0b831c9277b52f7c7d0f78906246b",
   "src/pages/help/helpCenter.scss": "e5baccd3bc50c930b26f1de010cdfbf928d6296f81b26d16aaf6ee0f689921ae",
   "src/pages/history/history.scss": "372a48006c5adf50c1ae4ed9374be83d68e53230bf18bcbc47b81d9f0cb03bcc",
   "src/pages/inventory/inventory.scss": "1580a05895e644e2afa006b63d76fe17581bc0ea7962487c28c7a78e214b7bce",
   "src/pages/login/login.scss": "f9957e37c1f7a781ccd9ed5019b83f39312171599e1e59818f2d85ecdfd194e3",
-  "src/pages/products/product.scss": "211dc5c504b2a93aa963f66ecf02999e3628f8323cb5994e2ed06ecf1dcfa929",
+  "src/pages/products/product.scss": "9d346b5ffb627185603840b9efe7b60c1f35ee877f42f900a3bb8302ec692e85",
   "src/pages/profile/profile.scss": "df23c4cbfeca995c03a858a5ad4fdbfbfcb6fcbcbcbb10261b87b778d932b59a",
   "src/pages/sales/sales.scss": "8b6dc9bd491d0fc0e1f958a4ae7c327878a28d09b556bcbeb402fb482ccfc7b5",
   "src/pages/sellerAnalytics/sellerAnalytics.scss": "97aef83e92a4ba72fd9debed6690f29cb7d4a99285c28d7cbdb64ebc0e8c4257",
@@ -23,6 +23,6 @@
   "src/pages/register/registerOtp.scss": "582b3bc7cbdc87d1dc27c5e97b9e7efa330c03e32a1495582131887e605aeed8",
   "src/pages/ai/zenixAi.scss": "891a760a64d0158718574d7ea117320c2e11e614f8e7765e9a4bb658b3783571",
   "src/pages/posPro/posPro.scss": "9fcda569a597e2814fe3bf783d80a6a4dafc044937f2eb568e4e5fb5a34f1518",
-  "src/pages/posPro/touchPos.scss": "22cc2f290d1cc19dd222f1b3ec29afd965fbf9a9cd2b21ba2d4e5493764c7dc6",
+  "src/pages/posPro/touchPos.scss": "adbf0ebfc5a3be7de335efed4122ed523079f35d349a309308f3da5c24b945ef",
   "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748"
 }
