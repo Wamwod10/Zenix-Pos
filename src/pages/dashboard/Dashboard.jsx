@@ -14,7 +14,7 @@ import { getSaleNetTotal, getSaleProfit, getNetSoldQty, getItemFinalPrice } from
 import { saleNetPaymentBreakdown, returnedAmountForSale } from "../../utils/reporting";
 import { formatWorkspaceDate, workspaceDateISO } from "../../utils/workspaceDate";
 import { supplierOpenDebt } from "../../utils/supplierLedger";
-import { PageHeader, PremiumSelect, StatCard, StatusBadge } from "../../components/Ui";
+import { PageHeader, PremiumSelect, StatCard, StatusBadge , LoadingNotice } from "../../components/Ui";
 import ResponsiveChart from "../../components/ResponsiveChart";
 import {formatChartTick} from "../../utils/formatChartTick";
 import "./dashboard.scss";
@@ -162,7 +162,7 @@ function Dashboard(){
 
   return <div className="pro-page dashboard-pro">
     {(report.error||summary.error)&&<div className="pro-alert danger" role="alert">{report.error||summary.error}</div>}
-    {(report.loading||summary.loading)&&<div className="pro-alert dashboard-loading" role="status"><span className="dashboard-loading-spinner" aria-hidden="true"/>Hisobot yuklanmoqda…</div>}
+    {(report.loading||summary.loading)&&<LoadingNotice>Hisobot yuklanmoqda…</LoadingNotice>}
     <PageHeader
       title="Boshqaruv paneli"
       subtitle={`${selectedStore?.name||"Barcha filiallar"} · biznes holati va asosiy ko‘rsatkichlar`}
