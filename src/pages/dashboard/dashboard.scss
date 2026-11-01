@@ -10,3 +10,12 @@ body.dark-mode .dashboard-kpis .pro-stat{background:linear-gradient(180deg,rgba(
 .dashboard-chart,.dashboard-payment,.dashboard-analysis-grid>.pro-card,.dashboard-health,.dashboard-insight-grid>.pro-card{border-radius:20px;box-shadow:var(--shadow)}
 .zenix-pulse{padding:14px;margin-bottom:14px}.pulse-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pulse-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text);text-decoration:none}.pulse-item strong,.pulse-item small{display:block}.pulse-item strong{font-size:12px}.pulse-item small{margin-top:3px;color:var(--muted);font-size:10.5px}.pulse-item svg{flex:0 0 auto;color:var(--muted)}.pulse-item.danger{border-color:color-mix(in srgb,var(--danger) 25%,var(--border))}.pulse-item.warning{border-color:color-mix(in srgb,var(--warning) 25%,var(--border))}@media(max-width:700px){.pulse-grid{grid-template-columns:1fr}.zenix-pulse{padding:12px;margin-bottom:12px}}
 .zenix-pulse + .dashboard-kpis{margin-top:14px}@media(max-width:700px){.zenix-pulse + .dashboard-kpis{margin-top:12px}}
+
+/* UI-001,024,025 */
+.dashboard-pro .dashboard-loading{display:flex;align-items:center;gap:10px;min-height:48px;padding:12px 15px;margin:0 0 18px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);font-size:13px;font-weight:550}
+.dashboard-loading-spinner{width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--primary);animation:dashboard-loading-rotate .8s linear infinite}
+@keyframes dashboard-loading-rotate{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.dashboard-loading-spinner{animation:none}}
+.dashboard-pro .pulse-grid:has(> :only-child){grid-template-columns:minmax(0,1fr)}
+.dashboard-pro .pulse-grid:has(> :only-child) .pulse-item{max-width:none}
+@media(max-width:700px){.dashboard-pro .dashboard-loading{margin-bottom:16px}.dashboard-pro .dashboard-chart{min-height:0}.dashboard-pro .dashboard-chart-area{height:200px}.dashboard-pro .pulse-item{min-height:56px}}
