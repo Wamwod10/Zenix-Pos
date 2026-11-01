@@ -1250,3 +1250,12 @@ body.dark-mode .product-media-preview {
   .product-table.mobile-card-table .pro-icon-btn{width:40px!important;height:40px!important;min-width:40px}
   .product-toolbar{gap:8px!important}.product-toolbar .pro-search{flex:1 1 100%!important}
 }
+
+/* UI-010/014: consistent toolbar and mobile true table */
+.product-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.product-toolbar .pro-search{flex:1 1 300px;min-width:0;max-width:none}
+.product-toolbar-actions{flex:1 1 auto;justify-content:flex-end;min-width:0;gap:8px}
+.product-toolbar-actions .column-picker{order:3;margin-left:auto}
+.product-toolbar-actions .product-view-switch{order:2}
+.product-toolbar-actions .pro-tabs{order:1}
+@media(max-width:700px){.product-toolbar .pro-search{flex:1 1 100%}.product-toolbar-actions{width:100%;justify-content:flex-start}.products-pro .product-table-wrap.native-scroll-table{overflow-x:auto;border:1px solid var(--border);scrollbar-width:thin}.products-pro .product-grid-pro{gap:10px}.products-pro .product-card-pro{box-shadow:none}}
