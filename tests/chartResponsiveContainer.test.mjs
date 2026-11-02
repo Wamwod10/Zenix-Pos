@@ -12,7 +12,9 @@ test("responsive charts do not warn before their parent is measured", async () =
   console.warn = (...args) => warnings.push(args.join(" "));
   try {
     const { default: ResponsiveChart } = await server.ssrLoadModule("/src/components/ResponsiveChart.jsx");
-    renderToStaticMarkup(React.createElement(ResponsiveChart, null, React.createElement(LineChart, { data: [] })));
+    const markup = renderToStaticMarkup(React.createElement(ResponsiveChart, null, React.createElement(LineChart, { data: [] })));
+    assert.match(markup, /min-width:0/);
+    assert.doesNotMatch(markup, /recharts-wrapper/,"unmeasured charts should not mount with invalid dimensions");
   } finally {
     console.warn = originalWarn;
     await server.close();
