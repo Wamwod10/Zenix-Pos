@@ -1,13 +1,13 @@
 import {memo,useCallback,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
-import {FiX,FiMinus,FiMaximize2,FiMinimize2,FiPlus,FiArrowUp,FiBarChart2,FiPackage,FiTrendingUp,FiArchive,FiClock,FiChevronDown,FiShield} from 'react-icons/fi';
+import {FiX,FiMinus,FiMaximize2,FiMinimize2,FiPlus,FiArrowUp,FiBarChart2,FiPackage,FiTrendingUp,FiArchive,FiClock,FiChevronDown,FiShield,FiCopy,FiCheck} from 'react-icons/fi';
 import {api} from '../../services/apiClient';
 import {useStore} from '../../context/StoreContext';
 import {useAuth} from '../../context/AuthContext';
 import {PremiumSelect} from '../../components/Ui';
 import ZenixAIIcon from '../../components/ZenixAIIcon';
 import {useFeedback} from '../../context/FeedbackContext';
-import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks} from './aiPresentation';
+import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks,aiCopyText} from './aiPresentation';
 import './zenixAi.scss';
 import {scheduleChatScroll} from './aiScroll';
 
@@ -46,7 +46,22 @@ const ChatAnswerContent=memo(function ChatAnswerContent({message:m}){
 // Keep transcript traversal out of composer, progress, and mode updates.
 const ChatHistory=memo(function ChatHistory({messages,follow}){return <>{messages.length>0&&<details className="zenix-ai-history"><summary><FiClock aria-hidden="true"/> Joriy suhbat · {messages.length} savol</summary><ol>{messages.map(m=><li key={m.id}><button type="button" onClick={()=>{follow.current=false;document.getElementById(`ai-message-${m.id}`)?.scrollIntoView({block:'start',behavior:'instant'})}}>{m.question}</button></li>)}</ol></details>}</>});
 
-const ChatMessages=memo(function ChatMessages({messages,writesEnabled,onAction,now}){return <>{messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/>
+const CopyAnswerButton=memo(function CopyAnswerButton({message}){
+ const [copyState,setCopyState]=useState('ready');
+ const text=aiCopyText(message);
+ if(!text)return null;
+ const onCopy=async()=>{
+  try{
+   if(!globalThis.navigator?.clipboard?.writeText)throw new Error('Clipboard unavailable');
+   await globalThis.navigator.clipboard.writeText(text);
+   setCopyState('copied');
+  }catch{setCopyState('failed')}
+ };
+ const label=copyState==='copied'?'Nusxalandi':copyState==='failed'?'Nusxalab bo‘lmadi':'Javobni nusxalash';
+ return <div className="zenix-ai-action-buttons"><button type="button" className="pro-btn" onClick={onCopy} aria-label={label} aria-live="polite">{copyState==='copied'?<FiCheck aria-hidden="true"/>:<FiCopy aria-hidden="true"/>}{' '}{label}</button></div>;
+});
+
+const ChatMessages=memo(function ChatMessages({messages,writesEnabled,onAction,now}){return <>{messages.map(m=><article id={`ai-message-${m.id}`} key={m.id}><div className="zenix-ai-user-label">Siz</div><p className="zenix-ai-question">{m.question}</p><div className="zenix-ai-answer"><ChatAnswerContent message={m}/><CopyAnswerButton message={m}/>
      {m.actions?.map(action=><ActionCard key={action.id} action={action} writesEnabled={writesEnabled} onAction={onAction} expired={action.status==='PENDING'&&(!Number.isFinite(Date.parse(action.expiresAt))||Date.parse(action.expiresAt)<=now)}/>)}
     </div></article>)}</>});
 
