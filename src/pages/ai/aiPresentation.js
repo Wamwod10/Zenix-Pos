@@ -20,6 +20,16 @@ export function aiMessageBlocks(message){
   facts:Array.isArray(block.facts)?block.facts.filter(f=>f&&typeof f.id==='string'&&typeof f.text==='string').map(f=>({id:f.id,text:f.text})):[],
  })).filter(block=>block.text||block.facts.length);
 }
+// Explicit user-triggered copy exports only visible assistant prose and
+// verified block text. Never include pending actions, confirmation tokens,
+// hidden report payloads or session identifiers in clipboard contents.
+export function aiCopyText(message){
+ const answer=typeof message?.answer==='string'?message.answer.trim():'';
+ const sections=aiMessageBlocks(message).map(block=>[
+  block.text,...block.facts.map(fact=>fact.text),
+ ].filter(Boolean).join('\n')).filter(Boolean);
+ return [answer,...sections].filter(Boolean).join('\n\n');
+}
 export function aiState(status,busy=false,error=''){
  if(status?.enabled===false)return {key:'off',label:'AI o‘chirilgan',message:'ZENIX AI hozircha faollashtirilmagan.'};
  if(!status)return error?{key:'error',label:'Vaqtincha mavjud emas',message:'AI holatini olib bo‘lmadi. Qayta urinib ko‘ring.'}:{key:'loading',label:'Holat tekshirilmoqda',message:''};
