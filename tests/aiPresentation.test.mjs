@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {aiState,aiSuggestions,shouldFollowChat,aiProgressLabel,aiMessageBlocks,aiFactValue} from '../src/pages/ai/aiPresentation.js';
+import {aiState,aiSuggestions,shouldFollowChat,aiProgressLabel,aiMessageBlocks,aiFactValue,aiCopyText} from '../src/pages/ai/aiPresentation.js';
 
 test('business facts format exact money and package units without numeric conversion',()=>{
  assert.equal(aiFactValue({value:'69000.00',unit:'UZS'}),'69 000.00 so‘m');
@@ -48,4 +48,18 @@ test('welcome suggestions respect server topics, module permissions and write fe
 test('incoming replies do not move readers away from older messages',()=>{
  assert.equal(shouldFollowChat({scrollHeight:1000,scrollTop:200,clientHeight:400}),false);
  assert.equal(shouldFollowChat({scrollHeight:1000,scrollTop:550,clientHeight:400}),true);
+});
+
+
+test('copy text contains only visible answer and verified blocks, never action tokens or raw reports',()=>{
+ const reply={
+  answer:'Tekshirilgan savdo bo‘yicha tavsiya.',
+  blocks:[{type:'recommendation',text:'Mahsulot aylanmasini tekshiring.',facts:[{id:'f1',text:'Sof savdo: 150 000 so‘m'}]}],
+  actions:[{confirmationToken:'DO_NOT_COPY_CONFIRMATION_TOKEN',status:'PENDING'}],
+  report:{facts:[{value:'PRIVATE_REPORT_VALUE'}]},conversationId:'DO_NOT_COPY_SESSION_ID',
+ };
+ assert.equal(aiCopyText(reply),'Tekshirilgan savdo bo‘yicha tavsiya.\\n\\nMahsulot aylanmasini tekshiring.\\nSof savdo: 150 000 so‘m'.replaceAll('\\n','\n'));
+ assert.doesNotMatch(aiCopyText(reply),/DO_NOT_COPY|PRIVATE_REPORT_VALUE/);
+ assert.equal(aiCopyText({blocks:[],answer:''}),'');
+ assert.equal(aiCopyText(null),'');
 });
