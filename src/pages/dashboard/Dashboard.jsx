@@ -87,7 +87,7 @@ function Dashboard(){
   const expenseTotal=summary.aggregate?.expenseTotal??filteredExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const previousExpense=previousExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const netProfit=grossProfit-expenseTotal;
-  const profitTrusted=!report.loading&&!report.error&&!summary.loading&&!summary.error&&profitEvidenceComplete(saleRecords);
+  const profitTrusted=!report.loading&&!report.error&&!summary.loading&&!summary.error&&profitEvidenceComplete(saleRecords,summary.aggregate?.saleCount);
   const previousNet=previousGross-previousExpense;
   const transactions=summary.aggregate?.saleCount??sales.filter(sale=>sale._financialType!=="refund").length;
   const previousTransactions=previousSales.filter(sale=>sale._financialType!=="refund").length;
