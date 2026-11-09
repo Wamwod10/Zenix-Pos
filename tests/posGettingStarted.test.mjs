@@ -19,7 +19,7 @@ test('trial presentation uses authenticated server expiry/accessMode and never g
 test('new account defaults never falsely mark auto-created store and unloaded catalog complete',()=>{
  const steps=onboardingSteps({organization:business,stores:[store],catalogComplete:false,products:[],salesVisible:true,can});
  assert.deepEqual(steps.map(s=>s.complete),[false,null,false,false]);
- assert.deepEqual(steps.map(s=>s.path),['/settings','/products','/sales','/']);
+ assert.deepEqual(steps.map(s=>s.path),['/settings','/products?new=1','/sales','/']);
  assert.equal(steps.length,4);
 });
 
