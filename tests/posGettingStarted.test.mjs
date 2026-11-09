@@ -50,4 +50,7 @@ test('profit with missing or zero original unit cost is not confidently displaye
  assert.equal(profitEvidenceComplete([{id:'sale-no-items'}],1),false);
  assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:null}]}],1),false);
  assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:0}]}],1),false);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:'not-a-number'}]}],1),false);
+ assert.equal(profitEvidenceComplete([{items:[]}],1),false);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:9000}]}],1),true);
 });
