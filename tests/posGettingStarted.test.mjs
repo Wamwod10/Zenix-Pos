@@ -44,4 +44,10 @@ test('profit with missing or zero original unit cost is not confidently displaye
  assert.equal(profitEvidenceComplete([{items:[{quantity:'2',unitCost:0}]}]),false);
  assert.equal(profitEvidenceComplete([{items:[{quantity:'2'}]}]),false);
  assert.equal(profitEvidenceComplete([{items:[{quantity:'0',unitCost:null}]}]),true);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:'1',costPrice:12000}]}]),true);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:'2',metadata:{unitCost:'9000'}}]}]),true);
+ assert.equal(profitEvidenceComplete([],2),false,'nonzero report sales without item cost evidence cannot display profit');
+ assert.equal(profitEvidenceComplete([{id:'sale-no-items'}],1),false);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:null}]}],1),false);
+ assert.equal(profitEvidenceComplete([{items:[{quantity:2,unitCost:0}]}],1),false);
 });
