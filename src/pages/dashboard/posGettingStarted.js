@@ -22,13 +22,18 @@ export function onboardingSteps({
   {id:'report',title:'Bugungi hisobotni ko‘rish',detail:'Hisobot yuklangach ushbu sessiyada belgilash mumkin.',path:'/',complete:reportViewed,enabled:can('moduleDashboard')},
  ];
 }
-export function profitEvidenceComplete(sales=[]){
- // No positive unit cost is a conservative warning: original POS cost
- // snapshots may contain unknown unit costs represented as zero. Suppress
- // confidently labeled profit rather than inventing a margin.
- return sales.every(sale=>(sale?.items||[]).every(item=>{
+export function profitEvidenceComplete(sales=[],expectedSales=0){
+ // Margin is not defensible when sale item rows or original cost snapshots
+ // are missing. Honor the same unit-cost aliases as the existing POS profit
+ // calculation; never count an unknown or zero cost as verified profit.
+ if(!Array.isArray(sales))return false;
+ const recordedSales=sales.filter(s=>s?._financialType!=='refund');
+ if(Number(expectedSales)>0&&!recordedSales.length)return false;
+ return recordedSales.every(sale=>Array.isArray(sale.items)&&sale.items.length>0&&sale.items.every(item=>{
   const units=Number(item.quantity??item.qty??0);
-  if(!Number.isFinite(units)||units<=0)return true;
-  return Number.isFinite(Number(item.unitCost))&&Number(item.unitCost)>0;
+  if(!Number.isFinite(units)||units<0)return false;
+  if(units===0)return true;
+  const unitCost=item.unitCost??item.metadata?.unitCost??item.costPrice;
+  return unitCost!=null&&unitCost!==''&&Number.isFinite(Number(unitCost))&&Number(unitCost)>0;
  }));
 }
