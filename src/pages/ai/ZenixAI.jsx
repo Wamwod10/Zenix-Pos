@@ -7,7 +7,7 @@ import {useAuth} from '../../context/AuthContext';
 import {PremiumSelect} from '../../components/Ui';
 import ZenixAIIcon from '../../components/ZenixAIIcon';
 import {useFeedback} from '../../context/FeedbackContext';
-import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks,aiCopyText} from './aiPresentation';
+import {aiState,aiSuggestions,shouldFollowChat,aiErrorMessage,aiMessageReports,aiFactValue,aiProgressLabel,aiMessageBlocks,aiCopyText,aiReportContexts} from './aiPresentation';
 import './zenixAi.scss';
 import {scheduleChatScroll} from './aiScroll';
 
@@ -34,7 +34,9 @@ const ActionCard=memo(function ActionCard({action,writesEnabled,onAction,expired
 // Completed report trees stay unchanged while typing, polling progress, or switching modes.
 // Live action controls remain outside this boundary so expiry and permissions still update.
 const ChatAnswerContent=memo(function ChatAnswerContent({message:m}){
+ const contexts=aiReportContexts(m);
  return <><div className="zenix-ai-answer-label"><ZenixAIIcon/><strong>ZENIX AI</strong></div><p>{m.answer}</p>
+     {contexts.length>0&&<div className="zenix-ai-note" role="note" aria-label="Hisobot dalillari va hisob davri"><strong>Hisobot konteksti</strong>{contexts.map((ctx,index)=><p key={index}>Server hisoboti · {ctx.scope}{ctx.ownSales?' · Faqat o‘z savdolaringiz':''} · {ctx.periods.length?ctx.periods.join(' / '):'Hisob davri ko‘rsatilmagan'}</p>)}</div>}
      {aiMessageBlocks(m).map((block,i)=><section className="zenix-ai-note" key={i}>{block.text&&<p>{block.text}</p>}{block.facts.length>0&&<ul>{block.facts.map((fact,j)=><li key={fact.id+'-'+j}>{fact.text}</li>)}</ul>}</section>)}
      {(aiMessageReports(m).length>0||m.insights?.length>0)&&<details className="zenix-ai-history zenix-ai-report-details"><summary>Batafsil ma’lumotlar</summary>
      {aiMessageReports(m).map((report,reportIndex)=><section className="zenix-ai-report" key={reportIndex}><small>{report.from&&report.to&&!report.facts?.some(f=>f.from||f.to)&&!report.tables?.some(t=>t.from||t.to)&&<>{report.from} — {report.to} · </>}{report.storeId?'Tanlangan filial':'Barcha filiallar'}{report.sellerScoped?' · Faqat o‘z savdolaringiz':''}</small><div className="zenix-ai-facts">{report.facts?.map(f=><div key={f.id}><small>{f.label}{(f.from||f.to)&&<> · {f.from||"—"} — {f.to||"—"}</>}</small><strong>{aiFactValue(f)}</strong></div>)}</div>
