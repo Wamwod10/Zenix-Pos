@@ -7,6 +7,8 @@ import {
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext";
+import { useAuth } from "../../context/AuthContext";
+import {onboardingSteps,trialOverview,profitEvidenceComplete} from "./posGettingStarted";
 import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
@@ -26,7 +28,10 @@ const pct=(current,previous)=>Number(previous)!==0?((current-previous)/Math.abs(
 const formatPct=(value)=>value==null?"Yangi":`${value>=0?"+":""}${Math.round(value)}%`;
 
 function Dashboard(){
-  const {catalogComplete,ensureCatalog,catalogError,inventoryState,suppliers,returns:bootstrapReturns,stores,currentStore,currentStoreId,effectiveWorkspaceSettings:workspaceSettings}=useStore();
+  const {catalogComplete,ensureCatalog,catalogError,inventoryState,suppliers,returns:bootstrapReturns,stores,currentStore,currentStoreId,effectiveWorkspaceSettings:workspaceSettings,organizations,hasPermission,dailySales,salesHistory,activeShift}=useStore();
+  const {currentUser}=useAuth();
+  const organization=organizations.find(row=>row.id===currentUser?.organizationId);
+  const trial=trialOverview(organization);
   const organizationSettings=workspaceSettings.organization||{};
   const [period,setPeriod]=useState("7");
   const [store,setStore]=useBranchFilter(currentStoreId);
@@ -68,6 +73,7 @@ function Dashboard(){
   const expenseTotal=summary.aggregate?.expenseTotal??filteredExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const previousExpense=previousExpenses.reduce((sum,e)=>sum+Number(e.amount||0),0);
   const netProfit=grossProfit-expenseTotal;
+  const profitTrusted=!report.loading&&!report.error&&!summary.loading&&!summary.error&&profitEvidenceComplete(saleRecords);
   const previousNet=previousGross-previousExpense;
   const transactions=summary.aggregate?.saleCount??sales.filter(sale=>sale._financialType!=="refund").length;
   const previousTransactions=previousSales.filter(sale=>sale._financialType!=="refund").length;
@@ -158,6 +164,8 @@ function Dashboard(){
     const days=Math.max(1,period==="all"?30:Number(period)||1);
     return activeInventory.map(product=>{const qty=sold.get(String(product.id))||0;const perDay=qty/days;return {...product,soldQty:qty,daysLeft:perDay>0?Number(product.quantity||0)/perDay:null}}).filter(product=>product.daysLeft!=null&&product.daysLeft<=7).sort((a,b)=>a.daysLeft-b.daysLeft).slice(0,3);
   },[sales,activeInventory,period]);
+  const onboarding=onboardingSteps({organization,stores,products:inventoryState,catalogComplete,dailySales,salesHistory,salesVisible:hasPermission('moduleSales',currentUser?.appRole),reportViewed:period==='1'&&!summary.loading&&!summary.error&&Boolean(summary.aggregate),can:permission=>hasPermission(permission,currentUser?.appRole)});
+  const showOnboarding=currentUser?.appRole==='OWNER'&&onboarding.some(step=>step.complete!==true);
   const pulse=useMemo(()=>{const items=[];if(!catalogComplete)items.push({tone:"neutral",title:"Qoldiq hali tekshirilmagan",text:"Qoldiq holatini alohida yuklang",path:"/inventory"});if(out.length)items.push({tone:"danger",title:`${out.length} ta mahsulot tugagan`,text:"Savdo yo‘qotmaslik uchun qoldiqni to‘ldiring",path:"/inventory"});if(stockForecast.length)items.push({tone:"warning",title:`${stockForecast.length} ta mahsulot tez tugashi mumkin`,text:`${stockForecast[0].name} · taxminan ${Math.max(1,Math.ceil(stockForecast[0].daysLeft))} kunlik qoldiq`,path:"/inventory"});if(returnRate>=5)items.push({tone:"warning",title:"Qaytarish darajasi yuqori",text:`Tanlangan davrda ${returnRate.toFixed(1)}%`,path:"/analytics"});if(salesChange!=null&&salesChange<=-20)items.push({tone:"info",title:"Savdo pasayishi kuzatildi",text:`Oldingi davrga nisbatan ${Math.abs(Math.round(salesChange))}% past`,path:"/analytics"});if(supplierDebt>0)items.push({tone:"neutral",title:"Ta’minotchi majburiyatlari",text:`Ochiq qarz ${formatPrice(supplierDebt)}`,path:"/suppliers"});return items.slice(0,4)},[catalogComplete,out,stockForecast,returnRate,salesChange,supplierDebt]);
 
   return <div className="pro-page dashboard-pro">
@@ -169,11 +177,20 @@ function Dashboard(){
       actions={<div className="dashboard-filters"><PremiumSelect className="pro-select" value={period} onChange={e=>setPeriod(e.target.value)}><option value="1">Bugun</option><option value="7">7 kun</option><option value="30">30 kun</option><option value="all">Barcha davr</option></PremiumSelect><PremiumSelect className="pro-select" value={store} onChange={e=>setStore(e.target.value)}><option value="all">Barcha filiallar</option>{activeStores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</PremiumSelect></div>}
     />
 
+    {trial&&<section className="pro-card dashboard-trial-banner" aria-label="14 kunlik sinov holati"><div><strong>{trial.active?'Bepul sinov davom etmoqda':'Bepul sinov muddati tugagan'}</strong><p>{trial.active?`Sinov tugashiga ${trial.days} kun qoldi. Tanlangan tarif limitlari amal qiladi.`:'Ma’lumotlaringiz saqlanadi; yozish ruxsatini tiklash uchun tarif holatini tekshiring.'}</p></div>{hasPermission('moduleBilling',currentUser?.appRole)&&<Link className="pro-btn secondary" to="/billing">Tarifni ko‘rish <FiArrowRight/></Link>}</section>}
+    {showOnboarding&&<section className="pro-card dashboard-onboarding" aria-label="Boshlang‘ich sozlash"><div className="pro-card-head"><div><h2>ZENIX Savdoda ilk qadamlar</h2><p>${onboarding.filter(step=>step.complete===true).length} / 4 qadam bajarildi · faqat haqiqiy, yuklangan ma’lumot asosida</p></div></div><div className="dashboard-onboarding-grid">{onboarding.map(step=><div key={step.id} className={step.complete===true?'is-complete':''}><span className="dashboard-onboarding-mark" aria-hidden="true">{step.complete===true?'✓':'○'}</span><div><strong>{step.title}</strong><small>{step.complete===null?'Holatni tekshirish uchun ma’lumot yoki ruxsat kerak':step.complete===true?'Bajarilgan':step.detail}</small></div>{step.enabled&&(step.id==='report'?<button type="button" className="pro-btn secondary" onClick={()=>setPeriod('1')}>Bugungi hisobot <FiArrowRight/></button>:<Link className="pro-btn secondary" to={step.path}>Ochish <FiArrowRight/></Link>)}</div>)}</div></section>}
+    <section className="pro-card dashboard-quick-links" aria-label="Kundalik nazorat"><div className="pro-card-head"><div><h2>Kundalik nazorat</h2><p>Tanlangan filial va davrga tegishli bo‘limlarga tez o‘ting.</p></div></div><div className="dashboard-quick-grid">
+     {hasPermission('moduleInventory',currentUser?.appRole)&&<Link to="/inventory?status=low"><FiPackage/><strong>{catalogComplete?`${low.length} ta kam qoldiq`:'Qoldiq tekshirilmoqda'}</strong><small>Kam qolgan mahsulotlar</small><FiArrowRight/></Link>}
+     {hasPermission('moduleSales',currentUser?.appRole)&&<Link to="/customers?filter=debt"><FiCreditCard/><strong>Mijoz qarzlari</strong><small>Mijozlar ro‘yxatidagi qarzdorlar</small><FiArrowRight/></Link>}
+     {hasPermission('moduleShifts',currentUser?.appRole)&&<Link to="/shifts"><FiActivity/><strong>{activeShift?.id?'Smena ochiq':'Smena ochilmagan'}</strong><small>Kassa va smenalar</small><FiArrowRight/></Link>}
+     {hasPermission('moduleHistory',currentUser?.appRole)&&<Link to={`/history?from=${range.startKey}&to=${range.endKey}`}><FiShoppingBag/><strong>Kunlik savdo tarixi</strong><small>Tanlangan davr savdolari</small><FiArrowRight/></Link>}
+    </div></section>
+
     <section className="pro-card zenix-pulse"><div className="pro-card-head"><div><h2>Zenix Pulse</h2><p>{pulse.length?`${pulse.length} ta e’tibor talab qiladigan signal`:"Biznesning asosiy ko‘rsatkichlari me’yorda"}</p></div><StatusBadge tone={pulse.some(x=>x.tone==="danger")?"danger":pulse.length?"warning":"success"}>{pulse.length?"E’tibor kerak":"Hammasi joyida"}</StatusBadge></div>{pulse.length?<div className="pulse-grid">{pulse.map((item,index)=><Link to={item.path} className={`pulse-item ${item.tone}`} key={`${item.title}-${index}`}><span><strong>{item.title}</strong><small>{item.text}</small></span><FiArrowRight/></Link>)}</div>:<div className="dashboard-empty compact"><FiActivity/> Hozircha kritik signal aniqlanmadi</div>}</section>
 
     <div className="dashboard-kpis">
       <StatCard icon={FiTrendingUp} label="Savdo" value={formatPrice(revenue)} hint={`${transactions} ta tranzaksiya`} tone="blue" trend={period!=="all"?{label:formatPct(salesChange),tone:salesChange==null?"neutral":salesChange>=0?"up":"down"}:null}/>
-      <StatCard icon={FiDollarSign} label="Sof foyda" value={formatPrice(netProfit)} hint={`Xarajat ${formatPrice(expenseTotal)}`} tone="green" trend={period!=="all"?{label:formatPct(profitChange),tone:profitChange==null?"neutral":profitChange>=0?"up":"down"}:null}/>
+      <StatCard icon={FiDollarSign} label="Hisoblangan sof natija" value={profitTrusted?formatPrice(netProfit):"—"} hint={profitTrusted?`Xarajat ${formatPrice(expenseTotal)} · hisoblangan, to‘liq sof foyda emas`:"Tannarx yoki hisobot dalillari yetarli emas"} tone="green" trend={profitTrusted&&period!=="all"?{label:formatPct(profitChange),tone:profitChange==null?"neutral":profitChange>=0?"up":"down"}:null}/>
       <StatCard icon={FiShoppingBag} label="O‘rtacha chek" value={formatPrice(average)} hint={`${transactions} ta chek`} tone="purple" trend={period!=="all"?{label:formatPct(avgChange),tone:avgChange==null?"neutral":avgChange>=0?"up":"down"}:null}/>
       <StatCard icon={FiActivity} label="Yalpi marja" value={`${margin.toFixed(1)}%`} hint={formatPrice(grossProfit)} tone="teal"/>
       <StatCard icon={FiPackage} label="Ombor qiymati" value={catalogComplete?formatPrice(inventoryValue):"—"} hint={catalogComplete?`${low.length} kam · ${out.length} tugagan`:"Qoldiq hali yuklanmagan"} tone="orange"/>
