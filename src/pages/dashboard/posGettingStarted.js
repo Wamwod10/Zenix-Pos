@@ -17,7 +17,7 @@ export function onboardingSteps({
  const firstSale=salesVisible?(dailySales.length>0||salesHistory.length>0):null;
  return [
   {id:'store',title:'Do‘konni sozlash',detail:'Filial nomi yoki biznes manzilini tekshiring.',path:'/settings',complete:can('moduleSettings')?configuredStore:null,enabled:can('moduleSettings')},
-  {id:'product',title:'Birinchi mahsulotni kiritish',detail:'Katalogda haqiqiy mahsulot bo‘lishi kerak.',path:'/products',complete:can('moduleProducts')?visibleProducts>0&&catalogComplete:null,enabled:can('moduleProducts')},
+  {id:'product',title:'Birinchi mahsulotni kiritish',detail:'Katalogda haqiqiy mahsulot bo‘lishi kerak.',path:'/products',complete:can('moduleProducts')?(catalogComplete?visibleProducts>0:null):null,enabled:can('moduleProducts')},
   {id:'sale',title:'Birinchi savdoni amalga oshirish',detail:'Faqat saqlangan haqiqiy savdo hisoblanadi.',path:'/sales',complete:firstSale,enabled:can('moduleSales')},
   {id:'report',title:'Bugungi hisobotni ko‘rish',detail:'Hisobot yuklangach ushbu sessiyada belgilash mumkin.',path:'/',complete:reportViewed,enabled:can('moduleDashboard')},
  ];
