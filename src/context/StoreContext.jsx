@@ -409,7 +409,7 @@ export const StoreProvider = ({ children }) => {
     const metadata=productMetadata(payload,inventoryState.find(item=>item.id===id)?.metadata||{});
     const body={name:payload.name,sku:payload.sku||"",barcode:payload.barcode||"",category:payload.category||"",brand:payload.brand||"",unit:payload.unit||"dona",costPrice:number(payload.costPrice,0),sellPrice:number(payload.sellPrice??payload.price,0),wholesalePrice:number(payload.wholesalePrice,0),minStock:number(payload.minStock,0),metadata};
     try{const data=id?await api.patch(`/api/products/${encodeURIComponent(id)}`,body):await api.post("/api/products",body);const product=productFromApi(data.product,stores.map((item)=>item.id));setInventoryState((items)=>id?items.map((item)=>item.id===id?{...item,...product,stockByStore:item.stockByStore,costByStore:item.costByStore,serializedUnits:Array.isArray(data.product.serializedUnits)?product.serializedUnits:item.serializedUnits,stockBatches:Array.isArray(data.product.stockBatches)?product.stockBatches:item.stockBatches}:item):[product,...items]);return {success:true,product}}
-    catch(error){return {success:false,message:error?.message||"Mahsulotni saqlab bo‘lmadi"}}
+    catch(error){return {success:false,message:error?.message||"Mahsulotni saqlab bo‘lmadi",code:error?.code,details:error?.details}}
   },[stores,inventoryState]);
 
   const setProductArchived=useCallback(async(productId,archived)=>{

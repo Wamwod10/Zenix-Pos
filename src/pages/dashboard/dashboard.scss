@@ -28,3 +28,27 @@ body.dark-mode .dashboard-kpis .pro-stat{background:linear-gradient(180deg,rgba(
 .dashboard-chart-empty strong{font-size:14px;font-weight:600;color:var(--text)}
 .dashboard-chart-empty span{font-size:12px;color:var(--muted);line-height:1.5}
 @media(max-width:700px){.dashboard-pro .dashboard-chart-area.is-empty{height:auto;min-height:170px}.dashboard-chart-empty{padding:18px 14px}}
+
+
+/* Trial and onboarding additions reuse the dashboard's graphite theme tokens. */
+.dashboard-pro .dashboard-trial-banner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;border-left:3px solid var(--primary);padding:16px 18px}
+.dashboard-trial-banner strong{font-size:14px;color:var(--text)}
+.dashboard-trial-banner p{font-size:12px;color:var(--muted);line-height:1.5;margin:5px 0 0}
+.dashboard-pro .dashboard-onboarding,.dashboard-pro .dashboard-quick-links{margin-bottom:16px}
+.dashboard-onboarding-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dashboard-onboarding-grid>div{display:flex;align-items:center;gap:10px;min-width:0;background:var(--soft-surface);padding:12px;border:1px solid var(--border);border-radius:12px}
+.dashboard-onboarding-grid>div>div{min-width:0;flex:1;display:grid;gap:4px}
+.dashboard-onboarding-grid strong{font-size:12.5px;color:var(--text)}
+.dashboard-onboarding-grid small{font-size:11px;color:var(--muted);line-height:1.5}
+.dashboard-onboarding-mark{width:26px;height:26px;display:grid;place-items:center;flex:none;border:1px solid var(--border);border-radius:50%;color:var(--muted)}
+.dashboard-onboarding-grid .is-complete .dashboard-onboarding-mark{background:var(--accent-soft);color:var(--primary);border-color:var(--primary)}
+.dashboard-onboarding-grid .pro-btn{min-height:40px;display:inline-flex;gap:5px;align-items:center;justify-content:center;white-space:nowrap}
+.dashboard-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.dashboard-quick-grid a{display:grid;grid-template-columns:20px minmax(0,1fr) 16px;align-items:center;column-gap:8px;row-gap:4px;min-height:76px;min-width:0;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--soft-surface);text-decoration:none;color:var(--text)}
+.dashboard-quick-grid a>svg:first-child{grid-row:1/3;color:var(--primary)}
+.dashboard-quick-grid a>svg:last-child{grid-column:3;grid-row:1/3;color:var(--muted)}
+.dashboard-quick-grid strong{grid-column:2;font-size:12px;overflow-wrap:anywhere}
+.dashboard-quick-grid small{grid-column:2;font-size:10.5px;color:var(--muted);line-height:1.4}
+.dashboard-quick-grid a:focus-visible,.dashboard-onboarding-grid a:focus-visible,.dashboard-onboarding-grid button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media(max-width:980px){.dashboard-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.dashboard-onboarding-grid{grid-template-columns:minmax(0,1fr)}.dashboard-quick-grid{grid-template-columns:minmax(0,1fr)}.dashboard-trial-banner .pro-btn{width:100%;justify-content:center}.dashboard-onboarding-grid>div{flex-wrap:wrap}.dashboard-onboarding-grid .pro-btn{margin-left:auto}}

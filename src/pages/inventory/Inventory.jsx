@@ -132,7 +132,8 @@ function Inventory(){
   const changeTab=(next)=>{setOperationError("");setTab(next)};
   const [moduleView,setModuleView]=useModuleView("inventory");
   const [search,setSearch]=useState("");
-  const [status,setStatus]=useState("all");
+  const [status,setStatus]=useState(()=>{const requested=new URLSearchParams(location.search).get("status");return ["all","ok","low","out"].includes(requested)?requested:"all"});
+  useEffect(()=>{const requested=new URLSearchParams(location.search).get("status");if(["all","ok","low","out"].includes(requested))setStatus(requested)},[location.search]);
   const [category,setCategory]=useState("all");
   const [receiveOpen,setReceiveOpen]=useState(false);
   const [quickOpen,setQuickOpen]=useState(false);

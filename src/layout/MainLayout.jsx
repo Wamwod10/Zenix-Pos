@@ -4,6 +4,7 @@ import {FiLock} from 'react-icons/fi';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {workspaceAccessState} from '../utils/license';
+import {trialOverview} from '../pages/dashboard/posGettingStarted';
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { ROLE_LABELS, ROLES } from "../config/roles";
@@ -111,6 +112,7 @@ function MainLayout(){
   const hasStoreSelector=!isPlatform&&management.includes(currentUser?.appRole)&&activeStores.length>0;
   const currentOrg=organizations.find(item=>item.id===currentUser?.organizationId);
   const subscriptionAccess=workspaceAccessState({organization:currentOrg,now:Date.now()+(currentOrg?.serverClockOffset||0)});
+  const trial=trialOverview(currentOrg,clock.getTime());
   const includedStores=Number(currentOrg?.includedStores||BILLING_CONFIG.annual.includedStores);
   const storeLimit=currentOrg?.planCode&&!currentOrg.legacy?Number(currentOrg?.limits?.stores??currentOrg.storeLimit):Math.max(includedStores,Number(currentOrg?.storeLimit||includedStores));
   const countedStores=currentOrg?.planCode&&!currentOrg.legacy?stores.length:activeStores.length;
@@ -379,6 +381,7 @@ function MainLayout(){
       {!isOnline&&<div className="mobile-offline-banner" role="status"><FiWifiOff/><span>Internet yo‘q · lokal rejim</span></div>}
       {canOpenAi&&<><ZenixAILauncher open={aiOpen} hidden={Boolean(guideSteps.length)} onOpen={()=>openAi('compact')}/><AppErrorBoundary><ZenixAI key={aiIdentity} open={aiOpen} mode={aiMode} onModeChange={setAiMode} onClose={()=>setAiOpen(false)}/></AppErrorBoundary></>}
       <main className="content" hidden={canOpenAi&&aiOpen&&aiMode==='expanded'}>
+        {!isPlatform&&trial?.active&&location.pathname!=='/'&&<div className="pro-alert info" role="status"><FiCalendar/><div><strong>14 kunlik bepul sinov · {trial.days} kun qoldi</strong><span>Tanlangan tarif imkoniyatlari va limitlari amal qiladi. Sinov tugaganda ma’lumotlar saqlanadi, yozish amallari cheklanadi.</span></div>{hasPermission('moduleBilling',currentUser?.appRole)&&<NavLink className="pro-btn secondary" to="/billing">Tariflarni ko‘rish</NavLink>}</div>}
         {!isPlatform&&subscriptionAccess.readOnly&&<div className="pro-alert warning" role="status"><FiLock/><div><strong>Faqat ko‘rish rejimi</strong><span>{subscriptionAccess.reason==='BILLING_HOLD'?'Billing cheklovi bor.':'Trial yoki obuna muddati tugagan.'} Ma’lumotlaringiz saqlangan. Ko‘rish va to‘lovga ruxsat bor; biznes amallari bloklangan.</span>{hasPermission('moduleBilling')&&<NavLink className="pro-btn secondary" to="/billing">Obunani faollashtirish</NavLink>}</div></div>}
         <AppErrorBoundary key={location.pathname}><Outlet/></AppErrorBoundary>
       </main>

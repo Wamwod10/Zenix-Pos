@@ -26,6 +26,7 @@ function Register(){
   const [otpBusy,setOtpBusy]=useState(false);
   const [now,setNow]=useState(Date.now());
   const [policy,setPolicy]=useState(null);
+  const [previewInterval,setPreviewInterval]=useState('MONTHLY');
   const [policyError,setPolicyError]=useState(false);
   const [serverOffset,setServerOffset]=useState(0);
   const loadPolicy=async()=>{
@@ -74,12 +75,12 @@ function Register(){
   return <main className="auth-page register-auth">
     <section className="auth-showcase">
       <div className="auth-brand"><span className="auth-brand-mark">Z</span><span>ZENIX POS</span></div>
-      <div className="auth-showcase-copy"><span className="auth-kicker">Yangi biznes</span><h1>Biznesingiz uchun tartibli va tez POS muhiti.</h1><p>Ro‘yxatdan o‘tish bir necha daqiqa. Keyin platformani biznesingizga moslab sozlaysiz.</p></div>
+      <div className="auth-showcase-copy"><span className="auth-kicker">14 kun bepul sinov</span><h1>14 kun bepul sinab ko‘ring.</h1><p>Tanlangan START, BUSINESS yoki PREMIUM tarifining imkoniyatlarini 14 kun davomida sinab ko‘ring. Ro‘yxatdan o‘tishda amaldagi shartlar serverdan tekshiriladi.</p></div>
       <div className="auth-feature-list"><div><FiShoppingCart/><span><strong>Savdo</strong><small>Tezkor POS va to‘lovlar</small></span></div><div><FiBarChart2/><span><strong>Boshqaruv</strong><small>Boshqaruv paneli, xarajat va analitika</small></span></div><div><FiShield/><span><strong>Nazorat</strong><small>Rollar va ruxsatlar</small></span></div></div>
     </section>
     <section className="auth-form-side"><div className="auth-card auth-register-card">
       <div className="auth-mobile-brand"><span className="auth-brand-mark">Z</span><strong>ZENIX POS</strong></div>
-      <div className="auth-title"><span>1 daqiqada boshlang</span><h2>Yangi biznes yaratish</h2><p>Asosiy ma’lumotlarni kiriting. Tanlangan tarifingizda 14 kun bepul ishlang.</p></div>
+      <div className="auth-title"><span>ZENIX Savdo · POS ilovasi</span><h2>14 kun bepul sinab ko‘ring</h2><p>Biznesingizni ro‘yxatdan o‘tkazing va mavjud tariflardan birini sinov uchun tanlang. Trial muddati va ruxsatlarni backend boshqaradi.</p></div>
       {errors.form&&<div className="auth-error" role="alert">{errors.form}</div>}
       <form onSubmit={submit} noValidate>
         <div className="auth-register-grid">
@@ -89,8 +90,8 @@ function Register(){
           <label className="auth-field"><span>Kirish nomi</span><div className={`auth-input ${errors.login?"invalid":""}`}><FiUser/><input value={form.login} onBlur={()=>{if(form.login&&isLoginTaken(form.login))setErrors(p=>({...p,login:"Bu kirish nomi band"}))}} onChange={e=>set("login",e.target.value)} placeholder="Kirish nomi" autoComplete="username"/></div>{errors.login&&<small className="auth-field-error">{errors.login}</small>}</label>
           <label className="auth-field"><span>Parol</span><div className={`auth-input ${errors.password?"invalid":""}`}><FiLock/><input type={showPassword?"text":"password"} value={form.password} onChange={e=>set("password",e.target.value)} placeholder="Kamida 8 ta belgi" autoComplete="new-password"/><button className="auth-eye" type="button" aria-label={showPassword?"Parolni yashirish":"Parolni ko‘rsatish"} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<FiEyeOff/>:<FiEye/>}</button></div>{errors.password&&<small className="auth-field-error">{errors.password}</small>}<div className="password-strength" aria-label="Parol kuchi"><i className={strength>=1?"on":""}/><i className={strength>=2?"on":""}/><i className={strength>=3?"on":""}/><i className={strength>=4?"on":""}/><span>{strength<=1?"Oddiy":strength===2?"Yaxshi":strength===3?"Kuchli":"Juda kuchli"}</span></div></label>
         </div>
-        <fieldset className="registration-options"><legend>{form.startOption==='PAID'?'Tarifni tanlang — to‘lov tasdiqlangach faollashadi':'Tarifni tanlang — 14 kun bepul sinab ko‘ring'}</legend><SubscriptionPlans plans={policy?.plans} value={form.planCode} onChange={value=>set('planCode',value)} registration={form.startOption==='TRIAL'}/><small>Oylik yoki yillik davrni to‘lov paytida tanlaysiz. {form.startOption==='TRIAL'?'Trial tugagach ma’lumotlaringiz saqlanadi va faqat ko‘rish rejimi yoqiladi.':'To‘lov tasdiqlanmaguncha faqat ko‘rish rejimi ishlaydi.'}</small></fieldset>
-        {(errors.phone||form.startOption==='PAID')&&<label className="auth-field"><span><input type="checkbox" checked={form.startOption==='PAID'} onChange={e=>set('startOption',e.target.checked?'PAID':'TRIAL')}/> Sinovsiz boshlash va to‘lovga o‘tish</span><small>Tarif to‘lov tasdiqlangach ochiladi. To‘lov davri keyingi bosqichda tanlanadi.</small></label>}
+        <fieldset className="registration-options"><legend>{form.startOption==='PAID'?'Tarifni tanlang — to‘lov tasdiqlangach faollashadi':'Sinov tarifi — 14 kun bepul'}</legend><div className="registration-pricing-interval" role="group" aria-label="Tarif narxlarini ko‘rish"><span>Sinovdan keyingi narxlar:</span><button type="button" className={previewInterval==='MONTHLY'?'active':''} onClick={()=>setPreviewInterval('MONTHLY')} aria-pressed={previewInterval==='MONTHLY'}>Oylik</button><button type="button" className={previewInterval==='ANNUAL'?'active':''} onClick={()=>setPreviewInterval('ANNUAL')} aria-pressed={previewInterval==='ANNUAL'}>Yillik</button></div><SubscriptionPlans plans={policy?.plans} value={form.planCode} onChange={value=>set('planCode',value)} interval={previewInterval} registration={form.startOption==='TRIAL'}/><p className="subscription-trial-terms">{form.startOption==='TRIAL'?'14 kun davomida tanlangan tarifning standart POS modullari va tarif limitlari amal qiladi. START tarifida AI mavjud emas; BUSINESS va PREMIUM tariflarida mos ravishda oyiga 100 va 500 so‘rov limiti bor. Sinov tugagach ma’lumotlar saqlanadi, biznes amallari faqat ko‘rish rejimiga o‘tadi. Davom ettirish uchun tarif bo‘yicha to‘lovni tasdiqlatish kerak.':'Tarif faqat to‘lov tasdiqlangandan keyin faollashadi.'}</p><small>Oylik/yillik tugmalar hozir narxni ko‘rsatadi; haqiqiy to‘lov davri checkout bosqichida tanlanadi va serverda hisoblanadi.</small></fieldset>
+        {<label className="auth-field"><span><input type="checkbox" checked={form.startOption==='PAID'} onChange={e=>set('startOption',e.target.checked?'PAID':'TRIAL')}/> Sinovsiz boshlash va to‘lovga o‘tish</span><small>Tarif to‘lov tasdiqlangach ochiladi. To‘lov davri keyingi bosqichda tanlanadi.</small></label>}
         {form.startOption==="TRIAL"&&policyError&&<div className="auth-error" role="alert">Ro'yxatdan o'tish sozlamalari yuklanmadi. <button type="button" onClick={loadPolicy}>Qayta urinish</button></div>}
         {form.startOption==="TRIAL"&&requiresOtp&&policy&&<section className="registration-otp" aria-label="Telefonni tasdiqlash">
           {verified?<p className="auth-privacy" role="status"><FiCheckCircle/> Telefon tasdiqlandi</p>:<>
@@ -100,7 +101,7 @@ function Register(){
           {proof&&!verified&&<small className="auth-field-error" role="status">Tasdiqlash muddati tugadi. Yangi SMS kod oling.</small>}
           {otpError&&<div className="auth-error" role="alert">{otpError}</div>}
         </section>}
-        <button className="auth-submit" disabled={submitting||otpBusy||(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!verified)))} type="submit">{submitting?"Tizim tayyorlanmoqda...":"Davom etish"}</button>
+        <button className="auth-submit" disabled={submitting||otpBusy||(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!verified)))} type="submit">{submitting?"Tizim tayyorlanmoqda...":form.startOption==='TRIAL'?"14 kun bepul sinab ko‘ring":"To‘lovga o‘tish"}</button>
       </form>
       <div className="auth-privacy"><FiCheckCircle/> Ma’lumotlaringiz alohida va toza ish maydonida saqlanadi.</div>
       <div className="auth-switch">Akkauntingiz bormi? <Link to="/login">Kirish</Link></div>

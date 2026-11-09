@@ -1,3 +1,13 @@
 .register-auth .registration-otp{margin:0 0 14px;display:grid;gap:9px;min-width:0}.register-auth .registration-otp .auth-field{margin:0}.register-auth .registration-otp>small{font-size:11.5px;color:var(--muted)}.register-auth .registration-otp .auth-privacy{margin:0;justify-content:flex-start}.register-auth .registration-otp .auth-error{margin:0}
 .register-auth .auth-register-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:560px){.register-auth{grid-template-columns:minmax(0,1fr)}.register-auth .auth-form-side{min-width:0;grid-template-columns:minmax(0,1fr)}.register-auth .auth-register-grid{grid-template-columns:minmax(0,1fr)}.register-auth .auth-field{min-width:0}.register-auth .auth-card{box-sizing:border-box;max-width:100%}}
+
+
+/* Existing graphite/dark tokens are inherited from the authentication theme. */
+.register-auth .registration-pricing-interval{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.register-auth .registration-pricing-interval span{font-size:12px;color:var(--muted);margin-right:auto}
+.register-auth .registration-pricing-interval button{min-height:40px;padding:8px 13px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:11px;cursor:pointer;font-weight:600}
+.register-auth .registration-pricing-interval button.active{background:var(--accent-soft);border-color:var(--primary);color:var(--primary)}
+.register-auth .registration-pricing-interval button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.register-auth .subscription-trial-terms{font-size:12px;line-height:1.6;color:var(--text);border-left:3px solid var(--primary);padding:9px 12px;margin:12px 0;background:var(--soft-surface);border-radius:5px 10px 10px 5px}
+@media(max-width:560px){.register-auth .registration-pricing-interval span{flex:1 0 100%}.register-auth .registration-pricing-interval button{flex:1}}
