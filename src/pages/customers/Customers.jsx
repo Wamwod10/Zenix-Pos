@@ -25,7 +25,8 @@ export default function Customers(){
  const [items,setItems]=useState([]),[total,setTotal]=useState(0),[q,setQ]=useState(initialSearch),[loading,setLoading]=useState(true),[error,setError]=useState("");
  const [stats,setStats]=useState(null),[statsError,setStatsError]=useState(""),[createOpen,setCreateOpen]=useState(false),[editOpen,setEditOpen]=useState(false),[form,setForm]=useState(empty),[saving,setSaving]=useState(false),[detail,setDetail]=useState(null),[tab,setTab]=useState("overview");
  const [formError,setFormError]=useState("");
- const [customerFilter,setCustomerFilter]=useState("all"),[customerSort,setCustomerSort]=useState("name"),[direction,setDirection]=useState("asc"),[offset,setOffset]=useState(0);
+ const [customerFilter,setCustomerFilter]=useState(()=>["all","debtors","overdue","vip","regular","active","inactive"].includes(searchParams.get("filter"))?searchParams.get("filter"):"all"),[customerSort,setCustomerSort]=useState("name"),[direction,setDirection]=useState("asc"),[offset,setOffset]=useState(0);
+ useEffect(()=>{const requested=searchParams.get("filter");if(["all","debtors","overdue","vip","regular","active","inactive"].includes(requested))setCustomerFilter(requested)},[searchParams]);
  const [selectedTags,setSelectedTags]=useState([]),[tagOptions,setTagOptions]=useState({configured:[],existing:[]}),[tagDraft,setTagDraft]=useState(""),[tagConfigOpen,setTagConfigOpen]=useState(false);
  const [historyState,setHistoryState]=useState({}),[detailLoading,setDetailLoading]=useState(false);const detailRequest=useRef(0),historyBusy=useRef(new Set());
  useEffect(()=>{api.get("/api/customers/tags").then(value=>{const configured=Array.isArray(value?.configured)?value.configured:[],existing=Array.isArray(value?.existing)?value.existing:[];setTagOptions({configured,existing});setTagDraft(configured.join(", "))}).catch(()=>{})},[]);
