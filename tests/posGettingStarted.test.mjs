@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {trialOverview,onboardingSteps,profitEvidenceComplete} from '../src/pages/dashboard/posGettingStarted.js';
 
-const ownerPermissions=new Set(['moduleSettings','moduleProducts','moduleSales','moduleDashboard','moduleBilling']);
+const ownerPermissions=new Set(['moduleSettings','moduleProducts','productWrite','moduleSales','moduleDashboard','moduleBilling']);
 const can=key=>ownerPermissions.has(key);
 const store={id:'b1111111-1111-4111-8111-111111111111',name:'Asosiy filial',active:true};
 const business={id:'org-test',address:'',trialEndsAt:'2026-11-20T12:00:00.000Z',accessMode:'READ_WRITE',serverClockOffset:0};
