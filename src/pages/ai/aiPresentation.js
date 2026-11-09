@@ -56,6 +56,21 @@ export function aiMessageReports(message){
  const reports=(message.toolResults||[]).filter(t=>t.result?.kind==='report'&&t.result.report).map(t=>t.result.report);
  return reports.length?reports:message.report?[message.report]:[];
 }
+// Show server-returned evidence context next to the answer rather than hiding
+// its period/branch scope behind a details expander. This is presentation-only:
+// never infer current dates, unrestricted tenant access or missing report facts.
+export function aiReportContexts(message){
+ return aiMessageReports(message).map(report=>{
+  const sources=[report,...(Array.isArray(report?.facts)?report.facts:[]),...(Array.isArray(report?.tables)?report.tables:[])];
+  const dates=[...new Set(sources.filter(row=>row&&typeof row.from==='string'&&typeof row.to==='string'&&row.from&&row.to)
+    .map(row=>`${row.from} — ${row.to}`))];
+  return {
+   periods:dates,
+   scope:report?.storeId?'Tanlangan filial':'Ruxsat etilgan filiallar',
+   ownSales:Boolean(report?.sellerScoped),
+  };
+ });
+}
 export function aiErrorMessage(error){
  if(error?.details?.reason==='token_exhaustion')return 'AI javobi token chegarasida tugadi. Savolni qisqartiring yoki qismlarga bo‘ling.';
  const messages={
