@@ -1,5 +1,5 @@
 import {financialSalesEvents,projectInventoryScope,rankProductEvents} from "../../utils/reporting";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertTriangle, FiArrowRight, FiCreditCard, FiDollarSign, FiPackage, FiRefreshCw,
   FiShoppingBag, FiTrendingDown, FiTrendingUp, FiTruck, FiRotateCcw, FiActivity,
@@ -8,6 +8,7 @@ import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts"
 import { Link } from "react-router-dom";
 import { useStore } from "../../context/StoreContext";
 import { useAuth } from "../../context/AuthContext";
+import { api } from "../../services/apiClient";
 import {onboardingSteps,trialOverview,profitEvidenceComplete} from "./posGettingStarted";
 import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
@@ -32,6 +33,19 @@ function Dashboard(){
   const {currentUser}=useAuth();
   const organization=organizations.find(row=>row.id===currentUser?.organizationId);
   const trial=trialOverview(organization);
+  const [customerBalance,setCustomerBalance]=useState(null);
+  useEffect(()=>{
+    // The existing customers/stats endpoint is organization-wide; only owners
+    // receive this aggregate in the dashboard. Never relabel it as branch-only.
+    if(currentUser?.appRole!=='OWNER'||!hasPermission('moduleSales',currentUser.appRole)){
+      setCustomerBalance(null);return;
+    }
+    const controller=new AbortController();setCustomerBalance(null);
+    api.get('/api/customers/stats',{signal:controller.signal}).then(data=>{
+      if(!controller.signal.aborted&&Number.isFinite(Number(data?.balance)))setCustomerBalance(Number(data.balance));
+    }).catch(()=>{if(!controller.signal.aborted)setCustomerBalance(null)});
+    return()=>controller.abort();
+  },[currentUser?.id,currentUser?.organizationId,currentUser?.appRole,hasPermission]);
   const organizationSettings=workspaceSettings.organization||{};
   const [period,setPeriod]=useState("7");
   const [store,setStore]=useBranchFilter(currentStoreId);
@@ -181,7 +195,7 @@ function Dashboard(){
     {showOnboarding&&<section className="pro-card dashboard-onboarding" aria-label="Boshlang‘ich sozlash"><div className="pro-card-head"><div><h2>ZENIX Savdoda ilk qadamlar</h2><p>${onboarding.filter(step=>step.complete===true).length} / 4 qadam bajarildi · faqat haqiqiy, yuklangan ma’lumot asosida</p></div></div><div className="dashboard-onboarding-grid">{onboarding.map(step=><div key={step.id} className={step.complete===true?'is-complete':''}><span className="dashboard-onboarding-mark" aria-hidden="true">{step.complete===true?'✓':'○'}</span><div><strong>{step.title}</strong><small>{step.complete===null?'Holatni tekshirish uchun ma’lumot yoki ruxsat kerak':step.complete===true?'Bajarilgan':step.detail}</small></div>{step.enabled&&(step.id==='report'?<button type="button" className="pro-btn secondary" onClick={()=>setPeriod('1')}>Bugungi hisobot <FiArrowRight/></button>:<Link className="pro-btn secondary" to={step.path}>Ochish <FiArrowRight/></Link>)}</div>)}</div></section>}
     <section className="pro-card dashboard-quick-links" aria-label="Kundalik nazorat"><div className="pro-card-head"><div><h2>Kundalik nazorat</h2><p>Tanlangan filial va davrga tegishli bo‘limlarga tez o‘ting.</p></div></div><div className="dashboard-quick-grid">
      {hasPermission('moduleInventory',currentUser?.appRole)&&<Link to="/inventory?status=low"><FiPackage/><strong>{catalogComplete?`${low.length} ta kam qoldiq`:'Qoldiq tekshirilmoqda'}</strong><small>Kam qolgan mahsulotlar</small><FiArrowRight/></Link>}
-     {hasPermission('moduleSales',currentUser?.appRole)&&<Link to="/customers?filter=debtors"><FiCreditCard/><strong>Mijoz qarzlari</strong><small>Mijozlar ro‘yxatidagi qarzdorlar</small><FiArrowRight/></Link>}
+     {hasPermission('moduleSales',currentUser?.appRole)&&<Link to="/customers?filter=debtors"><FiCreditCard/><strong>{currentUser?.appRole==='OWNER'&&customerBalance!==null?`Qarz balansi: ${formatPrice(customerBalance)}`:"Mijoz qarzlari"}</strong><small>{currentUser?.appRole==='OWNER'?"Barcha filiallar · qarzdorlar ro‘yxati":"Qarzdorlar ro‘yxati"}</small><FiArrowRight/></Link>}
      {hasPermission('moduleShifts',currentUser?.appRole)&&<Link to="/shifts"><FiActivity/><strong>{activeShift?.id?'Smena ochiq':'Smena ochilmagan'}</strong><small>Kassa va smenalar</small><FiArrowRight/></Link>}
      {hasPermission('moduleHistory',currentUser?.appRole)&&<Link to={`/history?from=${range.startKey}&to=${range.endKey}`}><FiShoppingBag/><strong>Kunlik savdo tarixi</strong><small>Tanlangan davr savdolari</small><FiArrowRight/></Link>}
     </div></section>
