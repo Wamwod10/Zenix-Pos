@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizedPosLayout,posCatalogVisible} from '../src/pages/posPro/posLayout.js';
+import {normalizedPosLayout,posCatalogVisible,posSearchResults} from '../src/pages/posPro/posLayout.js';
 
 test('existing cashier layouts remain stable and quick layout is opt-in',()=>{
  assert.equal(normalizedPosLayout('classic'),'classic');
@@ -19,6 +19,15 @@ test('quick mode hides idle product grid until cashier searches or explicitly br
  assert.equal(posCatalogVisible({layout:'quick',catalogMode:'popular'}),true);
  assert.equal(posCatalogVisible({layout:'quick',browse:true}),true);
  assert.equal(posCatalogVisible({layout:'quick',search:'',category:'',catalogMode:'all',browse:false}),false);
+});
+
+test('new cashier search does not display cached results from an older query',()=>{
+ const old=[{id:'a',name:'Olma'},{id:'b',name:'Sut'}];
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'new',searchReady:false}),[]);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'new',searchReady:true}),old);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'popular',search:'',searchReady:false}),old);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'',searchReady:false}),old);
+ assert.equal(old.length,2,'original scoped catalog cache is not mutated');
 });
 
 test('classic and touch still show full catalog; no stock or checkout business logic is changed',()=>{
