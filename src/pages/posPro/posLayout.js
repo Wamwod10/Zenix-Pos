@@ -16,3 +16,11 @@ export function posSearchResults({products=[],catalogMode='all',search='',search
  if(catalogMode==='all'&&!searchReady)return [];
  return products;
 }
+
+export function posPrimaryPaymentMethod(paymentMethods={},creditAllowed=true){
+ // F12 must honor the exact payment methods configured for this workspace.
+ // Prefer common immediate methods; credit is offered only if enabled.
+ const allowed=paymentMethods&&typeof paymentMethods==='object'?paymentMethods:{};
+ return ['cash','card','transfer','split','credit']
+  .find(method=>allowed[method]!==false&&(method!=='credit'||creditAllowed))||null;
+}
