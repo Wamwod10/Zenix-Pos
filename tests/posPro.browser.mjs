@@ -565,7 +565,7 @@ try{
  {
   const r=await setup({cartSize:1,paymentMethods:{cash:false,card:true,transfer:false,split:false,credit:false}}),p=r.page;
   await expect(p.locator('.pp-pay-cash')).toHaveCount(0);
-  await expect(p.locator('.pp-checkout')).toContainText('Karta to‘lovi');
+  await expect(p.locator('.pp-checkout')).toContainText('Karta orqali to‘lov');
   await p.keyboard.press('F12');
   await expect(p.getByRole('dialog',{name:'To‘lov — Karta'})).toBeVisible();
   assert.equal(r.posts,0,'opening card payment must not directly post a sale');
