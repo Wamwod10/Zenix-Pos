@@ -585,6 +585,20 @@ try{
   assert.equal(r.posts,0,'cart line edits must not submit sales');
   await r.context.close();
  }
+ // Checkout modal provides a labeled payment summary and keyboard-ready
+ // cash input, but still requires explicit final review before posting.
+ {
+  const r=await setup({cartSize:1}),p=r.page;
+  await p.keyboard.press('F12');
+  await expect(p.getByRole('dialog',{name:'To‘lov — Naqd'})).toBeVisible();
+  const summary=p.getByRole('group',{name:'To‘lov xulosasi'});
+  await expect(summary).toContainText('Chek jami');
+  await expect(summary).toContainText('Mijoz bergan summani kiriting');
+  await expect(p.getByLabel('Mijoz bergan naqd',{exact:true})).toBeFocused();
+  await expect(p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true})).toBeDisabled();
+  assert.equal(r.posts,0,'payment opening must never write a sale');
+  await p.keyboard.press('Escape');await r.context.close();
+ }
  // Payment action and F12 shortcut must honor disabled methods from settings.
  {
   const r=await setup({cartSize:1,paymentMethods:{cash:false,card:true,transfer:false,split:false,credit:false}}),p=r.page;
