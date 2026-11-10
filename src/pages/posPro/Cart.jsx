@@ -1,17 +1,35 @@
 import {FiTrash2,FiPackage,FiPlus,FiArrowRight,FiShoppingBag} from 'react-icons/fi';
 import {displayUnit} from './presentation';
-import {memo,useState,useRef,useCallback} from 'react';
+import {memo,useState,useRef,useCallback,useEffect} from 'react';
 import {lineAmount} from '../../utils/posMoney';
 import {finalUnitPrice,quantityStep,formatProMoney as formatPrice} from './model';
 const CartLine=memo(function CartLine({line,index,cartPct,locked,canDiscount,onQuantity,onDiscount,onRemove,onTracking,touch,selected,onSelect}){
  const [qty,setQty]=useState(null),[discount,setDiscount]=useState(null);
+ const discardQty=useRef(false),discardDiscount=useRef(false);
  const step=quantityStep(line.unit);
- const commitQty=()=>{if(qty!==null){onQuantity(line.id,qty);setQty(null)}};
- const commitDiscount=()=>{if(discount!==null){onDiscount(line.id,discount);setDiscount(null)}};
+ // A scanner or server reconciliation may update a line while a field is
+ // focused. Discard the old draft instead of overwriting fresh stock data.
+ useEffect(()=>{setQty(null)},[line.cartQty]);
+ useEffect(()=>{setDiscount(null)},[line.discountPercent]);
+ const commitQty=()=>{
+  if(discardQty.current){discardQty.current=false;setQty(null);return}
+  if(qty!==null){onQuantity(line.id,qty);setQty(null)}
+ };
+ const commitDiscount=()=>{
+  if(discardDiscount.current){discardDiscount.current=false;setDiscount(null);return}
+  if(discount!==null){onDiscount(line.id,discount);setDiscount(null)}
+ };
+ const cancelEdit=(event,kind)=>{
+  if(event.key!=='Escape')return;
+  event.preventDefault();event.stopPropagation();
+  if(kind==='quantity'){discardQty.current=true;setQty(null)}
+  else{discardDiscount.current=true;setDiscount(null)}
+  event.currentTarget.blur();
+ };
  return <article className="pp-cart-line" data-product-id={line.id} data-selected={touch&&selected||undefined} tabIndex={touch?0:undefined} onClick={touch?()=>onSelect(line.id):undefined} onKeyDown={touch?e=>{if(e.target===e.currentTarget&&['Enter',' '].includes(e.key)){e.preventDefault();onSelect(line.id)}}:undefined}>
   <span className="pp-line-index">{index+1}</span><div className="pp-line-name"><strong>{line.name}</strong><small>{formatPrice(line.sellPrice)} / {displayUnit(line.unit)} · {line.barcode||line.sku||'—'}</small>{((line.serializedUnits||[]).length>0||(line.stockBatches||[]).length>0)&&<button className="pp-tracking-link" disabled={locked} onClick={()=>onTracking(line.id)}><FiPackage/>{line.tracking?.serials?.length?`${line.tracking.serials.length} Serial tanlangan`:(line.serializedUnits||[]).length?'Serial tanlang':'Partiya · FEFO'}</button>}</div>
-  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||line.cartQty<=step} onClick={()=>onQuantity(line.id,Math.round((line.cartQty-step)*1000)/1000)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onClick={()=>onQuantity(line.id,Math.round((line.cartQty+step)*1000)/1000)}>+</button><small>{displayUnit(line.unit)}</small></div>
-  <label className="pp-line-discount"><input aria-label={`${line.name} chegirma`} type="number" min="0" max="100" value={discount??line.discountPercent??0} disabled={locked||!canDiscount} onChange={e=>setDiscount(e.target.value)} onBlur={commitDiscount}/>%</label><strong className="pp-line-total">{formatPrice(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))}</strong><button className="pp-remove" aria-label={`${line.name} olib tashlash`} disabled={locked} onClick={()=>onRemove(line.id)}><FiTrash2/></button>
+  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||line.cartQty<=step} onClick={()=>onQuantity(line.id,Math.round((line.cartQty-step)*1000)/1000)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'quantity');return}if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onClick={()=>onQuantity(line.id,Math.round((line.cartQty+step)*1000)/1000)}>+</button><small>{displayUnit(line.unit)}</small></div>
+  <label className="pp-line-discount"><input aria-label={`${line.name} chegirma`} type="number" min="0" max="100" value={discount??line.discountPercent??0} disabled={locked||!canDiscount} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setDiscount(e.target.value)} onBlur={commitDiscount} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'discount');return}if(e.key==='Enter')e.currentTarget.blur()}}/>%</label><strong className="pp-line-total">{formatPrice(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))}</strong><button className="pp-remove" aria-label={`${line.name} olib tashlash`} disabled={locked} onClick={()=>onRemove(line.id)}><FiTrash2/></button>
  </article>;
 });
 // Catalog typing and clock ticks must not traverse all 500 receipt lines.
