@@ -64,7 +64,14 @@ function Workspace({user,store}){
  useEffect(()=>{if(session.ready&&!modal&&!payment&&!camera&&!trackingId&&!session.receipt)barcodeRef.current?.focus()},[session.ready,modal,payment,camera,trackingId,session.receipt]);
  useUnsavedGuard(session.cart.length>0||Boolean(session.recovery)||Boolean(session.holdRecovery),'Joriy POS Pro chek drafti saqlanadi. Noma’lum to‘lov bo‘lsa, shu savdoni qayta tekshiring.');
  useEffect(()=>{active.current=true;const tick=setInterval(()=>setClock(new Date()),1000);const status=()=>setOnline(navigator.onLine);window.addEventListener('online',status);window.addEventListener('offline',status);return()=>{active.current=false;clearInterval(tick);window.removeEventListener('online',status);window.removeEventListener('offline',status)}},[]);
- useEffect(()=>{const timer=setTimeout(()=>{void catalog.search({...(search.trim()?{search:search.trim()}:{}),...(category?{category}:{})})},160);return()=>clearTimeout(timer)},[search,category,catalog.search]);
+ useEffect(()=>{
+  // Quick cashier mode never loads an idle product page: barcode lookup and
+  // cart pinning use independent scoped catalog endpoints and still work.
+  // A search, explicit catalog toggle, category or popular view opts in.
+  if(!posCatalogVisible({layout,search,category,catalogMode,browse:browseCatalog}))return;
+  const timer=setTimeout(()=>{void catalog.search({...(search.trim()?{search:search.trim()}:{}),...(category?{category}:{})})},160);
+  return()=>clearTimeout(timer);
+ },[layout,search,category,catalogMode,browseCatalog,catalog.search]);
  const refreshSummary=async()=>{
   if(!navigator.onLine||document.hidden||summaryRequest.current)return;summaryRequest.current=true;
   try{const data=await api.get(`/api/sales/pos-pro/summary?${new URLSearchParams({storeId:store.currentStoreId,...(store.activeShift?{shiftId:store.activeShift.id}:{})})}`,{signal:AbortSignal.timeout(10000)});if(active.current){setSummary(data);setSummaryError('')}}
