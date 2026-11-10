@@ -510,6 +510,16 @@ try{
   await expect(p.locator('.pos-pro')).toHaveClass(/pp-quick/);
   await expect(p.locator('.pp-quick-intro')).toBeVisible();
   await expect(p.locator('.pp-products')).toBeHidden();
+  const popularRequests=[];
+  p.on('request',request=>{
+   const url=new URL(request.url());
+   if(url.pathname==='/api/bootstrap/catalog')popularRequests.push({ids:url.searchParams.get('ids'),search:url.searchParams.get('search')});
+  });
+  await p.getByRole('button',{name:'Smenada ko‘p sotilgan',exact:true}).click();
+  await expect(p.locator('.pp-products .pp-product')).toHaveCount(1);
+  await expect(p.locator('.pp-products .pp-product').first()).toContainText('Mahsulot 2');
+  await expect.poll(()=>popularRequests.filter(request=>request.ids).length).toBeGreaterThan(0);
+  assert.equal(popularRequests.filter(request=>!request.ids).length,0,'popular products must not cause a redundant unfiltered catalog read');
   await p.getByLabel('POS Pro qidiruv').fill('Olma');
   await expect(p.locator('.pp-product').first()).toBeVisible();
   await p.locator('.pp-product').first().click();
