@@ -24,5 +24,6 @@
   "src/pages/ai/zenixAi.scss": "6cfef985811c727a60c847b2893a1e186692c6bb508958dbca873ad87f4d0ab5",
   "src/pages/posPro/posPro.scss": "9fcda569a597e2814fe3bf783d80a6a4dafc044937f2eb568e4e5fb5a34f1518",
   "src/pages/posPro/touchPos.scss": "adbf0ebfc5a3be7de335efed4122ed523079f35d349a309308f3da5c24b945ef",
-  "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748"
+  "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748",
+  "src/pages/posPro/posQuick.scss": "cbcb1006d0f51bf5853a48596f45667fdd157c91a22a575ce8a42a570eed0f77"
 }
