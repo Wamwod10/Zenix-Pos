@@ -501,6 +501,32 @@ try{
   }
  }
  if(!uxOnly){
+ // Quick mode is an opt-in cashier UI, not a new checkout implementation.
+ // Exercise real product search and scanner with the synthetic scoped API.
+ {
+  const r=await setup({width:1366,height:768}),p=r.page;
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await expect(p.locator('.pos-pro')).toHaveClass(/pp-quick/);
+  await expect(p.locator('.pp-quick-intro')).toBeVisible();
+  await expect(p.locator('.pp-products')).toBeHidden();
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
+  await p.locator('.pp-product').first().click();
+  await expect(p.locator('.pp-cart-line')).toHaveCount(1);
+  await expect(p.locator('.pp-products')).toBeHidden();
+  await p.getByLabel('Barcode',{exact:true}).fill('12345678');
+  await p.getByRole('button',{name:'Barcode qo‘shish'}).click();
+  await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+  await p.getByRole('button',{name:'Katalog',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeVisible();
+  await p.getByRole('button',{name:'Katalogni yopish',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeHidden();
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Classic POS Pro',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeVisible();
+  await r.context.close();
+ }
  const reviewOnly=process.env.POS_PRO_REVIEW_ONLY;
  if(!reviewOnly||reviewOnly==='hold'){
   const r=await setup();await r.page.locator('.pp-product').first().click();r.holdStatus=409;await r.page.keyboard.press('F5');
