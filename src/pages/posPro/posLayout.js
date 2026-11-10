@@ -24,3 +24,13 @@ export function posPrimaryPaymentMethod(paymentMethods={},creditAllowed=true){
  return ['cash','card','transfer','split','credit']
   .find(method=>allowed[method]!==false&&(method!=='credit'||creditAllowed))||null;
 }
+
+export function posPrimaryPaymentLabel(method){
+ return ({
+  cash:'Naqd to‘lov',
+  card:'Karta orqali to‘lov',
+  transfer:'O‘tkazma orqali to‘lov',
+  split:'Aralash to‘lov',
+  credit:'Nasiya savdo',
+ })[method]||'To‘lov usuli mavjud emas';
+}
