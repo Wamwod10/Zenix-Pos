@@ -10,8 +10,9 @@ export function posCatalogVisible({layout='classic',search='',category='',catalo
 }
 
 export function posSearchResults({products=[],catalogMode='all',search='',searchReady=true}={}){
- // An old query can remain in the cache while the 160 ms debounce runs.
- // Never present its products as matches for a newly typed search.
- if(catalogMode==='all'&&String(search).trim()&&!searchReady)return [];
+ // Old search/category results remain in the cache during the 160 ms
+ // debounce. Do not present them as belonging to the new filter (including
+ // when the user clears the category and returns to all products).
+ if(catalogMode==='all'&&!searchReady)return [];
  return products;
 }
