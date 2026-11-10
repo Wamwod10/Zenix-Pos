@@ -561,6 +561,24 @@ try{
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
   await r.context.close();
  }
+ // Quantity and discount edits support Enter to commit and Esc to cancel,
+ // without creating a sale or changing the existing server checkout workflow.
+ {
+  const r=await setup({cartSize:1}),p=r.page;
+  const qty=p.getByLabel('Olma miqdori',{exact:true});
+  const discount=p.getByLabel('Olma chegirma',{exact:true});
+  await expect(qty).toHaveValue('1');
+  await qty.fill('4');await qty.press('Escape');
+  await expect(qty).toHaveValue('1');
+  await qty.fill('3');await qty.press('Enter');
+  await expect(qty).toHaveValue('3');
+  await discount.fill('8');await discount.press('Escape');
+  await expect(discount).toHaveValue('0');
+  await discount.fill('5');await discount.press('Enter');
+  await expect(discount).toHaveValue('5');
+  assert.equal(r.posts,0,'cart line edits must not submit sales');
+  await r.context.close();
+ }
  // Payment action and F12 shortcut must honor disabled methods from settings.
  {
   const r=await setup({cartSize:1,paymentMethods:{cash:false,card:true,transfer:false,split:false,credit:false}}),p=r.page;
