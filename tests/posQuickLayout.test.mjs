@@ -26,7 +26,10 @@ test('new cashier search does not display cached results from an older query',()
  assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'new',searchReady:false}),[]);
  assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'new',searchReady:true}),old);
  assert.deepEqual(posSearchResults({products:old,catalogMode:'popular',search:'',searchReady:false}),old);
- assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'',searchReady:false}),old);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'',searchReady:false}),[]);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',search:'',searchReady:true}),old);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',category:'Ichimlik',searchReady:false}),[]);
+ assert.deepEqual(posSearchResults({products:old,catalogMode:'all',category:'',searchReady:false}),[],'clearing a category cannot expose the previous category as full catalog');
  assert.equal(old.length,2,'original scoped catalog cache is not mutated');
 });
 
