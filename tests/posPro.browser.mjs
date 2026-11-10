@@ -574,10 +574,10 @@ try{
   await expect(qty).toHaveValue('3');
   await qty.fill('5');
   await p.getByRole('button',{name:'Olma miqdorini oshirish'}).click();
-  await expect(qty).toHaveValue('6');
+  await expect(qty).toHaveValue('5.05');
   await qty.fill('4');
   await p.getByRole('button',{name:'Olma miqdorini kamaytirish'}).click();
-  await expect(qty).toHaveValue('3');
+  await expect(qty).toHaveValue('3.95');
   await discount.fill('8');await discount.press('Escape');
   await expect(discount).toHaveValue('0');
   await discount.fill('5');await discount.press('Enter');
