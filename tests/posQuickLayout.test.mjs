@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizedPosLayout,posCatalogVisible,posSearchResults,posPrimaryPaymentMethod} from '../src/pages/posPro/posLayout.js';
+import {normalizedPosLayout,posCatalogVisible,posSearchResults,posPrimaryPaymentMethod,posPrimaryPaymentLabel} from '../src/pages/posPro/posLayout.js';
 
 test('existing cashier layouts remain stable and quick layout is opt-in',()=>{
  assert.equal(normalizedPosLayout('classic'),'classic');
@@ -42,6 +42,12 @@ test('F12 primary checkout respects disabled cash and all workspace payment limi
  assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:false,credit:true},false),null);
  assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:false,credit:false}),null);
  assert.equal(posPrimaryPaymentMethod(null), 'cash');
+ assert.equal(posPrimaryPaymentLabel('cash'),'Naqd to‘lov');
+ assert.equal(posPrimaryPaymentLabel('card'),'Karta orqali to‘lov');
+ assert.equal(posPrimaryPaymentLabel('transfer'),'O‘tkazma orqali to‘lov');
+ assert.equal(posPrimaryPaymentLabel('split'),'Aralash to‘lov');
+ assert.equal(posPrimaryPaymentLabel('credit'),'Nasiya savdo');
+ assert.equal(posPrimaryPaymentLabel(null),'To‘lov usuli mavjud emas');
 });
 
 test('classic and touch still show full catalog; no stock or checkout business logic is changed',()=>{
