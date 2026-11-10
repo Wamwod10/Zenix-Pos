@@ -522,6 +522,15 @@ try{
   assert.equal(popularRequests.filter(request=>!request.ids).length,0,'popular products must not cause a redundant unfiltered catalog read');
   await p.getByLabel('POS Pro qidiruv').fill('Olma');
   await expect(p.locator('.pp-product').first()).toBeVisible();
+  // Typing a different query cannot temporarily show the old Olma result.
+  r.searchDelay=450;
+  await p.getByLabel('POS Pro qidiruv').fill('Boshqa');
+  await expect(p.locator('.pp-products .pp-product')).toHaveCount(0);
+  await expect(p.locator('.pp-products')).toHaveAttribute('aria-busy','true');
+  await expect(p.locator('#pp-search-help')).toContainText('Natijalar tekshirilmoqda');
+  r.searchDelay=0;
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
   await p.locator('.pp-product').first().click();
   await expect(p.locator('.pp-cart-line')).toHaveCount(1);
   await expect(p.locator('.pp-products')).toBeHidden();
