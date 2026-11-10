@@ -5,15 +5,25 @@ import {lineAmount} from '../../utils/posMoney';
 import {finalUnitPrice,quantityStep,formatProMoney as formatPrice} from './model';
 const CartLine=memo(function CartLine({line,index,cartPct,locked,canDiscount,onQuantity,onDiscount,onRemove,onTracking,touch,selected,onSelect}){
  const [qty,setQty]=useState(null),[discount,setDiscount]=useState(null);
- const discardQty=useRef(false),discardDiscount=useRef(false);
+ const discardQty=useRef(false),discardDiscount=useRef(false),skipBlurForStep=useRef(false);
  const step=quantityStep(line.unit);
  // A scanner or server reconciliation may update a line while a field is
  // focused. Discard the old draft instead of overwriting fresh stock data.
  useEffect(()=>{setQty(null)},[line.cartQty]);
  useEffect(()=>{setDiscount(null)},[line.discountPercent]);
  const commitQty=()=>{
+  if(skipBlurForStep.current)return;
   if(discardQty.current){discardQty.current=false;setQty(null);return}
   if(qty!==null){onQuantity(line.id,qty);setQty(null)}
+ };
+ const adjustQuantity=direction=>{
+  // Clicking +/- while typing must use the edited number exactly once,
+  // not first commit it on blur then step from the previous React prop.
+  skipBlurForStep.current=false;
+  const parsed=qty===null||qty===''?Number(line.cartQty):Number(qty);
+  const base=Number.isFinite(parsed)?parsed:Number(line.cartQty);
+  setQty(null);
+  onQuantity(line.id,Math.round((base+direction*step)*1000)/1000);
  };
  const commitDiscount=()=>{
   if(discardDiscount.current){discardDiscount.current=false;setDiscount(null);return}
@@ -28,7 +38,7 @@ const CartLine=memo(function CartLine({line,index,cartPct,locked,canDiscount,onQ
  };
  return <article className="pp-cart-line" data-product-id={line.id} data-selected={touch&&selected||undefined} tabIndex={touch?0:undefined} onClick={touch?()=>onSelect(line.id):undefined} onKeyDown={touch?e=>{if(e.target===e.currentTarget&&['Enter',' '].includes(e.key)){e.preventDefault();onSelect(line.id)}}:undefined}>
   <span className="pp-line-index">{index+1}</span><div className="pp-line-name"><strong>{line.name}</strong><small>{formatPrice(line.sellPrice)} / {displayUnit(line.unit)} · {line.barcode||line.sku||'—'}</small>{((line.serializedUnits||[]).length>0||(line.stockBatches||[]).length>0)&&<button className="pp-tracking-link" disabled={locked} onClick={()=>onTracking(line.id)}><FiPackage/>{line.tracking?.serials?.length?`${line.tracking.serials.length} Serial tanlangan`:(line.serializedUnits||[]).length?'Serial tanlang':'Partiya · FEFO'}</button>}</div>
-  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||line.cartQty<=step} onClick={()=>onQuantity(line.id,Math.round((line.cartQty-step)*1000)/1000)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'quantity');return}if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onClick={()=>onQuantity(line.id,Math.round((line.cartQty+step)*1000)/1000)}>+</button><small>{displayUnit(line.unit)}</small></div>
+  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||Number(qty===null||qty===''?line.cartQty:qty)<=step} onPointerDown={()=>{skipBlurForStep.current=true}} onPointerCancel={()=>{skipBlurForStep.current=false}} onClick={()=>adjustQuantity(-1)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'quantity');return}if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onPointerDown={()=>{skipBlurForStep.current=true}} onPointerCancel={()=>{skipBlurForStep.current=false}} onClick={()=>adjustQuantity(1)}>+</button><small>{displayUnit(line.unit)}</small></div>
   <label className="pp-line-discount"><input aria-label={`${line.name} chegirma`} type="number" min="0" max="100" value={discount??line.discountPercent??0} disabled={locked||!canDiscount} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setDiscount(e.target.value)} onBlur={commitDiscount} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'discount');return}if(e.key==='Enter')e.currentTarget.blur()}}/>%</label><strong className="pp-line-total">{formatPrice(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))}</strong><button className="pp-remove" aria-label={`${line.name} olib tashlash`} disabled={locked} onClick={()=>onRemove(line.id)}><FiTrash2/></button>
  </article>;
 });
