@@ -533,10 +533,13 @@ try{
   await expect(p.locator('.pp-product').first()).toBeVisible();
   await p.locator('.pp-product').first().click();
   await expect(p.locator('.pp-cart-line')).toHaveCount(1);
+  const initialCartTotal=await p.locator('.pp-quick-cart-total strong').textContent();
+  await expect(p.locator('.pp-quick-cart-total')).toContainText('Chek jami');
   await expect(p.locator('.pp-products')).toBeHidden();
   await p.getByLabel('Barcode',{exact:true}).fill('12345678');
   await p.getByRole('button',{name:'Barcode qo‘shish'}).click();
   await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+  await expect.poll(()=>p.locator('.pp-quick-cart-total strong').textContent()).not.toBe(initialCartTotal);
   await p.getByRole('button',{name:'Katalog',exact:true}).click();
   await expect(p.locator('.pp-products')).toBeVisible();
   await p.getByRole('button',{name:'Katalogni yopish',exact:true}).click();
@@ -553,6 +556,8 @@ try{
   await expect(p.locator('.pp-quick-intro')).toBeVisible();
   await p.getByLabel('POS Pro qidiruv').fill('Olma');
   await expect(p.locator('.pp-product').first()).toBeVisible();
+  await p.locator('.pp-product').first().click();
+  await expect(p.locator('.pp-quick-cart-total')).toBeVisible();
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
   await r.context.close();
  }
