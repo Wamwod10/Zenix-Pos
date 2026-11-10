@@ -546,6 +546,16 @@ try{
   await expect(p.locator('.pp-products')).toBeVisible();
   await r.context.close();
  }
+ for(const width of [320,390]){
+  const r=await setup({width,height:844}),p=r.page;
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await expect(p.locator('.pp-quick-intro')).toBeVisible();
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
+  await r.context.close();
+ }
  const reviewOnly=process.env.POS_PRO_REVIEW_ONLY;
  if(!reviewOnly||reviewOnly==='hold'){
   const r=await setup();await r.page.locator('.pp-product').first().click();r.holdStatus=409;await r.page.keyboard.press('F5');
