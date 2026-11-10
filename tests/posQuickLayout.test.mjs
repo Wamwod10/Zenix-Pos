@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {normalizedPosLayout,posCatalogVisible,posSearchResults} from '../src/pages/posPro/posLayout.js';
+import {normalizedPosLayout,posCatalogVisible,posSearchResults,posPrimaryPaymentMethod} from '../src/pages/posPro/posLayout.js';
 
 test('existing cashier layouts remain stable and quick layout is opt-in',()=>{
  assert.equal(normalizedPosLayout('classic'),'classic');
@@ -33,6 +33,17 @@ test('new cashier search does not display cached results from an older query',()
  assert.equal(old.length,2,'original scoped catalog cache is not mutated');
 });
 
+test('F12 primary checkout respects disabled cash and all workspace payment limits',()=>{
+ assert.equal(posPrimaryPaymentMethod(), 'cash');
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:true}), 'card');
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:true}), 'transfer');
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:true}), 'split');
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:false,credit:true},true),'credit');
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:false,credit:true},false),null);
+ assert.equal(posPrimaryPaymentMethod({cash:false,card:false,transfer:false,split:false,credit:false}),null);
+ assert.equal(posPrimaryPaymentMethod(null), 'cash');
+});
+
 test('classic and touch still show full catalog; no stock or checkout business logic is changed',()=>{
  for(const layout of ['classic','touch'])for(const query of ['', 'olma']){
   assert.equal(posCatalogVisible({layout,search:query}),true);
@@ -48,5 +59,8 @@ test('classic and touch still show full catalog; no stock or checkout business l
  assert.match(pos,/hidden=\{!catalogVisible\}/);
  assert.match(pos,/catalog\.barcode\(code\)/);
  assert.match(pos,/session\.add\(product\)/);
- assert.match(pos,/onClick=\{\(\)=>openPayment\('cash'\)\}/);
+ assert.match(pos,/onClick=\{openPrimaryPayment\}/);
+ assert.match(pos,/F12:\(\)=>actions\.current\.openPrimaryPayment\(\)/);
+ assert.match(pos,/!primaryPaymentMethod\|\|session\.locked/);
+
 });
