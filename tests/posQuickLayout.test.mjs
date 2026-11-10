@@ -30,6 +30,9 @@ test('classic and touch still show full catalog; no stock or checkout business l
  const header=readFileSync(new URL('../src/pages/posPro/WorkspaceHeader.jsx',import.meta.url),'utf8');
  assert.match(header,/<option value="quick">Tezkor kassa/);
  assert.match(pos,/const catalogVisible=posCatalogVisible/);
+ assert.match(pos,/if\(!posCatalogVisible\(\{layout,search,category,catalogMode,browse:browseCatalog\}\)\)return;/,'idle Quick must not fetch catalog pages');
+ assert.match(pos,/\[layout,search,category,catalogMode,browseCatalog,catalog\.search\]/,'switching mode or browse state must refresh scoped catalog');
+
  assert.match(pos,/hidden=\{!catalogVisible\}/);
  assert.match(pos,/catalog\.barcode\(code\)/);
  assert.match(pos,/session\.add\(product\)/);
