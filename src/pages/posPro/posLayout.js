@@ -8,3 +8,10 @@ export function posCatalogVisible({layout='classic',search='',category='',catalo
  if(layout!=='quick')return true;
  return Boolean(String(search).trim()||String(category).trim()||browse||catalogMode==='popular');
 }
+
+export function posSearchResults({products=[],catalogMode='all',search='',searchReady=true}={}){
+ // An old query can remain in the cache while the 160 ms debounce runs.
+ // Never present its products as matches for a newly typed search.
+ if(catalogMode==='all'&&String(search).trim()&&!searchReady)return [];
+ return products;
+}
