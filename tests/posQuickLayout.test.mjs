@@ -88,3 +88,22 @@ test('responsive cashier layout keeps the mobile reading and keyboard order alig
  assert.match(pos,/aria-pressed=\{catalogMode==='all'&&catalogVisible\}/);
  assert.match(pos,/closeQuick=layout==='quick'&&catalogMode==='all'&&catalogVisible/);
 });
+
+// UI regression guard: mobile cashier can reach the same existing payment
+// terminal without creating a second checkout path.
+test('mobile payment jump and compact payment controls keep financial logic unchanged',()=>{
+ const cart=readFileSync(new URL('../src/pages/posPro/Cart.jsx',import.meta.url),'utf8');
+ const pos=readFileSync(new URL('../src/pages/posPro/PosPro.jsx',import.meta.url),'utf8');
+ const payment=readFileSync(new URL('../src/pages/posPro/Payment.jsx',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../src/pages/posPro/posPro.scss',import.meta.url),'utf8');
+ const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
+ assert.match(cart,/pp-mobile-checkout-jump/);
+ assert.match(cart,/aria-controls="pp-payment-terminal"/);
+ assert.match(pos,/id="pp-payment-terminal"/);
+ assert.match(pos,/scrollIntoView\\(\\{block:'start',behavior:'auto'\\}\\)/);
+ assert.match(payment,/method!=='credit'&&<p className="pp-change"/);
+ assert.match(payment,/paymentPlan\\(input\\)/);
+ assert.match(css,/\\.pp-quick-money \\{display:grid;grid-template-columns:repeat\\(3/);
+ assert.match(touch,/max-height:700px/);
+ assert.match(touch,/grid-template-rows:minmax\\(210px,1fr\\) minmax\\(246px,1fr\\) auto/);
+});
