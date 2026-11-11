@@ -22,8 +22,8 @@
   "src/styles/saas.scss": "4f2cea7295d1b50310ecbc7567365da2de437a12958b75421eafe4c55d56de56",
   "src/pages/register/registerOtp.scss": "246dfa00c9ece2a288ae4519b352759085f0f9b7ce639a950add9c6213d8ec1c",
   "src/pages/ai/zenixAi.scss": "6cfef985811c727a60c847b2893a1e186692c6bb508958dbca873ad87f4d0ab5",
-  "src/pages/posPro/posPro.scss": "00c48e3180a03f1e8245f66bbe638923801f68d0d788a0c7f4b6e3768a16cd05",
-  "src/pages/posPro/touchPos.scss": "08e5c0e5c6ad678ddd5b6e904ce48fc44a8a749ea394002443f48f2c52837d26",
+  "src/pages/posPro/posPro.scss": "708bd8ce7d204a5d833fc46dc79dd0ebcd7b4d5a452950f2e8072e01bb76455e",
+  "src/pages/posPro/touchPos.scss": "29a9cf000eb1916661cdd3cd99c4ffb60dbfdc9b8c0d6b5018b9a90380220f58",
   "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748",
   "src/pages/posPro/posQuick.scss": "ca6049efe2565c507f0ca5529861911642527297acb616cb70519fd95293e8c2"
 }
