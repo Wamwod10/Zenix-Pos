@@ -559,6 +559,9 @@ try{
   await p.locator('.pp-product').first().click();
   await expect(p.locator('.pp-quick-cart-total')).toBeVisible();
   const jump=p.locator('.pp-mobile-checkout-jump');
+  const targets=await p.locator('.pp-header-actions > button').evaluateAll(buttons=>buttons.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height}}));
+  assert.ok(targets.every(r=>r.width>=44&&r.height>=44),`header icon target under 44px at ${width}: ${JSON.stringify(targets)}`);
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'mobile header must not overflow');
   await expect(jump).toBeVisible();
   await expect(jump).toContainText('To‘lovga o‘tish');
   await jump.click();
