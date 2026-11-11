@@ -576,7 +576,9 @@ try{
   await p.getByLabel('POS Pro rejimi',{exact:true}).click();
   await p.getByRole('option',{name:'Touch POS',exact:true}).click();
   const visualOrder=await p.evaluate(()=>['.pp-catalog','.pp-cart','.pp-touch-console','.pp-terminal'].map(selector=>Number(getComputedStyle(document.querySelector(selector)).order)));
-  assert.deepEqual(visualOrder,[1,2,3,4],'mobile Touch panels must follow DOM order');
+  assert.deepEqual(visualOrder,[0,0,0,0],'mobile Touch panels must use the natural DOM order');
+   const panelTops=await p.evaluate(()=>['.pp-catalog','.pp-cart','.pp-touch-console','.pp-terminal'].map(selector=>document.querySelector(selector).getBoundingClientRect().top));
+   assert.ok(panelTops.every((top,i)=>i===0||top>=panelTops[i-1]),'visual Touch order must match keyboard and DOM order');
   const jump=p.locator('.pp-mobile-checkout-jump');
   await expect(jump).toBeVisible();
   await jump.click();
