@@ -100,10 +100,10 @@ test('mobile payment jump and compact payment controls keep financial logic unch
  assert.match(cart,/pp-mobile-checkout-jump/);
  assert.match(cart,/aria-controls="pp-payment-terminal"/);
  assert.match(pos,/id="pp-payment-terminal"/);
- assert.match(pos,/scrollIntoView\\(\\{block:'start',behavior:'auto'\\}\\)/);
+ assert.match(pos,/scrollIntoView\(\{block:'start',behavior:'auto'\}\)/);
  assert.match(payment,/method!=='credit'&&<p className="pp-change"/);
- assert.match(payment,/paymentPlan\\(input\\)/);
- assert.match(css,/\\.pp-quick-money \\{display:grid;grid-template-columns:repeat\\(3/);
+ assert.match(payment,/paymentPlan\(input\)/);
+ assert.match(css,/\.pp-quick-money \{display:grid;grid-template-columns:repeat\(3/);
  assert.match(touch,/max-height:700px/);
- assert.match(touch,/grid-template-rows:minmax\\(210px,1fr\\) minmax\\(246px,1fr\\) auto/);
+ assert.match(touch,/grid-template-rows:minmax\(210px,1fr\) minmax\(246px,1fr\) auto/);
 });
