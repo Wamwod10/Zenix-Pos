@@ -41,6 +41,18 @@ jobs:
           POS_PRO_UX_ONLY=pixel-accessibility node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=platform-contract node tests/posPro.browser.mjs
           node tests/platformAdminRouting.browser.mjs
+      # All captures use the synthetic API harness, never production records.
+      - name: Archive POS Pro synthetic visual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-pro-synthetic-ui
+          path: |
+            ../artifacts/phase2/quick-mobile-*.png
+            ../artifacts/phase2/touch-mobile-*.png
+            ../artifacts/phase2/browser-results.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Synthetic CPU and bundle regression budgets
         run: node scripts/check-performance-budget.mjs --bundle
 
