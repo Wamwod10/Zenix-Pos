@@ -11,7 +11,7 @@ const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false,...((process.env.POS_PRO_UX_ONLY||'').startsWith('deep-')?{name:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun '+i,unit:['kg','l','dona'][i%3],sellPrice:i%2?1250000000:1250000,stockBatches:[{id:'batch-'+i,storeId:store,batchNo:'FEFO-2027-001',remaining:1000,quantity:1000,expiryDate:'2027-01-01',status:'IN_STOCK'}]}:{})});
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
-async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER'}={}){
+async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER',paymentMethods=null}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0,activeShiftId=shift;
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
@@ -22,7 +22,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole,storeId:store,name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
   if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:activeShiftId,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
   if(url.pathname==='/api/bootstrap'&&otherShiftCashier){const otherStore='77777777-7777-4777-8777-777777777777';data.stores.push({id:otherStore,name:'2-Filial',active:true});data.activeShifts[otherStore]={id:shift,storeId:otherStore,storeName:'2-Filial',cashierId:otherShiftCashier,cashierAccountId:otherShiftCashier,status:'open',openedAtISO:'2026-10-11T09:10:43.000Z',openedAt:'14:10',openingCash:0,cashMovements:[]}}
-  if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20}}};
+  if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20,...(paymentMethods?{paymentMethods}:{})}}};
   if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
   if(url.pathname==='/api/ai/status')data={enabled:false};
   if(url.pathname==='/api/bootstrap/catalog'){
@@ -501,6 +501,123 @@ try{
   }
  }
  if(!uxOnly){
+ // Quick mode is an opt-in cashier UI, not a new checkout implementation.
+ // Exercise real product search and scanner with the synthetic scoped API.
+ {
+  const r=await setup({width:1366,height:768}),p=r.page;
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await expect(p.locator('.pos-pro')).toHaveClass(/pp-quick/);
+  await expect(p.locator('.pp-quick-intro')).toBeVisible();
+  await expect(p.locator('.pp-products')).toBeHidden();
+  const popularRequests=[];
+  p.on('request',request=>{
+   const url=new URL(request.url());
+   if(url.pathname==='/api/bootstrap/catalog')popularRequests.push({ids:url.searchParams.get('ids'),search:url.searchParams.get('search')});
+  });
+  await p.getByRole('button',{name:'Smenada ko‘p sotilgan',exact:true}).click();
+  await expect(p.locator('.pp-products .pp-product')).toHaveCount(1);
+  await expect(p.locator('.pp-products .pp-product').first()).toContainText('Mahsulot 2');
+  await expect.poll(()=>popularRequests.filter(request=>request.ids).length).toBeGreaterThan(0);
+  assert.equal(popularRequests.filter(request=>!request.ids).length,0,'popular products must not cause a redundant unfiltered catalog read');
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
+  // Typing a different query cannot temporarily show the old Olma result.
+  r.searchDelay=450;
+  await p.getByLabel('POS Pro qidiruv').fill('Boshqa');
+  await expect(p.locator('.pp-products .pp-product')).toHaveCount(0);
+  await expect(p.locator('.pp-products')).toHaveAttribute('aria-busy','true');
+  await expect(p.locator('#pp-search-help')).toContainText('Natijalar tekshirilmoqda');
+  r.searchDelay=0;
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
+  await p.locator('.pp-product').first().click();
+  await expect(p.locator('.pp-cart-line')).toHaveCount(1);
+  const initialCartTotal=await p.locator('.pp-quick-cart-total strong').textContent();
+  await expect(p.locator('.pp-quick-cart-total')).toContainText('Chek jami');
+  await expect(p.locator('.pp-products')).toBeHidden();
+  await p.getByLabel('Barcode',{exact:true}).fill('12345678');
+  await p.getByRole('button',{name:'Barcode qo‘shish'}).click();
+  await expect(p.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
+  await expect.poll(()=>p.locator('.pp-quick-cart-total strong').textContent()).not.toBe(initialCartTotal);
+  await p.getByRole('button',{name:'Katalog',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeVisible();
+  await p.getByRole('button',{name:'Katalogni yopish',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeHidden();
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Classic POS Pro',exact:true}).click();
+  await expect(p.locator('.pp-products')).toBeVisible();
+  await r.context.close();
+ }
+ for(const width of [320,390]){
+  const r=await setup({width,height:844}),p=r.page;
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await expect(p.locator('.pp-quick-intro')).toBeVisible();
+  await p.getByLabel('POS Pro qidiruv').fill('Olma');
+  await expect(p.locator('.pp-product').first()).toBeVisible();
+  await p.locator('.pp-product').first().click();
+  await expect(p.locator('.pp-quick-cart-total')).toBeVisible();
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
+  await r.context.close();
+ }
+ // Quantity and discount edits support Enter to commit and Esc to cancel,
+ // without creating a sale or changing the existing server checkout workflow.
+ {
+  const r=await setup({cartSize:1}),p=r.page;
+  const qty=p.getByLabel('Olma miqdori',{exact:true});
+  const discount=p.getByLabel('Olma chegirma',{exact:true});
+  await expect(qty).toHaveValue('1');
+  await qty.fill('4');await qty.press('Escape');
+  await expect(qty).toHaveValue('1');
+  await qty.fill('3');await qty.press('Enter');
+  await expect(qty).toHaveValue('3');
+  await qty.fill('5');
+  await p.getByRole('button',{name:'Olma miqdorini oshirish'}).click();
+  await expect(qty).toHaveValue('5.05');
+  await qty.fill('4');
+  await p.getByRole('button',{name:'Olma miqdorini kamaytirish'}).click();
+  await expect(qty).toHaveValue('3.95');
+  await discount.fill('8');await discount.press('Escape');
+  await expect(discount).toHaveValue('0');
+  await discount.fill('5');await discount.press('Enter');
+  await expect(discount).toHaveValue('5');
+  assert.equal(r.posts,0,'cart line edits must not submit sales');
+  await r.context.close();
+ }
+ // Checkout modal provides a labeled payment summary and keyboard-ready
+ // cash input, but still requires explicit final review before posting.
+ {
+  const r=await setup({cartSize:1}),p=r.page;
+  await p.keyboard.press('F12');
+  await expect(p.getByRole('dialog',{name:'To‘lov — Naqd'})).toBeVisible();
+  const summary=p.getByRole('group',{name:'To‘lov xulosasi'});
+  await expect(summary).toContainText('Chek jami');
+  await expect(summary).toContainText('Mijoz bergan summani kiriting');
+  await expect(p.getByLabel('Mijoz bergan naqd',{exact:true})).toBeFocused();
+  await expect(p.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true})).toBeDisabled();
+  assert.equal(r.posts,0,'payment opening must never write a sale');
+  await p.keyboard.press('Escape');await r.context.close();
+ }
+ // Payment action and F12 shortcut must honor disabled methods from settings.
+ {
+  const r=await setup({cartSize:1,paymentMethods:{cash:false,card:true,transfer:false,split:false,credit:false}}),p=r.page;
+  await expect(p.locator('.pp-pay-cash')).toHaveCount(0);
+  await expect(p.locator('.pp-checkout')).toContainText('Karta orqali to‘lov');
+  await p.keyboard.press('F12');
+  await expect(p.getByRole('dialog',{name:'To‘lov — Karta'})).toBeVisible();
+  assert.equal(r.posts,0,'opening card payment must not directly post a sale');
+  await p.keyboard.press('Escape');await r.context.close();
+ }
+ {
+  const r=await setup({cartSize:1,paymentMethods:{cash:false,card:false,transfer:false,split:false,credit:false}}),p=r.page;
+  await expect(p.locator('.pp-checkout')).toBeDisabled();
+  await expect(p.locator('#pp-checkout-status')).toContainText('Barcha to‘lov usullari o‘chirilgan');
+  await p.keyboard.press('F12');
+  await expect(p.getByRole('dialog',{name:/To‘lov —/})).toHaveCount(0);
+  assert.equal(r.posts,0,'disabled payment methods cannot submit a sale');
+  await r.context.close();
+ }
  const reviewOnly=process.env.POS_PRO_REVIEW_ONLY;
  if(!reviewOnly||reviewOnly==='hold'){
   const r=await setup();await r.page.locator('.pp-product').first().click();r.holdStatus=409;await r.page.keyboard.press('F5');

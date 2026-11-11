@@ -112,7 +112,7 @@
   &.pp-kiosk {padding:12px 12px 6px}
   // Shared modal shell is unchanged; only POS contents use these styles.
   .pp-payment {display:grid;gap:16px}
-  .pp-payment-total {padding:16px;border-radius:var(--radius-panel);background:var(--pp-tint);color:var(--pp-ink);font-size:36px;font-weight:650;line-height:1.25;letter-spacing:-.035em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .pp-payment-total {display:grid;gap:5px;padding:16px;border-radius:var(--radius-panel);background:var(--pp-tint);color:var(--pp-ink);overflow-wrap:anywhere;span{font-size:12px;font-weight:600;letter-spacing:0;color:var(--pp-muted)}strong{font-size:clamp(26px,4vw,36px);font-weight:650;line-height:1.2;letter-spacing:-.035em;font-variant-numeric:tabular-nums}small{font-size:12px;line-height:1.5;font-weight:400;color:var(--pp-muted);letter-spacing:0}}
   .pp-payment-fields {display:grid;gap:12px;label{display:grid;gap:6px;font-size:13px}}
   .pp-quick-money {display:flex;flex-wrap:wrap;gap:8px;button{font-size:13px;padding:10px}}
   .pp-confirm {display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.6;input{flex-shrink:0;width:20px;height:20px;min-height:20px;margin-top:3px;accent-color:var(--primary)}}

@@ -1,27 +1,55 @@
 import {FiTrash2,FiPackage,FiPlus,FiArrowRight,FiShoppingBag} from 'react-icons/fi';
 import {displayUnit} from './presentation';
-import {memo,useState,useRef,useCallback} from 'react';
+import {memo,useState,useRef,useCallback,useEffect} from 'react';
 import {lineAmount} from '../../utils/posMoney';
 import {finalUnitPrice,quantityStep,formatProMoney as formatPrice} from './model';
 const CartLine=memo(function CartLine({line,index,cartPct,locked,canDiscount,onQuantity,onDiscount,onRemove,onTracking,touch,selected,onSelect}){
  const [qty,setQty]=useState(null),[discount,setDiscount]=useState(null);
+ const discardQty=useRef(false),discardDiscount=useRef(false),skipBlurForStep=useRef(false);
  const step=quantityStep(line.unit);
- const commitQty=()=>{if(qty!==null){onQuantity(line.id,qty);setQty(null)}};
- const commitDiscount=()=>{if(discount!==null){onDiscount(line.id,discount);setDiscount(null)}};
+ // A scanner or server reconciliation may update a line while a field is
+ // focused. Discard the old draft instead of overwriting fresh stock data.
+ useEffect(()=>{setQty(null)},[line.cartQty]);
+ useEffect(()=>{setDiscount(null)},[line.discountPercent]);
+ const commitQty=()=>{
+  if(skipBlurForStep.current)return;
+  if(discardQty.current){discardQty.current=false;setQty(null);return}
+  if(qty!==null){onQuantity(line.id,qty);setQty(null)}
+ };
+ const adjustQuantity=direction=>{
+  // Clicking +/- while typing must use the edited number exactly once,
+  // not first commit it on blur then step from the previous React prop.
+  skipBlurForStep.current=false;
+  const parsed=qty===null||qty===''?Number(line.cartQty):Number(qty);
+  const base=Number.isFinite(parsed)?parsed:Number(line.cartQty);
+  setQty(null);
+  onQuantity(line.id,Math.round((base+direction*step)*1000)/1000);
+ };
+ const commitDiscount=()=>{
+  if(discardDiscount.current){discardDiscount.current=false;setDiscount(null);return}
+  if(discount!==null){onDiscount(line.id,discount);setDiscount(null)}
+ };
+ const cancelEdit=(event,kind)=>{
+  if(event.key!=='Escape')return;
+  event.preventDefault();event.stopPropagation();
+  if(kind==='quantity'){discardQty.current=true;setQty(null)}
+  else{discardDiscount.current=true;setDiscount(null)}
+  event.currentTarget.blur();
+ };
  return <article className="pp-cart-line" data-product-id={line.id} data-selected={touch&&selected||undefined} tabIndex={touch?0:undefined} onClick={touch?()=>onSelect(line.id):undefined} onKeyDown={touch?e=>{if(e.target===e.currentTarget&&['Enter',' '].includes(e.key)){e.preventDefault();onSelect(line.id)}}:undefined}>
   <span className="pp-line-index">{index+1}</span><div className="pp-line-name"><strong>{line.name}</strong><small>{formatPrice(line.sellPrice)} / {displayUnit(line.unit)} · {line.barcode||line.sku||'—'}</small>{((line.serializedUnits||[]).length>0||(line.stockBatches||[]).length>0)&&<button className="pp-tracking-link" disabled={locked} onClick={()=>onTracking(line.id)}><FiPackage/>{line.tracking?.serials?.length?`${line.tracking.serials.length} Serial tanlangan`:(line.serializedUnits||[]).length?'Serial tanlang':'Partiya · FEFO'}</button>}</div>
-  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||line.cartQty<=step} onClick={()=>onQuantity(line.id,Math.round((line.cartQty-step)*1000)/1000)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onClick={()=>onQuantity(line.id,Math.round((line.cartQty+step)*1000)/1000)}>+</button><small>{displayUnit(line.unit)}</small></div>
-  <label className="pp-line-discount"><input aria-label={`${line.name} chegirma`} type="number" min="0" max="100" value={discount??line.discountPercent??0} disabled={locked||!canDiscount} onChange={e=>setDiscount(e.target.value)} onBlur={commitDiscount}/>%</label><strong className="pp-line-total">{formatPrice(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))}</strong><button className="pp-remove" aria-label={`${line.name} olib tashlash`} disabled={locked} onClick={()=>onRemove(line.id)}><FiTrash2/></button>
+  {touch&&<strong className="pp-line-price">{formatPrice(finalUnitPrice(line,cartPct))}</strong>}<div className="pp-quantity"><button aria-label={`${line.name} miqdorini kamaytirish`} title={`−${step} ${displayUnit(line.unit)}`} disabled={locked||Number(qty===null||qty===''?line.cartQty:qty)<=step} onPointerDown={()=>{skipBlurForStep.current=true}} onPointerCancel={()=>{skipBlurForStep.current=false}} onPointerLeave={()=>{skipBlurForStep.current=false}} onClick={()=>adjustQuantity(-1)}>−</button><input aria-label={`${line.name} miqdori`} type="number" min="0.001" step="0.001" value={qty??line.cartQty} disabled={locked} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setQty(e.target.value)} onBlur={commitQty} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'quantity');return}if(e.key==='Enter')e.currentTarget.blur()}}/><button aria-label={`${line.name} miqdorini oshirish`} title={`+${step} ${displayUnit(line.unit)}`} disabled={locked} onPointerDown={()=>{skipBlurForStep.current=true}} onPointerCancel={()=>{skipBlurForStep.current=false}} onPointerLeave={()=>{skipBlurForStep.current=false}} onClick={()=>adjustQuantity(1)}>+</button><small>{displayUnit(line.unit)}</small></div>
+  <label className="pp-line-discount"><input aria-label={`${line.name} chegirma`} type="number" min="0" max="100" value={discount??line.discountPercent??0} disabled={locked||!canDiscount} inputMode="decimal" title="Enter — saqlash, Esc — bekor qilish" onFocus={e=>e.currentTarget.select()} onChange={e=>setDiscount(e.target.value)} onBlur={commitDiscount} onKeyDown={e=>{if(e.key==='Escape'){cancelEdit(e,'discount');return}if(e.key==='Enter')e.currentTarget.blur()}}/>%</label><strong className="pp-line-total">{formatPrice(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))}</strong><button className="pp-remove" aria-label={`${line.name} olib tashlash`} disabled={locked} onClick={()=>onRemove(line.id)}><FiTrash2/></button>
  </article>;
 });
 // Catalog typing and clock ticks must not traverse all 500 receipt lines.
 const CartLines=memo(function CartLines({cart,cartPct,locked,canDiscount,quantity,discount,remove,tracking,touch,selectedId,select}){
  return <div className="pp-cart-lines"><div className="pp-cart-heading"><span aria-hidden="true"/><span>Mahsulot / birlik narxi</span>{touch&&<span>Narx</span>}<span>Miqdor</span><span>Cheg.</span><span>Summa</span><span aria-hidden="true"/></div>{cart.length?cart.map((line,i)=><CartLine key={line.id} line={line} index={i} cartPct={cartPct} locked={locked} canDiscount={canDiscount} onQuantity={quantity} onDiscount={discount} onRemove={remove} onTracking={tracking} touch={touch} selected={line.id===selectedId} onSelect={select}/>):<div className="pp-empty"><FiShoppingBag aria-hidden="true"/><strong>Yangi chek</strong><p>Barcode skanerlang yoki katalogdan mahsulot tanlang.</p><small>F3 · Barcode / F2 · Qidiruv</small></div>}</div>;
 });
-export default function Cart({session,canDiscount,onRemove,onTracking,onScan,onSearch,operatorRail,shiftOpen=true,touch=false,selectedId,onSelect}){
+export default function Cart({session,canDiscount,onRemove,onTracking,onScan,onSearch,operatorRail,shiftOpen=true,touch=false,quick=false,total=0,selectedId,onSelect}){
  const latest=useRef(null);latest.current={session,onRemove,onTracking,onSelect};
  const select=useCallback(id=>latest.current.onSelect?.(id),[]);
  const quantity=useCallback((...args)=>latest.current.session.quantity(...args),[]),discount=useCallback((...args)=>latest.current.session.discount(...args),[]),remove=useCallback(id=>latest.current.onRemove(id),[]),tracking=useCallback(id=>latest.current.onTracking?.(id),[]);
 
- return <section className="pp-cart pp-panel" aria-label="Joriy chek"><div className="pp-panel-head"><h2><FiShoppingBag/> Joriy chek</h2><span>{session.cart.length} qator{!shiftOpen&&session.cart.length>0?' · Draft — hali sotilmagan':''}</span></div><CartLines cart={session.cart} cartPct={session.cartPct} locked={session.locked} canDiscount={canDiscount} quantity={quantity} discount={discount} remove={remove} tracking={tracking} touch={touch} selectedId={selectedId} select={select}/>{!touch&&session.cart.length>0&&session.cart.length<=2&&<div className="pp-sparse"><div className="pp-sparse-context"><strong>Chek tayyorlanmoqda</strong><small>Keyingi mahsulotni skanerlang yoki katalogdan tanlang.</small></div><div className="pp-sparse-actions"><button disabled={session.locked} onClick={onScan}><FiPlus/>Barcode <kbd>F3</kbd></button><button disabled={session.locked} onClick={onSearch}>Qidirish <FiArrowRight/><kbd>F2</kbd></button></div></div>}{operatorRail}</section>;
+ return <section className="pp-cart pp-panel" aria-label="Joriy chek"><div className="pp-panel-head"><h2><FiShoppingBag/> Joriy chek</h2><span>{session.cart.length} qator{!shiftOpen&&session.cart.length>0?' · Draft — hali sotilmagan':''}</span>{quick&&session.cart.length>0&&<div className="pp-quick-cart-total"><small>Chek jami</small><strong>{formatPrice(total)}</strong></div>}</div><CartLines cart={session.cart} cartPct={session.cartPct} locked={session.locked} canDiscount={canDiscount} quantity={quantity} discount={discount} remove={remove} tracking={tracking} touch={touch} selectedId={selectedId} select={select}/>{!touch&&session.cart.length>0&&session.cart.length<=2&&<div className="pp-sparse"><div className="pp-sparse-context"><strong>Chek tayyorlanmoqda</strong><small>Keyingi mahsulotni skanerlang yoki katalogdan tanlang.</small></div><div className="pp-sparse-actions"><button disabled={session.locked} onClick={onScan}><FiPlus/>Barcode <kbd>F3</kbd></button><button disabled={session.locked} onClick={onSearch}>Qidirish <FiArrowRight/><kbd>F2</kbd></button></div></div>}{operatorRail}</section>;
 }
