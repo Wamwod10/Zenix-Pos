@@ -70,3 +70,49 @@ test('classic and touch still show full catalog; no stock or checkout business l
  assert.match(pos,/!primaryPaymentMethod\|\|session\.locked/);
 
 });
+
+// Stable source-level UX guards for the intentionally compact POS Pro layout.
+test('responsive cashier layout keeps the mobile reading and keyboard order aligned',()=>{
+ const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
+ const classic=readFileSync(new URL('../src/pages/posPro/posPro.scss',import.meta.url),'utf8');
+ const quick=readFileSync(new URL('../src/pages/posPro/posQuick.scss',import.meta.url),'utf8');
+ const pos=readFileSync(new URL('../src/pages/posPro/PosPro.jsx',import.meta.url),'utf8');
+ assert.match(touch,/\.pp-cart\{height:420px\}/);
+ assert.match(touch,/\.pp-catalog\{display:flex/);
+ assert.match(touch,/\.pp-touch-console\{overflow:visible/);
+ assert.match(touch,/\.pp-terminal\{overflow:visible/);
+ assert.doesNotMatch(touch,/\.pp-(?:cart|catalog|touch-console|terminal)\{order:/);
+ assert.match(touch,/max-height:760px/);
+ assert.match(classic,/grid-template-columns:minmax\(138px,1fr\) 54px 44px/);
+ assert.match(quick,/\.pp-quick-intro \{flex:none;min-height:0/);
+ assert.match(pos,/aria-pressed=\{catalogMode==='all'&&catalogVisible\}/);
+ assert.match(pos,/closeQuick=layout==='quick'&&catalogMode==='all'&&catalogVisible/);
+});
+
+// UI regression guard: mobile cashier can reach the same existing payment
+// terminal without creating a second checkout path.
+test('mobile payment jump and compact payment controls keep financial logic unchanged',()=>{
+ const cart=readFileSync(new URL('../src/pages/posPro/Cart.jsx',import.meta.url),'utf8');
+ const pos=readFileSync(new URL('../src/pages/posPro/PosPro.jsx',import.meta.url),'utf8');
+ const payment=readFileSync(new URL('../src/pages/posPro/Payment.jsx',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../src/pages/posPro/posPro.scss',import.meta.url),'utf8');
+ const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
+ assert.match(cart,/pp-mobile-checkout-jump/);
+ assert.match(cart,/aria-controls="pp-payment-terminal"/);
+ assert.match(pos,/id="pp-payment-terminal"/);
+ assert.match(pos,/scrollIntoView\(\{block:'start',behavior:'auto'\}\)/);
+ assert.match(payment,/method!=='credit'&&<p className="pp-change"/);
+ assert.match(payment,/paymentPlan\(input\)/);
+ assert.match(css,/\.pp-quick-money \{display:grid;grid-template-columns:repeat\(3/);
+ assert.match(touch,/max-height:700px/);
+ assert.match(touch,/grid-template-rows:minmax\(210px,1fr\) minmax\(246px,1fr\) auto/);
+});
+
+// Prevent regression to inaccessible 32px header actions on narrow phones.
+test('compact POS Pro header preserves 44px touch targets',()=>{
+ const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
+ assert.match(touch,/max-width:400px/);
+ assert.match(touch,/flex-wrap:wrap/);
+ assert.match(touch,/button:not\(.pp-return\)\{width:44px;min-height:44px/);
+ assert.doesNotMatch(touch,/\.pp-return\{width:32px/);
+});

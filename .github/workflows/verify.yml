@@ -27,7 +27,10 @@ jobs:
       - run: npm run build
       - name: POS Pro HID, checkout, recovery and responsive browser acceptance
         run: |
-          npx playwright install --with-deps chromium
+          # Ubuntu mirror DNS may fail when apt tries to install optional fonts.
+          # Hosted ubuntu-24.04 already supplies Chromium runtime libraries;
+          # fetch the browser binary without launching apt (tests remain mandatory).
+          npx playwright install chromium
           node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=premium node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=tracking node tests/posPro.browser.mjs
@@ -38,6 +41,23 @@ jobs:
           POS_PRO_UX_ONLY=pixel-accessibility node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=platform-contract node tests/posPro.browser.mjs
           node tests/platformAdminRouting.browser.mjs
+      # The synthetic browser harness writes outside the repo. upload-artifact
+      # rejects '..' path segments, so stage only selected screenshots inside it.
+      - name: Stage POS Pro synthetic screenshots
+        if: always()
+        run: |
+          mkdir -p ci-artifacts/pos-pro
+          cp ../artifacts/phase2/quick-mobile-*.png ci-artifacts/pos-pro/ 2>/dev/null || true
+          cp ../artifacts/phase2/touch-mobile-*.png ci-artifacts/pos-pro/ 2>/dev/null || true
+          cp ../artifacts/phase2/browser-results.json ci-artifacts/pos-pro/ 2>/dev/null || true
+      - name: Archive POS Pro synthetic visual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-pro-synthetic-ui
+          path: ci-artifacts/pos-pro/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Synthetic CPU and bundle regression budgets
         run: node scripts/check-performance-budget.mjs --bundle
 
@@ -45,7 +65,8 @@ jobs:
       - name: Install Playwright Chromium for local login smoke
         run: |
           python -m pip install playwright==1.56.0
-          python -m playwright install --with-deps chromium
+          # Avoid a second apt dependency pass; keep Python's pinned Chromium smoke.
+          python -m playwright install chromium
       - name: Login responsive browser smoke (320/375/430/1440)
         shell: bash
         env:

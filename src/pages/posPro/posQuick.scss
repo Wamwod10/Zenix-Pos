@@ -40,12 +40,15 @@
   }
 }
 @media(min-width:901px) and (max-width:1100px) {
-  .pos-pro.pp-quick:not(.pp-touch) .pp-catalog {
-    min-height:520px;
-  }
+  // Idle search-first mode does not need the classic catalog's full height.
+  .pos-pro.pp-quick:not(.pp-touch) .pp-catalog {min-height:520px}
 }
 @media(max-width:900px) {
-  .pos-pro.pp-quick .pp-quick-intro {flex:none;min-height:148px;padding:16px}
+  // Keep search guidance compact so the cart is reached sooner on phones.
+  .pos-pro.pp-quick .pp-quick-intro {flex:none;min-height:0;justify-content:flex-start;padding:12px 14px;gap:6px}
+  .pos-pro.pp-quick .pp-quick-intro > svg {display:none}
+  .pos-pro.pp-quick .pp-quick-intro p {line-height:1.45}
+  .pos-pro.pp-quick .pp-quick-intro button {min-height:40px;margin-top:2px}
   .pos-pro.pp-quick .pp-products[hidden] {height:0;min-height:0}
 }
 
