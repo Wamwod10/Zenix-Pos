@@ -566,7 +566,14 @@ try{
   await expect(jump).toContainText('To‘lovga o‘tish');
   await jump.click();
   await expect(p.locator('#pp-payment-terminal')).toBeInViewport();
-  assert.equal(r.posts,0,'jumping to payment must not submit a sale');
+  await p.screenshot({path:`${output}/quick-mobile-checkout-${width}.png`,fullPage:true});
+  const modalPayment=p.getByRole('dialog',{name:'To‘lov — Naqd'});
+  await p.locator('.pp-checkout').click();
+  await expect(modalPayment).toBeVisible();
+  await p.screenshot({path:`${output}/quick-mobile-payment-${width}.png`,fullPage:true});
+  await p.keyboard.press('Escape');
+  await expect(modalPayment).toHaveCount(0);
+  assert.equal(r.posts,0,'jumping to payment or inspecting the modal must not submit a sale');
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
   await r.context.close();
  }
@@ -583,6 +590,7 @@ try{
   await expect(jump).toBeVisible();
   await jump.click();
   await expect(p.locator('#pp-payment-terminal')).toBeInViewport();
+  await p.screenshot({path:`${output}/touch-mobile-checkout-390.png`,fullPage:true});
   assert.equal(r.posts,0,'mobile payment navigation must not submit a sale');
   await r.context.close();
  }
