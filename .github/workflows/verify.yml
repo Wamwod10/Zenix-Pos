@@ -27,7 +27,10 @@ jobs:
       - run: npm run build
       - name: POS Pro HID, checkout, recovery and responsive browser acceptance
         run: |
-          npx playwright install --with-deps chromium
+          # Ubuntu mirror DNS may fail when apt tries to install optional fonts.
+          # Hosted ubuntu-24.04 already supplies Chromium runtime libraries;
+          # fetch the browser binary without launching apt (tests remain mandatory).
+          npx playwright install chromium
           node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=premium node tests/posPro.browser.mjs
           POS_PRO_UX_ONLY=tracking node tests/posPro.browser.mjs
@@ -45,7 +48,8 @@ jobs:
       - name: Install Playwright Chromium for local login smoke
         run: |
           python -m pip install playwright==1.56.0
-          python -m playwright install --with-deps chromium
+          # Avoid a second apt dependency pass; keep Python's pinned Chromium smoke.
+          python -m playwright install chromium
       - name: Login responsive browser smoke (320/375/430/1440)
         shell: bash
         env:
