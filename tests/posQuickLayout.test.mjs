@@ -107,3 +107,12 @@ test('mobile payment jump and compact payment controls keep financial logic unch
  assert.match(touch,/max-height:700px/);
  assert.match(touch,/grid-template-rows:minmax\(210px,1fr\) minmax\(246px,1fr\) auto/);
 });
+
+// Prevent regression to inaccessible 32px header actions on narrow phones.
+test('compact POS Pro header preserves 44px touch targets',()=>{
+ const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
+ assert.match(touch,/max-width:400px/);
+ assert.match(touch,/flex-wrap:wrap/);
+ assert.match(touch,/button:not\(.pp-return\)\{width:44px;min-height:44px/);
+ assert.doesNotMatch(touch,/\.pp-return\{width:32px/);
+});
