@@ -23,7 +23,7 @@
   "src/pages/register/registerOtp.scss": "246dfa00c9ece2a288ae4519b352759085f0f9b7ce639a950add9c6213d8ec1c",
   "src/pages/ai/zenixAi.scss": "6cfef985811c727a60c847b2893a1e186692c6bb508958dbca873ad87f4d0ab5",
   "src/pages/posPro/posPro.scss": "708bd8ce7d204a5d833fc46dc79dd0ebcd7b4d5a452950f2e8072e01bb76455e",
-  "src/pages/posPro/touchPos.scss": "a468b8f8f792b6401b0064cc1b3cb9a6796cb56447f9334cd8d9c71b34cc0908",
+  "src/pages/posPro/touchPos.scss": "e6a0f6dc1fa127656057eeadde8f59c0fa28c895a457e61e75a81c6a20adb8fd",
   "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748",
   "src/pages/posPro/posQuick.scss": "ca6049efe2565c507f0ca5529861911642527297acb616cb70519fd95293e8c2"
 }
