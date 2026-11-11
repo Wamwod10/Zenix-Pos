@@ -506,7 +506,7 @@ try{
  {
   const r=await setup({width:1366,height:768}),p=r.page;
   await p.getByLabel('POS Pro rejimi',{exact:true}).click();
-  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa',exact:true}).click();
   await expect(p.locator('.pos-pro')).toHaveClass(/pp-quick/);
   await expect(p.locator('.pp-quick-intro')).toBeVisible();
   await expect(p.locator('.pp-products')).toBeHidden();
@@ -552,13 +552,33 @@ try{
  for(const width of [320,390]){
   const r=await setup({width,height:844}),p=r.page;
   await p.getByLabel('POS Pro rejimi',{exact:true}).click();
-  await p.getByRole('option',{name:'Tezkor kassa · qidiruv va savat',exact:true}).click();
+  await p.getByRole('option',{name:'Tezkor kassa',exact:true}).click();
   await expect(p.locator('.pp-quick-intro')).toBeVisible();
   await p.getByLabel('POS Pro qidiruv').fill('Olma');
   await expect(p.locator('.pp-product').first()).toBeVisible();
   await p.locator('.pp-product').first().click();
   await expect(p.locator('.pp-quick-cart-total')).toBeVisible();
+  const jump=p.locator('.pp-mobile-checkout-jump');
+  await expect(jump).toBeVisible();
+  await expect(jump).toContainText('To‘lovga o‘tish');
+  await jump.click();
+  await expect(p.locator('#pp-payment-terminal')).toBeInViewport();
+  assert.equal(r.posts,0,'jumping to payment must not submit a sale');
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`quick mode horizontal overflow at ${width}px`);
+  await r.context.close();
+ }
+ // Touch mode: validate visual/keyboard panel order and checkout navigation.
+ {
+  const r=await setup({width:390,height:844,cartSize:1,touch:true}),p=r.page;
+  await p.getByLabel('POS Pro rejimi',{exact:true}).click();
+  await p.getByRole('option',{name:'Touch POS',exact:true}).click();
+  const visualOrder=await p.evaluate(()=>['.pp-catalog','.pp-cart','.pp-touch-console','.pp-terminal'].map(selector=>Number(getComputedStyle(document.querySelector(selector)).order)));
+  assert.deepEqual(visualOrder,[1,2,3,4],'mobile Touch panels must follow DOM order');
+  const jump=p.locator('.pp-mobile-checkout-jump');
+  await expect(jump).toBeVisible();
+  await jump.click();
+  await expect(p.locator('#pp-payment-terminal')).toBeInViewport();
+  assert.equal(r.posts,0,'mobile payment navigation must not submit a sale');
   await r.context.close();
  }
  // Quantity and discount edits support Enter to commit and Esc to cancel,
