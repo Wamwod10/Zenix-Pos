@@ -20,7 +20,7 @@ export function buildDeviceAcceptanceReport({
   if(!results||typeof results!=='object'||Array.isArray(results))throw Error('Sinov natijasi noto‘g‘ri');
   if(typeof checkedAt!=='string'||!Number.isFinite(Date.parse(checkedAt)))throw Error('Sinov vaqti noto‘g‘ri');
   const checks=DEVICE_ACCEPTANCE_CASES.map(({id,name})=>{
-    const row=results[id]??{};
+    const row=Object.hasOwn(results,id)?results[id]:{};
     if(!row||typeof row!=='object'||Array.isArray(row))throw Error('Natija shakli noto‘g‘ri');
     const status=row.status??'not_tested';
     if(!DEVICE_ACCEPTANCE_STATUSES.includes(status))throw Error('Sinov statusi noto‘g‘ri');
