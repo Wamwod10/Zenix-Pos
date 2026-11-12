@@ -15,3 +15,15 @@
 Record store/test tenant (no customer secrets), device model, browser/OS, date, pass/fail, operator and reviewer in an external acceptance report. The in-app checkboxes are **temporary manual reminders only** and are not stored as organization-level hardware readiness.
 
 **Exit gate #42:** obtain recorded physical results for scanners, installed printers, Android/touch, reconnect and any promised drawer/fiscal integrations. Browser/CI tests, even when green, are insufficient to close #42.
+
+## Operator evidence capture — 2026-11-12
+
+POS Pro → **Qurilmalar** now has an operator-only device acceptance form. It does not discover physical peripherals, perform sales, write to the backend, or certify hardware.
+
+For each scenario, select **Tekshirilmagan / O‘tdi / Xato / Bloklangan**, enter the device model/OS when applicable, and record a nonsensitive evidence ID (photo filename, test ticket, log reference, or reviewer note). A manually selected **O‘tdi** requires an evidence reference before export. Enter the test business label and optional operator identifier, then select **Dalil hisobotini JSON sifatida saqlash**.
+
+The JSON report contains the explicit fields verifiedAutomatically=false, certification=NOT_CERTIFIED and evidenceSource=operator-self-reported, plus per-case statuses. The UI does not store data on the server; results are lost on reload. Preserve the downloaded file separately. Never enter cashier totals, personal customer data, telegram secrets or payment credentials in report fields.
+
+The six scenarios are HID barcode, 58mm receipt, 80mm receipt, touch/responsive, offline/reconnect, and two-tab cashier checkout. An operator and reviewer must verify real device photos, printouts or local logs. A generated JSON file is NOT physical device acceptance. Unintegrated cash drawer, ESC/POS bridge and fiscal provider remain unsupported.
+
+Synthetic Playwright acceptance in tests/posPro.browser.mjs exercises input validation and JSON download without creating a sale and asserts NOT_CERTIFIED. This is reporting-UI validation, not a hardware/Telegram provider test. Keep issue #42 open until on-site physical evidence exists.
