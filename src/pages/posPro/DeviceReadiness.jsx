@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {PremiumSelect} from '../../components/Ui';
 import {DEVICE_ACCEPTANCE_CASES,buildDeviceAcceptanceReport} from './deviceAcceptanceReport';
 
 const statuses=[
@@ -85,9 +86,9 @@ export default function DeviceReadiness({online,capabilities}){
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,180px),1fr))',gap:8}}>
           <label style={{display:'grid',gap:3,minWidth:0}}>
             <span>Sinov natijasi</span>
-            <select aria-label={item.name+' natijasi'} style={fieldStyle} value={results[item.id]?.status||'not_tested'} onChange={event=>update(item.id,'status',event.target.value)}>
+            <PremiumSelect aria-label={item.name+' natijasi'} value={results[item.id]?.status||'not_tested'} onChange={event=>update(item.id,'status',event.target.value)}>
               {statuses.map(status=><option key={status.value} value={status.value}>{status.label}</option>)}
-            </select>
+            </PremiumSelect>
           </label>
           {(results[item.id]?.status||'not_tested')!=='not_tested'&&<label style={{display:'grid',gap:3,minWidth:0}}>
             <span>Qurilma modeli / OS</span>
