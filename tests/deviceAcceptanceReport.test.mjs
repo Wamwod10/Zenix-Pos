@@ -41,7 +41,7 @@ test('records fail, blocked and untested without claiming device success',()=>{
     touch:{status:'pass',evidence:'QA-TOUCH-32-390'},
   };
   const report=buildDeviceAcceptanceReport(a);
-  assert.deepEqual(report.summary,{total:6,not_tested:2,pass:1,fail:1,blocked:1});
+  assert.deepEqual(report.summary,{total:6,not_tested:3,pass:1,fail:1,blocked:1});
   assert.ok(report.checks.find(x=>x.id==='scanner').notes.includes('Enter'));
   assert.equal(report.browserCapabilities.webSerialAPIAvailable,false);
 });
