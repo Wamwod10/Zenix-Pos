@@ -99,12 +99,4 @@
   .pos-pro.pp-touch .pp-workspace{flex:1 0 auto;grid-template-rows:minmax(210px,auto) minmax(246px,auto) auto}
 }
 
-// Compact phones: the layout picker has its own row; all action buttons
-// retain 44px targets with a single mobile header source of truth.
-@media(max-width:400px){
-  .pos-pro .pp-top .pp-header-actions{
-    flex-wrap:wrap;
-    >.pp-layout-picker{width:100%;flex-basis:100%}
-    >button:not(.pp-return),>.pp-return{width:44px;min-height:44px}
-  }
-}
+// Phone header uses the same single-line layout and 44px controls.
