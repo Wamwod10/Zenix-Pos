@@ -89,11 +89,12 @@ export default function DeviceReadiness({online,capabilities}){
               {statuses.map(status=><option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </label>
-          <label style={{display:'grid',gap:3,minWidth:0}}>
+          {(results[item.id]?.status||'not_tested')!=='not_tested'&&<label style={{display:'grid',gap:3,minWidth:0}}>
             <span>Qurilma modeli / OS</span>
             <input aria-label={item.name+' qurilma modeli'} style={fieldStyle} maxLength={100} value={results[item.id]?.device||''} onChange={event=>update(item.id,'device',event.target.value)} placeholder="Model yoki brauzer"/>
-          </label>
+          </label>}
         </div>
+        {(results[item.id]?.status||'not_tested')!=='not_tested'&&<>
         <label style={{display:'grid',gap:3,minWidth:0}}>
           <span>Dalil havolasi yoki test yozuvi (o‘tdi uchun majburiy)</span>
           <input aria-label={item.name+' dalili'} style={fieldStyle} maxLength={350} value={results[item.id]?.evidence||''} onChange={event=>update(item.id,'evidence',event.target.value)} placeholder="Test kodi, rasm/chek fayl nomi"/>
@@ -101,7 +102,7 @@ export default function DeviceReadiness({online,capabilities}){
         <label style={{display:'grid',gap:3,minWidth:0}}>
           <span>Izoh / aniqlangan xato</span>
           <textarea aria-label={item.name+' izohi'} style={{...fieldStyle,minHeight:56,resize:'vertical'}} rows={2} maxLength={500} value={results[item.id]?.notes||''} onChange={event=>update(item.id,'notes',event.target.value)} placeholder="Qanday sinov va natija?"/>
-        </label>
+        </label></>}
       </div>)}
     </div>
     <p><strong>Hozir qo‘llab-quvvatlanmaydi:</strong> ESC/POS bridge, kassa tortmasi adapteri va fiskal provider. Bu funksiyalarni checklist orqali «o‘tdi» qilib bo‘lmaydi; alohida integratsiya va fizik acceptance talab qilinadi.</p>
