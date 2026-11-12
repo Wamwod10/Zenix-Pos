@@ -549,6 +549,22 @@ try{
   await expect(p.locator('.pp-products')).toBeVisible();
   await r.context.close();
  }
+ // Header uses one aligned line at desktop, tablet and phone widths. On
+ // narrow screens the header itself scrolls, never the page or checkout.
+ for(const width of [320,390,680,1024,1366,1920]){
+  const r=await setup({width,height:width<=390?844:900}),p=r.page;
+  const header=await p.locator('.pp-top').evaluate(el=>{
+   const children=[...el.children].map(node=>{const b=node.getBoundingClientRect();return {centerY:b.top+b.height/2,width:b.width}});
+   const style=getComputedStyle(el);
+   return {wrap:style.flexWrap,overflowX:style.overflowX,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,children};
+  });
+  assert.equal(header.wrap,'nowrap',`POS header wraps at ${width}px`);
+  assert.equal(header.overflowX,'auto',`POS header is not independently scrollable at ${width}px`);
+  assert.ok(header.children.every(item=>Math.abs(item.centerY-header.children[0].centerY)<4),`header controls misaligned at ${width}px`);
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`POS header causes page overflow at ${width}px`);
+  if(width<=680)assert.ok(header.scrollWidth>header.clientWidth,`expected header scrolling at ${width}px`);
+  await r.context.close();
+ }
  for(const width of [320,390]){
   const r=await setup({width,height:844}),p=r.page;
   await p.getByLabel('POS Pro rejimi',{exact:true}).click();
