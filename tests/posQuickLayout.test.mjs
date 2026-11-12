@@ -108,11 +108,14 @@ test('mobile payment jump and compact payment controls keep financial logic unch
  assert.match(touch,/grid-template-rows:minmax\(210px,1fr\) minmax\(246px,1fr\) auto/);
 });
 
-// Prevent regression to inaccessible 32px header actions on narrow phones.
-test('compact POS Pro header preserves 44px touch targets',()=>{
+// The entire header stays in one row, with scroll confined to the header.
+test('POS Pro header remains one horizontally scrollable row at all breakpoints',()=>{
+ const css=readFileSync(new URL('../src/pages/posPro/posPro.scss',import.meta.url),'utf8');
  const touch=readFileSync(new URL('../src/pages/posPro/touchPos.scss',import.meta.url),'utf8');
- assert.match(touch,/max-width:400px/);
- assert.match(touch,/flex-wrap:wrap/);
- assert.match(touch,/button:not\(.pp-return\)\{width:44px;min-height:44px/);
- assert.doesNotMatch(touch,/\.pp-return\{width:32px/);
+ assert.match(css,/\.pp-top \{display:flex;flex-wrap:nowrap/);
+ assert.match(css,/overflow-x:auto;overflow-y:hidden/);
+ assert.doesNotMatch(css,/\.pp-header-actions \{order:5;width:100%/);
+ assert.doesNotMatch(touch,/flex-wrap:wrap/);
+ assert.match(css,/button:not\(.pp-return\) \{width:44px;min-height:44px/);
+ assert.doesNotMatch(css,/\.pp-return \{width:40px/);
 });
