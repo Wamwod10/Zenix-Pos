@@ -696,6 +696,35 @@ try{
   await r.page.reload();await expect(r.page.getByLabel('Olma miqdori',{exact:true})).toHaveValue('2');
   const t=performance.now();await r.page.getByLabel('POS Pro qidiruv').fill('last');await expect(r.page.locator('.pp-product').first()).toContainText('49999');results.push({kind:'50k-tail-search',cartSize,ms:performance.now()-t,renderedProducts:await r.page.locator('.pp-product').count()});await r.context.close();
  }
+ // Operator evidence is a local-only artifact; never mark physical devices certified.
+ {
+  const r=await setup({width:390,height:844}),p=r.page;
+  await p.getByRole('button',{name:'Qurilmalar',exact:true}).click();
+  const dialog=p.getByRole('dialog',{name:'Qurilmalar va chek'});
+  await expect(dialog.getByRole('heading',{name:'Real qurilma tekshiruvi'})).toBeVisible();
+  const save=dialog.getByRole('button',{name:'Dalil hisobotini JSON sifatida saqlash'});
+  await save.click();
+  await expect(dialog.getByRole('alert')).toContainText('Sinov biznesi');
+  await dialog.getByLabel('Sinov biznesi yoki filiali').fill('Synthetic QA filial');
+  await dialog.getByLabel('USB/HID barcode skaner natijasi').click();
+  await p.getByRole('option',{name:'O‘tdi — operator tasdiqladi',exact:true}).click();
+  await save.click();
+  await expect(dialog.getByRole('alert')).toContainText('dalil izohini');
+  await dialog.getByLabel('USB/HID barcode skaner dalili').fill('TEST-BARCODE-EVIDENCE-001');
+  await dialog.getByLabel('USB/HID barcode skaner qurilma modeli').fill('Synthetic USB device');
+  await p.screenshot({path:output+'/device-acceptance-390.png',fullPage:true});
+  const [download]=await Promise.all([p.waitForEvent('download'),save.click()]);
+  assert.match(download.suggestedFilename(),/^zenix-pos-device-acceptance-/);
+  const report=JSON.parse(await readFile(await download.path(),'utf8'));
+  assert.equal(report.certification,'NOT_CERTIFIED');
+  assert.equal(report.verifiedAutomatically,false);
+  assert.equal(report.summary.pass,1);
+  assert.equal(report.summary.not_tested,5);
+  assert.equal(report.checks[0].evidence,'TEST-BARCODE-EVIDENCE-001');
+  assert.equal(report.testContext.testTenant,'Synthetic QA filial');
+  assert.equal(r.posts,0,'operator evidence must never perform a sale');
+  await r.context.close();
+ }
  const closed=await setup({closed:true});await closed.page.locator('.pp-product').first().click();await expect(closed.page.getByRole('button',{name:'Naqd to‘lov F12'})).toBeDisabled();await closed.context.close();
  }
  }
