@@ -706,7 +706,8 @@ try{
   await save.click();
   await expect(dialog.getByRole('alert')).toContainText('Sinov biznesi');
   await dialog.getByLabel('Sinov biznesi yoki filiali').fill('Synthetic QA filial');
-  await dialog.getByLabel('USB/HID barcode skaner natijasi').selectOption('pass');
+  await dialog.getByLabel('USB/HID barcode skaner natijasi').click();
+  await p.getByRole('option',{name:'O‘tdi — operator tasdiqladi',exact:true}).click();
   await save.click();
   await expect(dialog.getByRole('alert')).toContainText('dalil izohini');
   await dialog.getByLabel('USB/HID barcode skaner dalili').fill('TEST-BARCODE-EVIDENCE-001');
