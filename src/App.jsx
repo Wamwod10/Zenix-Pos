@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import MainLayout from "./layout/MainLayout";
+
 import { useAuth } from "./context/AuthContext";
 import { useStore } from "./context/StoreContext";
 import PosWorkspace from './context/PosWorkspace';
@@ -10,6 +10,10 @@ import { workspaceRouteDecision } from "./utils/workspaceReadiness";
 import Forbidden from "./components/Forbidden";
 import { PageSkeleton } from "./components/Ui";
 import AppErrorBoundary from "./components/AppErrorBoundary";
+
+// Keep the authenticated dashboard shell (and its AI/navigation imports) out of
+// the public login/register and standalone POS Pro initial JS path.
+const MainLayout=lazy(()=>import("./layout/MainLayout"));
 
 const Login=lazy(()=>import("./pages/login/Login"));
 const Register=lazy(()=>import("./pages/register/Register"));
