@@ -37,7 +37,7 @@ test("platform providers keep tenant APIs isolated while organization users reta
       let store;
       api.get = async (path) => {
         calls.push(["GET", path]);
-        if (path === "/api/auth/me") return { user };
+        if (path === "/api/auth/me" || path === "/api/auth/session") return { user };
         if (path === "/api/platform/overview") return { overview: { organizations: 0, active: 0, review: 0, stores: 0 } };
         if (path === "/api/users/me/sessions") return { sessions: [] };
         if (path === "/api/users") return { users: [] };
