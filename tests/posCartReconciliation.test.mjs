@@ -167,7 +167,7 @@ test('Sales waits for bootstrap tracking and reconciles draft, local and server 
    const calls=[];
    api.get=async path=>{
     calls.push(path);
-    if(path==='/api/auth/me')return {user:{id:'owner-1',appRole:'OWNER',organizationId:'org-1',name:'Owner'}};
+    if(path==='/api/auth/me'||path==='/api/auth/session')return {user:{id:'owner-1',appRole:'OWNER',organizationId:'org-1',name:'Owner'}};
     if(path==='/api/users/me/sessions')return {sessions:[]};
     if(path==='/api/users')return {users:[]};
     if(path==='/api/bootstrap'){bootstrapRequested=true;return bootstrap;}
