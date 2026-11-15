@@ -61,3 +61,17 @@ test('server errors, blocked users and aborts fail closed without retrying auth'
  assert.equal(received[0].signal,controller.signal);
  await assert.rejects(fetchSessionBootstrap(null),/HTTP GET implementation required/);
 });
+
+test('legacy adapters with an incomplete optional-session response fall back to protected me',async()=>{
+  for(const incomplete of [undefined,null,{}, {users:[],sessions:[]}]){
+    const calls=[];
+    const data=await fetchSessionBootstrap(async path=>{
+      calls.push(path);
+      if(path==='/api/auth/session')return incomplete;
+      assert.equal(path,'/api/auth/me');
+      return {user:{id:'real-user'}};
+    });
+    assert.equal(data.user.id,'real-user');
+    assert.deepEqual(calls,['/api/auth/session','/api/auth/me']);
+  }
+});
