@@ -1,0 +1,10 @@
+# ZENIX POS
+
+ZENIX POS is a private, authenticated point-of-sale and business management application.
+
+## Public pages
+
+- [Sign in](https://www.zenixpos.uz/login)
+- [Register and start a trial](https://www.zenixpos.uz/register)
+
+Authenticated POS, billing, inventory, customer, staff and administrator screens are not public documentation or agent APIs. This file does not provide credentials, transactional access or permissions.
