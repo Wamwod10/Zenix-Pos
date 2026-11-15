@@ -19,7 +19,7 @@
   "src/pages/suppliers/supplier.scss": "0af461b95a06c24b5801bcc7a7bea7073239b73d5e523846bd43a83b469080a1",
   "src/styles/media/_breakpoints.scss": "c4ad9c1d03eec352ae10b4f10551031437f7d410c49e6b62c283c97b803127ab",
   "src/styles/media/responsive.scss": "a5e956277b1ed6dee0217a6e520a0d7b5e6efe54467ddac100e3af3f08838211",
-  "src/styles/saas.scss": "4f2cea7295d1b50310ecbc7567365da2de437a12958b75421eafe4c55d56de56",
+  "src/styles/saas.scss": "e00e31e2238ef8a3e52572c79650edf45896fd8c86fc7dd9cfacdf49050407ed",
   "src/pages/register/registerOtp.scss": "246dfa00c9ece2a288ae4519b352759085f0f9b7ce639a950add9c6213d8ec1c",
   "src/pages/ai/zenixAi.scss": "6cfef985811c727a60c847b2893a1e186692c6bb508958dbca873ad87f4d0ab5",
   "src/pages/posPro/posPro.scss": "11eb897e5580c646c084cd59c604032bc682ee9d1438d2a7c8f3046755662dc2",
