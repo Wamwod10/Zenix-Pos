@@ -1,10 +1,14 @@
 // Reads public bootstrap status without changing authorization semantics.
-// Old backend deployments may not support /session; fall back to protected /me.
+// Older backends and legacy adapters may not support the optional response.
+// A malformed success falls back to the protected identity endpoint; auth
+// failures (401/403/5xx) still propagate without retry.
 export async function fetchSessionBootstrap(get,options){
   if(typeof get!=='function')throw new TypeError('HTTP GET implementation required');
-  try{return await get('/api/auth/session',options)}
-  catch(error){
-    if(error?.status===404)return get('/api/auth/me',options);
-    throw error;
+  try{
+    const data=await get('/api/auth/session',options);
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&Object.hasOwn(data,'user'))return data;
+  }catch(error){
+    if(error?.status!==404)throw error;
   }
+  return get('/api/auth/me',options);
 }
