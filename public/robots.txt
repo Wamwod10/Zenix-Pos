@@ -1,0 +1,26 @@
+# ZENIX POS — private SaaS application
+# Crawling rules are advisory and do not grant access to protected routes.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /activation
+Disallow: /change-password
+Disallow: /reset-password
+Disallow: /pos-pro
+Disallow: /platform
+Disallow: /sales
+Disallow: /shifts
+Disallow: /customers
+Disallow: /products
+Disallow: /inventory
+Disallow: /suppliers
+Disallow: /history
+Disallow: /expenses
+Disallow: /analytics
+Disallow: /seller-analytics
+Disallow: /activity-log
+Disallow: /settings
+Disallow: /billing
+Disallow: /profile
+Disallow: /ai
+Disallow: /help
