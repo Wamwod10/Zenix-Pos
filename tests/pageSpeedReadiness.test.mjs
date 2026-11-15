@@ -67,3 +67,12 @@ test('Vercel uses immutable asset hashes and refuses stale service worker cachin
   assert.ok(config.rewrites.some(row=>row.source==='/api/:path*'),'Proxy rewrite preserved');
   assert.ok(config.rewrites.some(row=>row.source==='/(.*)'),'SPA rewrite preserved');
 });
+
+test('loading skeleton animates only compositor-friendly opacity, never painted gradients',()=>{
+  const css=read('src/styles/saas.scss');
+  assert.match(css,/animation:zenixSkeletonPulse 1\.6s ease-in-out infinite/);
+  assert.match(css,/@keyframes zenixSkeletonPulse\{0%,100%\{opacity:1\}50%\{opacity:\.73\}\}/);
+  assert.doesNotMatch(css,/@keyframes zenixSkeleton\{[^}]*background-position/);
+  assert.doesNotMatch(css,/background-size:220% 100%;animation:zenixSkeleton/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\)/);
+});
