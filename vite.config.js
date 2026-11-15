@@ -11,7 +11,7 @@ export const entryPrecacheAssets=(html)=>[...new Set(
 )];
 
 const pwaAssetPrecache=()=>({
-  name:'zenix-pwa-entry-precache',
+  name:'zenix-pwa-asset-precache',
   apply:'build',
   async closeBundle(){
     const dist=path.resolve('dist');
