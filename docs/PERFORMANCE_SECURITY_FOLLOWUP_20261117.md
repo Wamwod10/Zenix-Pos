@@ -15,3 +15,8 @@ Only the two customer-detail modal blocks scoped to .platform-customer-modal wer
 
 ## Lighthouse
 New PSI API requests could not be retrieved in this session. Re-run mobile and desktop against the final production URL after release and record observed scores only. Separate synthetic CI performance budgets from Lighthouse metrics.
+
+## 2026-11-17 follow-up: local report-only trial
+- Run npm run build, then node tests/cspReportOnly.browser.mjs and ZENIX_CSP_AUDIT=1 node tests/posPro.browser.mjs with Chromium installed. Both are localhost/synthetic only. CI runs the new smoke and existing full POS suite with the candidate header. No changes to production headers, auth, POS or database.
+- Current production baseline stays enforced in local preview; broader candidate and require-trusted-types-for are report-only. POS receipt uses iframe.srcdoc (including printing); Trusted Types enforcement must wait for a reviewed, narrow safe HTML policy or sink refactor. Report-only logs contain only directive names and counts. Positive control deliberately attempts inline script in an isolated context and checks it executes and reports.
+- Remaining: review observed directive counts, inventory real integration origins and browser/device support, run staging billing, camera, Telegram, PWA and physical printer validation. Browser mocks do not prove live hardware or provider compatibility. COOP and HSTS scope changes remain deferred.

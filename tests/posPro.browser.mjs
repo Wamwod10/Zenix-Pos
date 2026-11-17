@@ -1,23 +1,26 @@
 // Browser workflow and latency evidence with synthetic APIs. No hardware/bank/production claims.
 import {chromium,expect} from '@playwright/test';
 import {preview} from 'vite';
+import {auditEnabled,auditHeaders,observeCsp,reportPath,printCspSummary} from './helpers/cspAudit.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {posDraftKey} from '../src/utils/posDraft.js';
 import {simulateHid} from './helpers/posHid.mjs';
 import {ean13CheckDigit} from '../src/pages/posPro/hardware.js';
-const server=await preview({preview:{host:'127.0.0.1',port:0},logLevel:'error'}),base=`http://127.0.0.1:${server.httpServer.address().port}`;
+const server=await preview({preview:{host:'127.0.0.1',port:0,...(auditEnabled?{headers:auditHeaders}:{})},logLevel:'error'}),base=`http://127.0.0.1:${server.httpServer.address().port}`;
 const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-222222222222',shift='33333333-3333-4333-8333-333333333333';
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Olma',sku:'SKU-'+i,barcode:i?String(10000000+i):'12345678',unit:'kg',sellPrice:12000,stockByStore:{[store]:1000},archived:false,...((process.env.POS_PRO_UX_ONLY||'').startsWith('deep-')?{name:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oilalar uchun '+i,unit:['kg','l','dona'][i%3],sellPrice:i%2?1250000000:1250000,stockBatches:[{id:'batch-'+i,storeId:store,batchNo:'FEFO-2027-001',remaining:1000,quantity:1000,expiryDate:'2027-01-01',status:'IN_STOCK'}]}:{})});
+const cspCounts=Object.create(null);
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
 async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER',paymentMethods=null}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0,activeShiftId=shift;
+ if(auditEnabled)await observeCsp(context,cspCounts);
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
  page.on('pageerror',e=>errors.push(e.message));
  if(cartSize)await page.addInitScript(({key,cart})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({v:1,cart,cartDiscountPct:0,checkoutReference:'PRO-browser-stable'}))},{key:`${posDraftKey(org,'owner',store)}:pro`,cart:Array.from({length:cartSize},(_,i)=>({...product(i),cartQty:1,discountPercent:0}))});
  await context.route('**/*',async route=>{
-  const req=route.request(),url=new URL(req.url());if(url.origin!==base)return route.abort();if(!url.pathname.startsWith('/api/'))return route.continue();
+  const req=route.request(),url=new URL(req.url());if(url.origin!==base)return route.abort();if(auditEnabled&&url.pathname===reportPath)return route.fulfill({status:204,body:''});if(!url.pathname.startsWith('/api/'))return route.continue();
   let data={users:[],sessions:[],revision:'1',holds:[]};
   if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole,storeId:store,name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
   if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:activeShiftId,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
@@ -746,4 +749,4 @@ try{
  }
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({results,errors,scope:'Synthetic API browser workflows; not physical hardware or database load'},null,2));
-}finally{await writeFile(output+`/${process.env.POS_PRO_SEARCH_BENCHMARK?'search-benchmark-'+process.env.POS_PRO_SEARCH_BENCHMARK:'browser-results'}.json`,JSON.stringify({results,errors},null,2));await browser.close();await new Promise(resolve=>server.httpServer.close(resolve))}
+}finally{if(auditEnabled)printCspSummary('POS Pro checkout/receipt synthetic browser acceptance',cspCounts);await writeFile(output+`/${process.env.POS_PRO_SEARCH_BENCHMARK?'search-benchmark-'+process.env.POS_PRO_SEARCH_BENCHMARK:'browser-results'}.json`,JSON.stringify({results,errors},null,2));await browser.close();await new Promise(resolve=>server.httpServer.close(resolve))}
