@@ -4,6 +4,7 @@ import { api, ApiError } from "../services/apiClient";
 import { formatUzPhone, isValidUzPhone } from "../utils/phone";
 import {DEFAULT_ROLE_PERMISSIONS} from '../config/uiDefaults';
 import {AUTH_SYNC_KEY,notifyAuthChanged} from '../utils/authSync';
+import {fetchSessionBootstrap} from '../utils/authSessionBootstrap';
 
 const AuthContext=createContext(null);
 
@@ -55,7 +56,7 @@ export const AuthProvider=({children})=>{
     const revision=++sessionRevision.current;
     (async()=>{
       try{
-        const data=await api.get("/api/auth/me");
+        const data=await fetchSessionBootstrap((path,options)=>api.get(path,options));
         if(cancelled||revision!==sessionRevision.current)return;
         setCurrentUser(cleanUser(data.user));
       }catch(error){
@@ -77,7 +78,7 @@ export const AuthProvider=({children})=>{
       const revision=++sessionRevision.current;
       setCurrentUser(null);setWorkspaceAccounts([]);setSessions([]);setAuthLoading(true);
       try{
-        const data=await api.get('/api/auth/me',{signal:controller.signal});
+        const data=await fetchSessionBootstrap((path,options)=>api.get(path,options),{signal:controller.signal});
         if(revision===sessionRevision.current)setCurrentUser(cleanUser(data.user));
       }catch{/* The shared session may have been logged out. */}
       finally{if(revision===sessionRevision.current)setAuthLoading(false)}

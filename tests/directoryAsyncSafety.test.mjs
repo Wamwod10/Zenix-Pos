@@ -27,7 +27,7 @@ async function withSession(page, get, run, user = owner, requests = []) {
     api.get=async path=>{
       requests.push(path);
       if(path==="/api/customers/tags")return {configured:[],existing:[]};
-      if(path==="/api/auth/me")return {user};
+      if(path==="/api/auth/me"||path==="/api/auth/session")return {user};
       if(path==="/api/users/me/sessions")return {sessions:[]};
       if(path==="/api/users")return {users:[]};
       if(path==="/api/bootstrap")return {stores:[{id:"store-1",name:"Main",active:true}],activeShifts:{"store-1":{id:"shift-1",cashierAccountId:user.id}},organization:{id:user.organizationId,plan:"MONTHLY",storeLimit:2}};
