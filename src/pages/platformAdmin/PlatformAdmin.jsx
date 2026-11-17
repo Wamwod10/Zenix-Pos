@@ -8,6 +8,7 @@ import { useFeedback } from "../../context/FeedbackContext";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import { api } from "../../services/apiClient";
 import {PlatformSummary,BusinessDiagnostics,PlatformAudit,RecoveryDashboard} from "./PlatformTools";
+import "./platformCustomerModal.scss";
 
 const STATUS_LABELS={ACTIVE:"Faol",APPROVED:"Tasdiqlangan",REVIEW:"Tekshiruvda",REJECTED:"Rad etilgan",EXPIRED:"Muddati tugagan",SUSPENDED:"Bloklangan",PAYMENT_REQUIRED:"To‘lov kutilmoqda",TRIAL:"Sinovda",BILLING_HOLD:"To‘lov cheklovi"};
 const tone=status=>status==="ACTIVE"||status==="APPROVED"?"success":status==="REJECTED"||status==="EXPIRED"||status==="SUSPENDED"?"danger":status==="REVIEW"||status==="BILLING_HOLD"||status==="PAYMENT_REQUIRED"?"warning":"neutral";

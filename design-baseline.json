@@ -19,11 +19,12 @@
   "src/pages/suppliers/supplier.scss": "0af461b95a06c24b5801bcc7a7bea7073239b73d5e523846bd43a83b469080a1",
   "src/styles/media/_breakpoints.scss": "c4ad9c1d03eec352ae10b4f10551031437f7d410c49e6b62c283c97b803127ab",
   "src/styles/media/responsive.scss": "a5e956277b1ed6dee0217a6e520a0d7b5e6efe54467ddac100e3af3f08838211",
-  "src/styles/saas.scss": "e00e31e2238ef8a3e52572c79650edf45896fd8c86fc7dd9cfacdf49050407ed",
+  "src/styles/saas.scss": "9ecf1e4107b94c490be2efd074ce77a9b5f594af46f3b324e628fd39094b4c58",
   "src/pages/register/registerOtp.scss": "246dfa00c9ece2a288ae4519b352759085f0f9b7ce639a950add9c6213d8ec1c",
   "src/pages/ai/zenixAi.scss": "6cfef985811c727a60c847b2893a1e186692c6bb508958dbca873ad87f4d0ab5",
   "src/pages/posPro/posPro.scss": "11eb897e5580c646c084cd59c604032bc682ee9d1438d2a7c8f3046755662dc2",
   "src/pages/posPro/touchPos.scss": "f5d4beaf857a337de03fb2b6b03a438e924bc58aff9228b1692226f30f4978df",
   "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748",
-  "src/pages/posPro/posQuick.scss": "ca6049efe2565c507f0ca5529861911642527297acb616cb70519fd95293e8c2"
+  "src/pages/posPro/posQuick.scss": "ca6049efe2565c507f0ca5529861911642527297acb616cb70519fd95293e8c2",
+  "src/pages/platformAdmin/platformCustomerModal.scss": "51216468dd2bf6fb46f3ac1df5ae53f51703e3acbbd78af331c736bdf629aa70"
 }
