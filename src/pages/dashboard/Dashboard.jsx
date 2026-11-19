@@ -192,6 +192,15 @@ function Dashboard(){
     />
 
     {trial&&<section className="pro-card dashboard-trial-banner" aria-label="14 kunlik sinov holati"><div><strong>{trial.active?'Bepul sinov davom etmoqda':'Bepul sinov muddati tugagan'}</strong><p>{trial.active?`Sinov tugashiga ${trial.days} kun qoldi. Tanlangan tarif limitlari amal qiladi.`:'Ma’lumotlaringiz saqlanadi; yozish ruxsatini tiklash uchun tarif holatini tekshiring.'}</p></div>{hasPermission('moduleBilling',currentUser?.appRole)&&<Link className="pro-btn secondary" to="/billing">Tarifni ko‘rish <FiArrowRight/></Link>}</section>}
+    <div className="dashboard-kpis">
+      <StatCard icon={FiTrendingUp} label="Savdo" value={formatPrice(revenue)} hint={`${transactions} ta tranzaksiya`} tone="blue" trend={period!=="all"?{label:formatPct(salesChange),tone:salesChange==null?"neutral":salesChange>=0?"up":"down"}:null}/>
+      <StatCard icon={FiDollarSign} label="Hisoblangan natija" value={profitTrusted?formatPrice(netProfit):"—"} hint={profitTrusted?`Kiritilgan xarajat ${formatPrice(expenseTotal)} · korxona sof foydasi emas`:"Tannarx yoki hisobot dalillari yetarli emas"} tone="green" trend={profitTrusted&&period!=="all"?{label:formatPct(profitChange),tone:profitChange==null?"neutral":profitChange>=0?"up":"down"}:null}/>
+      <StatCard icon={FiShoppingBag} label="O‘rtacha chek" value={formatPrice(average)} hint={`${transactions} ta chek`} tone="purple" trend={period!=="all"?{label:formatPct(avgChange),tone:avgChange==null?"neutral":avgChange>=0?"up":"down"}:null}/>
+      <StatCard icon={FiActivity} label="Yalpi marja" value={`${margin.toFixed(1)}%`} hint={formatPrice(grossProfit)} tone="teal"/>
+      <StatCard icon={FiPackage} label="Ombor qiymati" value={catalogComplete?formatPrice(inventoryValue):"—"} hint={catalogComplete?`${low.length} kam · ${out.length} tugagan`:"Qoldiq hali yuklanmagan"} tone="orange"/>
+      <StatCard icon={FiRotateCcw} label="Qaytarish" value={formatPrice(returnTotal)} hint={`${scopedReturns.length} ta · ${returnRate.toFixed(1)}%`} tone="red"/>
+    </div>
+
     {showOnboarding&&<section className="pro-card dashboard-onboarding" aria-label="Boshlang‘ich sozlash"><div className="pro-card-head"><div><h2>ZENIX Savdoda ilk qadamlar</h2><p>${onboarding.filter(step=>step.complete===true).length} / 4 qadam bajarildi · faqat haqiqiy, yuklangan ma’lumot asosida</p></div></div><div className="dashboard-onboarding-grid">{onboarding.map(step=><div key={step.id} className={step.complete===true?'is-complete':''}><span className="dashboard-onboarding-mark" aria-hidden="true">{step.complete===true?'✓':'○'}</span><div><strong>{step.title}</strong><small>{step.complete===null?'Holatni tekshirish uchun ma’lumot yoki ruxsat kerak':step.complete===true?'Bajarilgan':step.detail}</small></div>{step.enabled&&(step.id==='report'?<button type="button" className="pro-btn secondary" onClick={()=>setPeriod('1')}>Bugungi hisobot <FiArrowRight/></button>:<Link className="pro-btn secondary" to={step.path}>Ochish <FiArrowRight/></Link>)}</div>)}</div></section>}
     <section className="pro-card dashboard-quick-links" aria-label="Kundalik nazorat"><div className="pro-card-head"><div><h2>Kundalik nazorat</h2><p>Tanlangan filial va davrga tegishli bo‘limlarga tez o‘ting.</p></div></div><div className="dashboard-quick-grid">
      {hasPermission('moduleInventory',currentUser?.appRole)&&<Link to="/inventory?status=low"><FiPackage/><strong>{catalogComplete?`${low.length} ta kam qoldiq`:'Qoldiq tekshirilmoqda'}</strong><small>Kam qolgan mahsulotlar</small><FiArrowRight/></Link>}
@@ -201,15 +210,6 @@ function Dashboard(){
     </div></section>
 
     <section className="pro-card zenix-pulse"><div className="pro-card-head"><div><h2>Zenix Pulse</h2><p>{pulse.length?`${pulse.length} ta e’tibor talab qiladigan signal`:"Biznesning asosiy ko‘rsatkichlari me’yorda"}</p></div><StatusBadge tone={pulse.some(x=>x.tone==="danger")?"danger":pulse.length?"warning":"success"}>{pulse.length?"E’tibor kerak":"Hammasi joyida"}</StatusBadge></div>{pulse.length?<div className="pulse-grid">{pulse.map((item,index)=><Link to={item.path} className={`pulse-item ${item.tone}`} key={`${item.title}-${index}`}><span><strong>{item.title}</strong><small>{item.text}</small></span><FiArrowRight/></Link>)}</div>:<div className="dashboard-empty compact"><FiActivity/> Hozircha kritik signal aniqlanmadi</div>}</section>
-
-    <div className="dashboard-kpis">
-      <StatCard icon={FiTrendingUp} label="Savdo" value={formatPrice(revenue)} hint={`${transactions} ta tranzaksiya`} tone="blue" trend={period!=="all"?{label:formatPct(salesChange),tone:salesChange==null?"neutral":salesChange>=0?"up":"down"}:null}/>
-      <StatCard icon={FiDollarSign} label="Hisoblangan natija" value={profitTrusted?formatPrice(netProfit):"—"} hint={profitTrusted?`Kiritilgan xarajat ${formatPrice(expenseTotal)} · korxona sof foydasi emas`:"Tannarx yoki hisobot dalillari yetarli emas"} tone="green" trend={profitTrusted&&period!=="all"?{label:formatPct(profitChange),tone:profitChange==null?"neutral":profitChange>=0?"up":"down"}:null}/>
-      <StatCard icon={FiShoppingBag} label="O‘rtacha chek" value={formatPrice(average)} hint={`${transactions} ta chek`} tone="purple" trend={period!=="all"?{label:formatPct(avgChange),tone:avgChange==null?"neutral":avgChange>=0?"up":"down"}:null}/>
-      <StatCard icon={FiActivity} label="Yalpi marja" value={`${margin.toFixed(1)}%`} hint={formatPrice(grossProfit)} tone="teal"/>
-      <StatCard icon={FiPackage} label="Ombor qiymati" value={catalogComplete?formatPrice(inventoryValue):"—"} hint={catalogComplete?`${low.length} kam · ${out.length} tugagan`:"Qoldiq hali yuklanmagan"} tone="orange"/>
-      <StatCard icon={FiRotateCcw} label="Qaytarish" value={formatPrice(returnTotal)} hint={`${scopedReturns.length} ta · ${returnRate.toFixed(1)}%`} tone="red"/>
-    </div>
 
     <div className="dashboard-main-grid">
       <section className="pro-card dashboard-chart">

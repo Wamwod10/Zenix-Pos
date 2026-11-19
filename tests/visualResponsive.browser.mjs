@@ -22,8 +22,8 @@ try{
   await context.route('**/*',async route=>{
    const url=new URL(route.request().url());if(url.origin!==base)return route.abort();if(!url.pathname.startsWith('/api/'))return route.continue();
    let data={users:[],sessions:[],items:[],events:[],revision:'1',holds:[],total:0};
-   if(url.pathname==='/api/auth/me'){
-    if(['/login','/register','/reset-password'].includes(currentRoute))return route.fulfill({status:401,json:{ok:false,error:{code:'UNAUTHORIZED'}}});
+   if(url.pathname==='/api/auth/me'||url.pathname==='/api/auth/session'){
+    if(['/login','/register','/reset-password'].includes(currentRoute))return url.pathname==='/api/auth/session'?route.fulfill({json:{ok:true,data:{user:null}}}):route.fulfill({status:401,json:{ok:false,error:{code:'UNAUTHORIZED'}}});
     data={user:{id:'owner',organizationId:org,appRole:currentRoute==='/platform'?'PLATFORM_ADMIN':'OWNER',name:process.env.VISUAL_STRESS?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
    }
    if(url.pathname==='/api/bootstrap')data={catalogComplete:true,stores:[{id:store,name:process.env.VISUAL_STRESS?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:Array.from({length:process.env.VISUAL_MODULE_VIEWS?45:process.env.VISUAL_SALES_CART?100:40},(_,i)=>product(i)),suppliers:[{id:'supplier',name:'Uzun nomli sintetik ta’minotchi korxonasi',balance:1234567890}],employees:[],activeShifts:{[store]:{id:'shift',storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:3}};
@@ -52,9 +52,18 @@ try{
     await page.goto(base+route);assert.equal(new URL(page.url()).pathname,new URL(route,base).pathname,'requested route must render without redirect');await page.locator('h1:visible,.pp-brand:visible,form:visible,.pos-page-pro').first().waitFor();await page.waitForTimeout(350);
     if(route==='/pos-pro')await expect(page.locator('.pp-product').first()).toBeEnabled();
     if(route==='/')await expect(page.locator('.dashboard-chart svg text').first()).toBeVisible();
+    if(route==='/shifts'&&process.env.VISUAL_EXHIBITION_GATE){await expect(page.locator('.shift-live-identity')).toBeVisible();assert.ok(!(await page.locator('.shift-live-identity').innerText()).includes('NaN'));assert.ok(!(await page.locator('.pro-stat-grid').innerText()).includes('NaN'),'invalid shift time must never render as NaN');}
+    if(route==='/products'&&width<=760){await expect(page.locator('.product-card-pro').first()).toBeVisible();}
     for(const theme of [ 'light',...((process.env.VISUAL_ALL_ROUTES||[320,390,768,1366].includes(width))?['dark']:[])]){
      await page.evaluate(theme=>document.body.classList.toggle('dark-mode',theme==='dark'),theme);
      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+     if(route==='/products'&&width<=760){
+       await page.getByRole('button',{name:'Kartalar',exact:true}).click();
+       await expect(page.locator('.product-card-pro').first()).toBeVisible();
+       if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-products-grid-${theme}.png`,fullPage:true});
+       await page.getByRole('button',{name:'Jadval',exact:true}).click();
+       await expect(page.locator('.product-table tbody tr').first()).toBeVisible();
+     }
      const measurement=await page.evaluate(()=>{
       const rect=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};
       const visible=el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden';
@@ -134,6 +143,17 @@ try{
  }
 }finally{await writeFile(`${out}/measurements.json`,JSON.stringify({results,errors,interactions},null,2));await browser.close();await new Promise(r=>server.httpServer.close(r));}
 console.log(JSON.stringify({cases:results.length,errors,failedRoutes:results.filter(r=>r.error),overflowCases:results.filter(r=>r.outside?.length).length},null,2));
+if(process.env.VISUAL_EXHIBITION_GATE){
+  const actual=results.filter(r=>!r.error&&r.theme);
+  const expected=matrix.filter(([w])=>!process.env.VISUAL_WIDTHS||process.env.VISUAL_WIDTHS.split(',').includes(String(w))).length*routes.length*2;
+  const uncontained=actual.flatMap(r=>r.outside.filter(e=>!e.scrollContainer).map(e=>({width:r.width,route:r.route,theme:r.theme,...e})));
+  console.log(JSON.stringify({expected,measured:actual.length,uncontained,scrollContainedCases:actual.filter(r=>r.outside.length&&r.outside.every(e=>e.scrollContainer)).length},null,2));
+  assert.deepEqual(errors,[],'runtime errors');
+  assert.deepEqual(results.filter(r=>r.error),[],'route or screenshot errors');
+  assert.equal(actual.length,expected,'complete route/theme evidence');
+  assert.deepEqual(uncontained,[],'uncontained viewport overflow');
+  for(const r of actual){assert.deepEqual(r.headerOverflow,[],`${r.route}: header overflow`);assert.equal(r.collisions.length,0,`${r.route}: AI launcher collision`);}
+}
 if(process.env.VISUAL_STRICT){
  assert.deepEqual(errors,[],'runtime errors');
  assert.deepEqual(results.filter(r=>r.error),[],'route render failures');

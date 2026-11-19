@@ -37,3 +37,11 @@
 @media(max-width:1180px){.shift-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.shift-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.shift-metrics{grid-template-columns:1fr}}
+
+/* Exhibition audit: long branch or cashier names must stay within the shift card. */
+.shift-live-head,.shift-live-identity,.shift-live-identity>span{min-width:0;max-width:100%}
+.shift-live-identity{flex:1 1 auto}
+.shift-live-identity .live-dot{flex:0 0 8px}
+.shift-live-identity strong{white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.shift-actions{flex:0 1 auto;min-width:0;max-width:100%}
+@media(max-width:760px){.shift-live-identity{width:100%}.shift-actions .pro-btn{min-width:0;white-space:normal;min-height:44px}}
