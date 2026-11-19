@@ -74,13 +74,13 @@ function Register(){
   const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;if(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!canRegisterTrial(proof,form.phone)))){setOtpError("Trial uchun telefonni SMS kod bilan tasdiqlang");return}setSubmitting(true);const result=await register({...form,registrationToken:form.startOption==="TRIAL"&&requiresOtp?proof?.registrationToken:undefined});if(!result.success){if(result.code==='OTP_REQUIRED')loadPolicy();setErrors(registrationFieldErrors(result));setSubmitting(false);return}navigate(form.startOption==="TRIAL"?"/":"/activation")};
   return <main className="auth-page register-auth">
     <section className="auth-showcase">
-      <div className="auth-brand"><span className="auth-brand-mark">Z</span><span>ZENIX POS</span></div>
-      <div className="auth-showcase-copy"><span className="auth-kicker">14 kun bepul sinov</span><h1>14 kun bepul sinab ko‘ring.</h1><p>Tanlangan START, BUSINESS yoki PREMIUM tarifining imkoniyatlarini 14 kun davomida sinab ko‘ring. Ro‘yxatdan o‘tishda amaldagi shartlar serverdan tekshiriladi.</p></div>
+      <div className="auth-brand"><span className="auth-brand-mark"><img src="/zenix-logo.png" alt="" width="42" height="42" aria-hidden="true"/></span><span>ZENIX POS</span></div>
+      <div className="auth-showcase-copy"><span className="auth-kicker">14 kun bepul sinov</span><h1>14 kun bepul sinab ko‘ring.</h1><p>Tanlangan START, BUSINESS yoki PREMIUM tarifining imkoniyatlarini 14 kun davomida sinab ko‘ring. Biznesingizga mos tarifni tanlang va ishni boshlang.</p></div>
       <div className="auth-feature-list"><div><FiShoppingCart/><span><strong>Savdo</strong><small>Tezkor POS va to‘lovlar</small></span></div><div><FiBarChart2/><span><strong>Boshqaruv</strong><small>Boshqaruv paneli, xarajat va analitika</small></span></div><div><FiShield/><span><strong>Nazorat</strong><small>Rollar va ruxsatlar</small></span></div></div>
     </section>
     <section className="auth-form-side"><div className="auth-card auth-register-card">
-      <div className="auth-mobile-brand"><span className="auth-brand-mark">Z</span><strong>ZENIX POS</strong></div>
-      <div className="auth-title"><span>ZENIX Savdo · POS ilovasi</span><h2>14 kun bepul sinab ko‘ring</h2><p>Biznesingizni ro‘yxatdan o‘tkazing va mavjud tariflardan birini sinov uchun tanlang. Trial muddati va ruxsatlarni backend boshqaradi.</p></div>
+      <div className="auth-mobile-brand"><span className="auth-brand-mark"><img src="/zenix-logo.png" alt="" width="42" height="42" aria-hidden="true"/></span><strong>ZENIX POS</strong></div>
+      <div className="auth-title"><span>ZENIX Savdo · POS ilovasi</span><h2>14 kun bepul sinab ko‘ring</h2><p>Biznesingizni ro‘yxatdan o‘tkazing va mavjud tariflardan birini sinov uchun tanlang. Sinov muddati va tarif shartlari ro‘yxatdan o‘tishda tasdiqlanadi.</p></div>
       {errors.form&&<div className="auth-error" role="alert">{errors.form}</div>}
       <form onSubmit={submit} noValidate>
         <div className="auth-register-grid">

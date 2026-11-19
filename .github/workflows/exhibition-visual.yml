@@ -1,0 +1,42 @@
+name: Exhibition visual review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/exhibition*.mjs'
+      - '.github/workflows/exhibition-visual.yml'
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --include=optional
+      - run: npm run build
+      - run: npx playwright install chromium
+      - name: Fresh public routes, branding, theme and recovery
+        run: node tests/exhibitionAuth.browser.mjs
+      - name: All 22 route layouts at phone and exhibition desktop widths (diagnostic)
+        if: always()
+        env:
+          VISUAL_WIDTHS: '390,1366'
+          VISUAL_ALL_ROUTES: '1'
+          VISUAL_CAPTURE_ALL: '1'
+          VISUAL_STRESS: '1'
+          VISUAL_OUTPUT: ci-artifacts/exhibition-all-routes
+        run: node tests/visualResponsive.browser.mjs
+      - name: Archive synthetic visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exhibition-visual-review
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

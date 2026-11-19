@@ -11,3 +11,10 @@
 .register-auth .registration-pricing-interval button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .register-auth .subscription-trial-terms{font-size:12px;line-height:1.6;color:var(--text);border-left:3px solid var(--primary);padding:9px 12px;margin:12px 0;background:var(--soft-surface);border-radius:5px 10px 10px 5px}
 @media(max-width:560px){.register-auth .registration-pricing-interval span{flex:1 0 100%}.register-auth .registration-pricing-interval button{flex:1}}
+
+/* Public registration uses the same visible plan and radio surfaces before login. */
+.register-auth .registration-options,.register-auth .subscription-plan-grid,.register-auth .pricing-card{min-width:0}
+.register-auth .subscription-plan-grid .pricing-card{overflow-wrap:anywhere}
+.register-auth .subscription-plan-grid .pricing-card>strong{font-variant-numeric:tabular-nums;white-space:normal}
+.register-auth .pricing-top{gap:8px}
+.register-auth .registration-pricing-interval button{min-height:44px}

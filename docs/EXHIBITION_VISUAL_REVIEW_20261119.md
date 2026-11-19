@@ -1,0 +1,5 @@
+# Exhibition visual review
+
+Source-based findings at 6ecd812a29c0e35a3fc27e483b05bf8d41e7d00c: design tokens were defined in lazy MainLayout instead of the initial CSS, public registration plan surfaces could lose their palette, password recovery had a two-column grid despite a single form, auth branding used a placeholder Z instead of the existing logo, and dashboard monetary KPIs could display ellipses. This PR makes targeted presentation-only repairs. It also improves copy clarity and light-theme muted text legibility without a redesign or changes to authentication, POS, billing or database data.
+
+Verification: existing frontend CI remains required. The exhibition workflow adds targeted browser assertions for fresh guest pages and a diagnostic 22-route synthetic screenshot/geometry sweep at 390px and 1366px, light/dark and long data. Review measurements and screenshots before approving; diagnostic sweep alone is not a visual sign-off. Real authenticated production browser and physical kiosk, printer, scanner and camera require separate staging verification. No real credentials or production writes are used.

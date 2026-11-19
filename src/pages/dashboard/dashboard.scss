@@ -52,3 +52,24 @@ body.dark-mode .dashboard-kpis .pro-stat{background:linear-gradient(180deg,rgba(
 .dashboard-quick-grid a:focus-visible,.dashboard-onboarding-grid a:focus-visible,.dashboard-onboarding-grid button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 @media(max-width:980px){.dashboard-quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.dashboard-onboarding-grid{grid-template-columns:minmax(0,1fr)}.dashboard-quick-grid{grid-template-columns:minmax(0,1fr)}.dashboard-trial-banner .pro-btn{width:100%;justify-content:center}.dashboard-onboarding-grid>div{flex-wrap:wrap}.dashboard-onboarding-grid .pro-btn{margin-left:auto}}
+
+/* Exhibition screens: show the complete monetary value, never an unexplained ellipsis. */
+.dashboard-pro .dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dashboard-pro .dashboard-kpis .pro-stat{min-width:0}
+.dashboard-pro .dashboard-kpis .pro-stat-copy{flex:1;min-width:0}
+.dashboard-pro .dashboard-kpis .pro-stat strong{
+  white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums;line-height:1.24;font-size:clamp(19px,1.65vw,25px)
+}
+.dashboard-pro .dashboard-kpis .pro-stat-foot{flex-wrap:wrap;gap:5px}
+.dashboard-pro .dashboard-kpis .pro-stat-foot small{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip}
+.dashboard-pro :is(.dashboard-main-grid,.dashboard-insight-grid,.dashboard-analysis-grid)>*{min-width:0}
+.dashboard-pro .pro-card-head>div{min-width:0;overflow-wrap:anywhere}
+.dashboard-pro .pro-card-head>a{flex:0 0 auto;white-space:nowrap}
+.dashboard-pro .top-product-list>div>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+.dashboard-pro .top-product-list>div>b{overflow-wrap:anywhere;min-width:0;text-align:right;font-variant-numeric:tabular-nums}
+.dashboard-pro .health-grid>div{min-width:0;overflow-wrap:anywhere}
+.dashboard-pro .dashboard-quick-grid small{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+@media(min-width:1700px){.dashboard-pro .dashboard-kpis{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:680px){.dashboard-pro .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.dashboard-pro .dashboard-kpis{grid-template-columns:minmax(0,1fr)}.dashboard-pro .top-product-list>div>b{text-align:left}}
