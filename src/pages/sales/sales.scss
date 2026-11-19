@@ -179,3 +179,7 @@ body.dark-mode .day-close-btn{background:color-mix(in srgb,var(--primary) 10%,va
 .pos-categories:hover,.pos-product-grid:hover{scrollbar-color:color-mix(in srgb,var(--muted) 45%,transparent) transparent}
 .pos-catalog .pos-load-more{margin:14px 0 9px;min-height:42px;align-self:flex-start;padding:0 16px}
 @media(min-width:951px){.pos-layout-pro{grid-template-columns:minmax(0,1.18fr) minmax(400px,.82fr)}.pos-product-grid{gap:10px}.pos-checkout{min-width:0}}
+
+/* A long popular-product label must not dominate the mobile quick-pick strip. */
+.quick-products button{flex:0 0 auto;max-width:min(240px,65vw);overflow:hidden;text-overflow:ellipsis}
+.quick-products>span{flex:0 0 auto}
