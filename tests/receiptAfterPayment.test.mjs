@@ -37,4 +37,11 @@ test('post-payment printing never invokes browser shell and preserves sale metad
  assert.match(sales,/payment==="credit"\?Number\(creditPaid\|\|0\)/);
  assert.match(store,/cashTendered:sale\.cashTendered,change:sale\.change/);
  assert.match(pos,/copies:settings\.receipt\?\.copies\|\|1/);
+ const history=read('src/pages/history/History.jsx');assert.doesNotMatch(history,/window\.print\(\)/);assert.match(history,/printHistoricalReceipt/);
+});
+
+test('historical reprint includes returned amount without altering original gross',()=>{
+ const html=receiptHtml({...basic,returnedTotal:12000,paymentBreakdown:{cash:83000}});
+ assert.match(html,/JAMI/);assert.match(html,/Qaytarilgan/);assert.match(html,/Sof/);
+ assert.match(html,/71[ ,]000/);
 });

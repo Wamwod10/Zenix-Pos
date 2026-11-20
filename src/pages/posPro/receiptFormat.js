@@ -45,7 +45,7 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
   :`<p class="row"><span>To‘lov: </span><b>${escape(labels[method]||method)}</b></p>`;
  const credit=money(sale.creditAmount),cash=money(breakdown.cash),tender=sale.cashTendered??sale.metadata?.cashTendered,change=sale.change??sale.metadata?.change;
  const customer=typeof sale.customer==='object'?sale.customer?.name:sale.customer;
- const total=sale.total??sale.saleTotal??0,discount=sale.discountTotal??sale.metadata?.frontendDiscountTotal??0;
+ const total=sale.total??sale.saleTotal??0,discount=sale.discountTotal??sale.metadata?.frontendDiscountTotal??0,returned=money(sale.returnedTotal);
  const number=sale.saleNumber||sale.sale_number||sale.clientReference||sale.id||'—';
  const clerk=sale.sellerName||sale.seller||cashier;
  const due=sale.creditDueDate||sale.credit_due_date;
@@ -55,7 +55,7 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  ${showCashier&&clerk?`<p>Kassir: ${escape(clerk)}</p>`:''}${customer?`<p>Mijoz: ${escape(customer)}</p>`:''}
  <div class="rule"></div><table aria-label="Mahsulotlar"><tbody>${receiptRows(sale)}</tbody></table><div class="rule"></div>
  ${money(discount)>0?`<p class="row"><span>Chegirma</span><b>−${escape(formatPrice(discount))}</b></p>`:''}
- <p class="row grand"><span>JAMI</span><b>${escape(formatPrice(total))}</b></p><div class="rule"></div>${payments}
+ <p class="row grand"><span>JAMI</span><b>${escape(formatPrice(total))}</b></p>${returned>0?`<p class="row"><span>Qaytarilgan: </span><b>−${escape(formatPrice(returned))}</b></p><p class="row"><span>Sof: </span><b>${escape(formatPrice(Math.max(0,money(total)-returned)))}</b></p>`:``}<div class="rule"></div>${payments}
  ${credit>0?`<p class="row"><span>Nasiya: </span><b>${escape(formatPrice(credit))}</b></p>`:''}${credit>0&&due?`<p>Nasiya muddati: ${escape(due)}</p>`:''}
  ${cash>0&&exists(tender)?`<p class="row"><span>Berildi: </span><b>${escape(formatPrice(tender))}</b></p>`:''}
  ${cash>0&&exists(change)?`<p class="row"><span>Qaytim: </span><b>${escape(formatPrice(change))}</b></p>`:''}
