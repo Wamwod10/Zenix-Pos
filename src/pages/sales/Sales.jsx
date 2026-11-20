@@ -26,6 +26,7 @@ import { api } from "../../services/apiClient";
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft,persistedCartIntent} from "../../utils/posDraft";
 import {attemptKey,readAttempt,settleAttempt,withAttemptLock,isConfirmedSale} from '../../utils/checkoutAttempt';
 import {reconcilePersistedCart,cartReconciliationMessage,productPackaging,selectedPackaging} from "../../utils/posCartReconciliation";
+import {receiptHtml,printReceipt} from "../posPro/receiptFormat";
 import "./sales.scss";
 
 const payLabels = { cash:"Naqd", card:"Karta", transfer:"O‘tkazma", split:"Aralash", credit:"Nasiya" };
@@ -66,6 +67,7 @@ function Sales(){
   const [closeDayModal,setCloseDayModal]=useState(false);
   const [holdName,setHoldName]=useState("");
   const [receipt,setReceipt]=useState(null);
+  const [receiptPrintError,setReceiptPrintError]=useState("");
   const [processing,setProcessing]=useState(false);
   const [returnProcessing,setReturnProcessing]=useState(false);
   const returnLookupBusyRef=useRef(false),returnIntentRef=useRef('');
@@ -108,8 +110,9 @@ function Sales(){
     settleAttempt(window.localStorage,key,'confirmed');
     if(restoreContextRef.current?.draftKey!==scopeDraft)return;
     setRecoveryPacket(null);checkoutReferenceRef.current=null;
-    setReceipt(sale);setCart([]);setReconciliationNotice('');setCashTendered('');setSplitCard('');setSplitTransfer('');setSplitCashTendered('');setCustomer('');setCustomerId('');setCreditPaid('');setCreditDueDate('');setNote('');setCartDiscountPct(0);setCartDiscountInput('0');setMobilePane('catalog');setProcessing(false);
+    setReceiptPrintError('');setReceipt(sale);setCart([]);setReconciliationNotice('');setCashTendered('');setSplitCard('');setSplitTransfer('');setSplitCashTendered('');setCustomer('');setCustomerId('');setCreditPaid('');setCreditDueDate('');setNote('');setCartDiscountPct(0);setCartDiscountInput('0');setMobilePane('catalog');setProcessing(false);
     reloadStore({silent:true});
+    return true;
   };
   const recoverCheckout=async(retry=false)=>{
     if(saleBusyRef.current)return;
@@ -269,6 +272,8 @@ function Sales(){
   const minutesUntilClose=(toClockMinutes(businessClose)-toClockMinutes(localClock)+1440)%1440;
   const closeWarning=Boolean(activeShift&&warnBeforeClose>0&&minutesUntilClose<=warnBeforeClose);
   const receiptCopies=Math.max(1,Math.min(3,Number(workspaceSettings.receipt?.copies||1)));
+  const receiptOptionsFor=sale=>({width:String(workspaceSettings.receipt?.width||'80'),business:organizationSettings.businessName||'ZENIX POS',branch:sale?.store||currentStore?.name||'',cashier:sale?.sellerName||currentUser?.name||'',showLogo:workspaceSettings.receipt?.showLogo!==false,showCashier:workspaceSettings.receipt?.showCashier!==false,showPaymentBreakdown:workspaceSettings.receipt?.showPaymentBreakdown!==false,footer:workspaceSettings.receipt?.footer||'Xaridingiz uchun rahmat.',timezone:organizationSettings.timezone||'Asia/Tashkent',copies:receiptCopies});
+  const printConfirmedReceipt=sale=>{setReceiptPrintError('');printReceipt(sale,receiptOptionsFor(sale),error=>setReceiptPrintError(error?.message||'Chek chop etilmadi. Qayta urining.'))};
   const formatInputMoney=(value)=>value===""?"":new Intl.NumberFormat("uz-UZ",{maximumFractionDigits:0}).format(Math.max(0,Number(value||0)));
   const moneyDigits=(value)=>String(value||"").replace(/[^0-9]/g,"");
   const effectiveDiscount=(itemPct,cartPct)=>100-(100-Number(itemPct||0))*(100-Number(cartPct||0))/100;
@@ -509,7 +514,7 @@ function Sales(){
       id:saleId,dateISO:workspaceDateISO(saleMoment,organizationSettings.timezone),businessDateISO:workspaceBusinessDateISO(saleMoment,organizationSettings,businessDay),date:formatWorkspaceDate(saleMoment,organizationSettings),
       time:workspaceTime(saleMoment,organizationSettings),sellerId:currentUser?.employeeId||currentUser?.id,sellerAccountId:currentUser?.id,sellerName:currentUser?.name,seller:currentUser?.name,
       storeId:currentStoreId,store:currentStore?.name,shiftId:activeShift?.id,paymentMethod:payment,saleTotal:total,total,subtotal,discountTotal,cartDiscountPercent:cartDiscountPct,
-      cashTendered:payment==="split"?splitCashTenderedN:Number(cashTendered||0),change:payment==="split"?splitChange:change,paymentBreakdown:payment==="split"?{cash:splitCash,card:splitCardN,transfer:splitTransferN}:payment==="credit"?{cash:Number(creditPaid||0),card:0,transfer:0}:null,
+      cashTendered:payment==="split"?splitCashTenderedN:payment==="credit"?Number(creditPaid||0):payment==="cash"?Number(cashTendered||0):0,change:payment==="split"?splitChange:payment==="cash"?change:0,paymentBreakdown:payment==="split"?{cash:splitCash,card:splitCardN,transfer:splitTransferN}:payment==="credit"?{cash:Number(creditPaid||0),card:0,transfer:0}:null,
       customer,customerId:customerId||null,creditAmount:payment==="credit"?Math.max(0,remainingPayment(total,[Number(creditPaid||0)])):0,creditDueDate:payment==="credit"?creditDueDate:null,note,items:saleItems,
     };
     const committed=await commitSaleTransaction({
@@ -518,13 +523,15 @@ function Sales(){
     });
     saleBusyRef.current=false;
     if(!committed.success){if(restoreContextRef.current.draftKey===draftKey){setRecoveryPacket(readAttempt(window.localStorage,checkoutKey));setError(committed.message||"Savdoni saqlab bo‘lmadi")}setProcessing(false);return}
+    let receiptConfirmedHere=false;
     await withAttemptLock(checkoutKey,()=>{
       const packet=readAttempt(window.localStorage,checkoutKey);
-      if(packet?.clientReference===sale.id)finishCheckout({...committed.sale,clientReference:sale.id},checkoutKey,draftKey);
+      if(packet?.clientReference===sale.id)receiptConfirmedHere=Boolean(finishCheckout({...committed.sale,clientReference:sale.id},checkoutKey,draftKey));
       else if(!packet&&restoreContextRef.current.draftKey===draftKey&&checkoutReferenceRef.current===sale.id){setCart([]);setRecoveryPacket(null);checkoutReferenceRef.current=null;reloadStore({silent:true})}
     });
     setProcessing(false);
-    if(workspaceSettings.pos.autoPrintReceipt)setTimeout(()=>window.print(),80);
+    // Never print the application shell or an unconfirmed transaction.
+    if(workspaceSettings.pos.autoPrintReceipt&&receiptConfirmedHere)printConfirmedReceipt(committed.sale);
   };
   const closeBusinessDay=async()=>{
     if(!storeDailySales.length||activeShift)return;
@@ -628,7 +635,11 @@ function Sales(){
     <Modal open={!!discountItem} onClose={()=>setDiscountItem(null)} title="Mahsulot chegirmasi" subtitle={discountItem?.name} size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setDiscountItem(null)}>Bekor qilish</button><button className="pro-btn primary" onClick={applyDiscount}>Qo‘llash</button></>}><label className="pro-field"><span>Chegirma (%) · mavjud limit {maxItemDiscountAllowed.toFixed(1)}%</span><input autoFocus type="number" min="0" max={maxItemDiscountAllowed} value={discount} onChange={event=>setDiscount(event.target.value)}/></label></Modal>
     <Modal open={cartDiscountModal} onClose={()=>setCartDiscountModal(false)} title="Savat chegirmasi" subtitle="Chegirma barcha savat pozitsiyalariga teng qo‘llanadi." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setCartDiscountModal(false)}>Bekor qilish</button><button className="pro-btn primary" onClick={applyCartDiscount}>Qo‘llash</button></>}><label className="pro-field"><span>Chegirma (%) · mavjud limit {maxCartDiscountAllowed.toFixed(1)}%</span><input autoFocus type="number" min="0" max={maxCartDiscountAllowed} value={cartDiscountInput} onChange={event=>setCartDiscountInput(event.target.value)}/></label></Modal>
     <Modal open={saleConfirmOpen} onClose={()=>setSaleConfirmOpen(false)} title="Savdoni tasdiqlash" subtitle="To‘lovni yakunlashdan oldin summani tekshiring." size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setSaleConfirmOpen(false)}>Ortga</button><button className="pro-btn primary" disabled={processing} onClick={()=>{setSaleConfirmOpen(false);completeSale()}}>Tasdiqlash · {formatPrice(total)}</button></>}><div className="sale-confirm-summary"><div><span>Mahsulotlar</span><strong>{cart.reduce((sum,item)=>sum+Number(item.cartQty||0),0)} ta</strong></div><div><span>To‘lov</span><strong>{payLabels[payment]}</strong></div>{discountTotal>0&&<div><span>Chegirma</span><strong>−{formatPrice(discountTotal)}</strong></div>}<div className="grand"><span>Jami</span><strong>{formatPrice(total)}</strong></div>{payment==="split"&&<small>Naqd {formatPrice(splitCash)} · Karta {formatPrice(splitCardN)} · O‘tkazma {formatPrice(splitTransferN)}</small>}</div></Modal>
-    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="Savdo muvaffaqiyatli" subtitle={`${receipt?.saleNumber||"Savdo"} · ${payLabels[receipt?.paymentMethod]||""}`} size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setReceipt(null)}>Yopish</button><button className="pro-btn primary" onClick={()=>window.print()}><FiPrinter/> Chop etish</button></>}><div className="receipt-print-stack">{Array.from({length:receiptCopies},(_,copyIndex)=><div className={`receipt-preview-pro width-${workspaceSettings.receipt.width} ${copyIndex?"receipt-print-copy-extra":""}`} key={`receipt-copy-${copyIndex}`}>{workspaceSettings.receipt.showLogo&&<><h3>{organizationSettings.businessName||"Zenix POS"}</h3><small className="receipt-powered">Zenix POS</small></>}<p>{currentStore?.name}</p><div className="receipt-sep"/>{receipt?.items.map(item=><div className="receipt-line" key={`${copyIndex}-${item.id}`}><span>{item.name}<small>{item.quantity} × {formatPrice(item.finalPrice)}</small></span><b>{formatPrice(item.finalPrice*item.quantity)}</b></div>)}<div className="receipt-sep"/><div className="receipt-total"><span>JAMI</span><strong>{formatPrice(receipt?.total||0)}</strong></div><div className="receipt-info-pro"><span>To‘lov: {payLabels[receipt?.paymentMethod]}</span>{workspaceSettings.receipt.showPaymentBreakdown&&receipt?.paymentMethod==="split"&&<span>Naqd {formatPrice(receipt.paymentBreakdown?.cash||0)} · Karta {formatPrice(receipt.paymentBreakdown?.card||0)} · O‘tkazma {formatPrice(receipt.paymentBreakdown?.transfer||0)}</span>}{workspaceSettings.receipt.showCashier&&<span>Kassir: {receipt?.sellerName}</span>}<span>{receipt?.date} {receipt?.time}</span></div><p className="receipt-footer">{workspaceSettings.receipt.footer}</p></div>)}</div></Modal>
+    <Modal open={!!receipt} onClose={()=>setReceipt(null)} title="Savdo muvaffaqiyatli" subtitle={`${receipt?.saleNumber||"Savdo"} · ${payLabels[receipt?.paymentMethod]||""}`} size="sm" footer={<><button className="pro-btn secondary" onClick={()=>setReceipt(null)}>Yangi savdo</button><button className="pro-btn primary" onClick={()=>receipt&&printConfirmedReceipt(receipt)}><FiPrinter/> Chek chiqarish</button></>}>
+ {receiptPrintError&&<div role="alert" className="pro-alert danger">{receiptPrintError}</div>}
+ {receipt&&<iframe title="Tasdiqlangan savdo cheki" sandbox="" style={{display:"block",width:"100%",height:"min(60vh,520px)",border:0,background:"#fff"}} srcDoc={receiptHtml(receipt,{...receiptOptionsFor(receipt),copies:1})}/>}
+ <p style={{fontSize:11,color:"var(--muted)",marginTop:8}}>Chek 58/80 mm termal qog‘ozga moslangan. Fiskal chek faqat tegishli integratsiya orqali beriladi.</p>
+</Modal>
     <Modal open={!!returnSale} onClose={()=>{setReturnSale(null);setReturnError("")}} title="Qaytarish" subtitle={`${returnSale?.saleNumber||"Savdo"} · mahsulot va miqdorni tanlang`} footer={<><button className="pro-btn secondary" onClick={()=>{setReturnSale(null);setReturnError("")}}>Bekor qilish</button><button className="pro-btn danger" disabled={returnProcessing||!returnItem||!returnReason||returnQty<=0} onClick={performReturn}>{returnProcessing?"Saqlanmoqda...":"Qaytarishni tasdiqlash"}</button></>}><div className="return-items-pro">{returnSale?.items?.map(item=>{const available=Number(item.quantity||0)-Number(item.returnedQty||0);return <button key={item.id} disabled={available<=0} className={returnItem?.id===item.id?"active":""} onClick={()=>{setReturnItem(item);setReturnQty(1);setReturnError("")}}><span><strong>{item.name}</strong><small>{available} dona qaytarish mumkin</small></span><b>{formatPrice(item.finalPrice||item.price)}</b></button>})}</div>{returnItem&&<div className="pro-form-grid return-form"><label className="pro-field"><span>Miqdor</span><input data-modal-autofocus type="number" min="0.001" step="0.001" max={Math.max(0.001,Number(returnItem.quantity||0)-Number(returnItem.returnedQty||0))} value={returnQty} onChange={event=>{setReturnQty(Number(event.target.value));setReturnError("")}}/></label><label className="pro-field"><span>Qaytarish usuli</span><PremiumSelect value={refundMethod} onChange={event=>{setRefundMethod(event.target.value);setReturnError("")}}><option value="original">Asl to‘lov usuli</option><option value="cash">Naqd</option><option value="card">Karta</option><option value="transfer">O‘tkazma</option></PremiumSelect></label><label className="pro-field full"><span>Qaytarish sababi *</span><PremiumSelect value={returnReason} onChange={event=>{setReturnReason(event.target.value);setReturnError("")}}><option value="">Tanlang</option>{RETURN_REASONS.map(reason=><option key={reason}>{reason}</option>)}<option>Boshqa</option></PremiumSelect></label>{returnError&&<div className="pro-alert danger full">{returnError}</div>}</div>}</Modal>
   </div>;
 }
