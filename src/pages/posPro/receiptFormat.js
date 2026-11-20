@@ -41,8 +41,8 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  const quantity=Math.max(1,Math.min(3,Math.floor(Number(copies)||1)));
  const breakdown=paymentAmounts(sale), method=sale.paymentMethod||sale.metadata?.paymentMethod||'cash';
  const payments=showPaymentBreakdown
-  ?Object.entries(breakdown).filter(([,n])=>money(n)>0).map(([name,n])=>`<p class="row"><span>${escape(labels[name]||name)}</span><b>${escape(formatPrice(n))}</b></p>`).join('')
-  :`<p class="row"><span>To‘lov</span><b>${escape(labels[method]||method)}</b></p>`;
+  ?Object.entries(breakdown).filter(([,n])=>money(n)>0).map(([name,n])=>`<p class="row"><span>${escape(labels[name]||name)}: </span><b>${escape(formatPrice(n))}</b></p>`).join('')
+  :`<p class="row"><span>To‘lov: </span><b>${escape(labels[method]||method)}</b></p>`;
  const credit=money(sale.creditAmount),cash=money(breakdown.cash),tender=sale.cashTendered??sale.metadata?.cashTendered,change=sale.change??sale.metadata?.change;
  const customer=typeof sale.customer==='object'?sale.customer?.name:sale.customer;
  const total=sale.total??sale.saleTotal??0,discount=sale.discountTotal??sale.metadata?.frontendDiscountTotal??0;
@@ -56,9 +56,9 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  <div class="rule"></div><table aria-label="Mahsulotlar"><tbody>${receiptRows(sale)}</tbody></table><div class="rule"></div>
  ${money(discount)>0?`<p class="row"><span>Chegirma</span><b>−${escape(formatPrice(discount))}</b></p>`:''}
  <p class="row grand"><span>JAMI</span><b>${escape(formatPrice(total))}</b></p><div class="rule"></div>${payments}
- ${credit>0?`<p class="row"><span>Nasiya</span><b>${escape(formatPrice(credit))}</b></p>`:''}${credit>0&&due?`<p>Nasiya muddati: ${escape(due)}</p>`:''}
- ${cash>0&&exists(tender)?`<p class="row"><span>Berildi</span><b>${escape(formatPrice(tender))}</b></p>`:''}
- ${cash>0&&exists(change)?`<p class="row"><span>Qaytim</span><b>${escape(formatPrice(change))}</b></p>`:''}
+ ${credit>0?`<p class="row"><span>Nasiya: </span><b>${escape(formatPrice(credit))}</b></p>`:''}${credit>0&&due?`<p>Nasiya muddati: ${escape(due)}</p>`:''}
+ ${cash>0&&exists(tender)?`<p class="row"><span>Berildi: </span><b>${escape(formatPrice(tender))}</b></p>`:''}
+ ${cash>0&&exists(change)?`<p class="row"><span>Qaytim: </span><b>${escape(formatPrice(change))}</b></p>`:''}
  <footer><p>${escape(footer)}</p><small>Bu fiskal soliq cheki emas.</small></footer></main>`;
  return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>Chek ${escape(number)}</title><style>
  @page{size:${paper}mm auto;margin:2mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#000}

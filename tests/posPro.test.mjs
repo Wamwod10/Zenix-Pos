@@ -63,13 +63,13 @@ test('printed receipt sums repeated payment rows with exact cents and never lose
    ],
  };
  const html=receiptHtml(sale);
- assert.match(html,/Naqd: 100[,.]3(?:0)? so‘m/);
- assert.match(html,/Karta \(qo‘lda tasdiqlangan\): 99[,.]7(?:0)? so‘m/);
+ assert.match(html,/Naqd: <\/span><b>100[,.]3(?:0)? so‘m/);
+ assert.match(html,/Karta \(qo‘lda tasdiqlangan\): <\/span><b>99[,.]7(?:0)? so‘m/);
  assert.equal((html.match(/Naqd:/g)||[]).length,1);
  assert.equal((html.match(/Karta \(qo‘lda tasdiqlangan\):/g)||[]).length,1);
  assert.equal(sale.payments[0].amount,'40.10','printing must not mutate source rows');
  const canonical=receiptHtml({...sale,paymentBreakdown:{cash:110,card:90}});
- assert.match(canonical,/Naqd: 110 so‘m/,'canonical breakdown remains authoritative');
+ assert.match(canonical,/Naqd: <\/span><b>110 so‘m/,'canonical breakdown remains authoritative');
 });
 
 test('500-line draft roundtrip is separate from ordinary Sales',()=>{
@@ -86,7 +86,7 @@ test('restored basket discount respects revoked permission and combined discount
 });
 test('canonical server receipt preserves kg/l units, captured payments and cash change',()=>{
  const html=receiptHtml({sale_number:'S-server',total:'18000.00',created_at:'2026-10-21T05:00:00Z',metadata:{cashTendered:20000,change:2000},payments:[{method:'cash',amount:'8000.00'},{method:'card',amount:'10000.00'}],items:[{name:'Olma',quantity:.75,unitPrice:12000,lineTotal:9000,metadata:{unit:'kg'}},{name:'Sut',quantity:1.5,unitPrice:6000,lineTotal:9000,metadata:{unit:'l'}}]});
- assert.ok(html.includes('0.75 kg'));assert.ok(html.includes('1.5 l'));assert.match(html,/Naqd: 8[ ,]000/);assert.match(html,/Karta[^<]*10[ ,]000/);assert.match(html,/Berildi: 20[ ,]000/);assert.match(html,/Qaytim: 2[ ,]000/);assert.ok(html.includes('S-server'));
+ assert.ok(html.includes('0.75 kg'));assert.ok(html.includes('1.5 l'));assert.match(html,/Naqd: <\/span><b>8[ ,]000/);assert.match(html,/Karta[^<]*<\/span><b>10[ ,]000/);assert.match(html,/Berildi: <\/span><b>20[ ,]000/);assert.match(html,/Qaytim: <\/span><b>2[ ,]000/);assert.ok(html.includes('S-server'));
 });
 test('name/SKU selection never guesses among ambiguous or unavailable results',()=>{
  const first={id:'a',sku:'SKU-1',quantity:10},second={id:'b',sku:'SKU-2',quantity:10};

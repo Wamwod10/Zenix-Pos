@@ -7,7 +7,7 @@ const basic={id:'confirmed',saleNumber:'S-123',store:'Filial A',sellerName:'Ali'
 test('confirmed cash receipt contains ID, branch, tender, change and discount',()=>{
  const html=receiptHtml({...basic,paymentMethod:'cash',paymentBreakdown:{cash:83000},cashTendered:100000,change:17000},{business:'Savdo MChJ',branch:'Other branch',width:'58'});
  for(const text of ['size:58mm auto','Chek № S-123','Filial A','Kassir: Ali','Chegirma','Berildi','Qaytim','Bu fiskal soliq cheki emas'])assert.ok(html.includes(text),text);
- assert.match(html,/Berildi<\/span><b>100[ ,]000/);assert.match(html,/Qaytim<\/span><b>17[ ,]000/);
+ assert.match(html,/Berildi: <\/span><b>100[ ,]000/);assert.match(html,/Qaytim: <\/span><b>17[ ,]000/);
  assert.ok(!html.includes('Other branch'));
 });
 test('card and credit do not invent cash tender or change',()=>{

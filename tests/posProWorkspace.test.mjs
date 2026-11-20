@@ -38,7 +38,7 @@ test('serialized checkout requires the physical unit, never auto-picks the first
 test('receipt print frame cleans up after print and reports printer failures',async()=>{
  const {printReceipt}=await import('../src/pages/posPro/receiptFormat.js');
  const originalDocument=globalThis.document;
- const sale={id:'test-sale',createdAt:'2026-10-30T00:00:00Z',total:12000,items:[]};
+ const sale={id:'test-sale',createdAt:'2026-10-30T00:00:00Z',total:12000,items:[{name:'Tovar',quantity:1,unitPrice:12000}]};
  try{
   for(const failPrint of [false,true]){
    let afterprint,prints=0,removes=0,error=null,created;
