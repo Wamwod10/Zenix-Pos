@@ -68,7 +68,7 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  header,footer{text-align:center}header p{margin:3px 0}.brand{display:block;font-size:9px;letter-spacing:.07em}
  p{margin:5px 0;overflow-wrap:anywhere}.rule{border-top:1px dashed #111;margin:9px 0}
  table{width:100%;border-collapse:collapse;table-layout:fixed}td{padding:1px 0;vertical-align:top;overflow-wrap:anywhere}
- td:last-child{text-align:right;width:39%}.item-name td{text-align:left;font-weight:650;padding-top:6px}
+ .item-detail td:last-child{text-align:right;width:39%}.item-name td{text-align:left;font-weight:650;padding-top:6px}
  .item-detail td{padding-bottom:6px}.discount{font-size:10px;color:#333}
  .row{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
  .row span{min-width:0;flex:1}.row b{max-width:57%;overflow-wrap:anywhere;text-align:right;font-weight:650}
