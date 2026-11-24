@@ -10,6 +10,7 @@ import { useFeedback } from "../../context/FeedbackContext";
 import { ROLES } from "../../config/roles";
 import { formatPrice } from "../../utils/formatPrice";
 import { isBarcodeDuplicate } from "../../utils/barcode";
+import {prepareReceiptIdentities} from "../../utils/productIdentity";
 import { ColumnPicker, EmptyState, FilePicker, PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumCheckbox } from "../../components/Ui";
 import Modal from "../../components/Modal";
 import ProductAdvancedSettings from "../../components/ProductAdvancedSettings";
@@ -229,8 +230,8 @@ function Products(){
     const sku=form.sku.trim();
     const barcode=String(form.barcode??"").trim();
     if(form.name.trim().length<2)nextErrors.name="Mahsulot nomini kiriting";
-    if(!sku)nextErrors.sku="SKU majburiy";
-    if(inventory.some((product)=>product.id!==editing?.id&&String(product.sku||"").toLowerCase()===sku.toLowerCase()))nextErrors.sku="Bu SKU katalogda allaqachon mavjud";
+    if(!sku&&editing)nextErrors.sku="SKU majburiy";
+    if(sku&&inventory.some((product)=>product.id!==editing?.id&&String(product.sku||"").toLowerCase()===sku.toLowerCase()))nextErrors.sku="Bu SKU katalogda allaqachon mavjud";
     if(isBarcodeDuplicate(inventory,barcode,editing?.id))nextErrors.barcode="Bu shtrix-kod allaqachon mavjud";
     if(!Number.isFinite(Number(form.sellPrice))||Number(form.sellPrice)<0)nextErrors.sellPrice="Narx noto‘g‘ri";
     setErrors(nextErrors);
@@ -241,14 +242,14 @@ function Products(){
     if(!result.success){setErrors((current)=>({...current,barcode:result.message}));return}
     const barcode=result.barcode;
     setErrors((current)=>({...current,barcode:""}));
-    setForm((state)=>({...state,barcode,sku:state.sku?.trim()?state.sku:`BC-${barcode}`}));
+    setForm((state)=>({...state,barcode,sku:!state.sku?.trim()||state.sku===`BC-${state.barcode}`?`BC-${barcode}`:state.sku}));
   };
 
   const save=async(addAnother=false)=>{
-    const duplicate=inventory.find(product=>product.id!==editing?.id&&String(product.barcode||"").trim()===String(form.barcode||"").trim()&&String(form.barcode||"").trim());
-    if(duplicate&&canReceive){setModal(false);navigate(`/inventory?receive=1&product=${encodeURIComponent(duplicate.id)}`);return;}
     if(saving||!validate())return;
     setSaving(true);
+    let identity={sku:form.sku.trim(),barcode:String(form.barcode??"").trim()};
+    if(!editing){try{[identity]=await prepareReceiptIdentities([{name:form.name,...identity}],inventory,generateBarcode)}catch(error){setSaving(false);setErrors(current=>({...current,form:error.message}));return}}
     let nextImageKey=form.imageKey||"";
     let nextImageName=form.imageName||"";
     try{
@@ -266,7 +267,7 @@ function Products(){
     }
     const payload={
       ...(editing?.metadata||{}), packaging:normalizePackaging(form.packaging||[]), manufacturedDate:form.manufacturedDate||"", expiryDate:form.expiryDate||"", volume:form.volume||"",model:form.model||"",trackingMode:form.trackingMode||"none",lotTracking:Boolean(form.lotTracking),
-      name:form.name.trim(), sku:form.sku.trim(), barcode:String(form.barcode??"").trim(),
+      name:form.name.trim(), sku:identity.sku, barcode:identity.barcode,
       category:String(form.category||"").trim(), unit:form.unit||"dona", minStock:Number(form.minStock||0),
       sellPrice:Number(form.sellPrice||0), wholesalePrice:Number(form.wholesalePrice||0), price:Number(form.sellPrice||0),
       brand:String(form.brand||"").trim(), variant:String(form.variant||"").trim(), size:String(form.size||"").trim(),
@@ -366,7 +367,7 @@ function Products(){
     </Modal>
 
     <Modal open={modal} onClose={closeForm} title={editing?"Katalog yozuvini tahrirlash":"Katalogga mahsulot qo‘shish"} subtitle="Faqat kerakli ma’lumotlarni kiriting. Qo‘shimcha maydonlar biznes turiga qarab yoqiladi." size="lg" footer={<><button className="pro-btn secondary" onClick={closeForm}>Bekor qilish</button><button className="pro-btn secondary" disabled={saving} onClick={()=>save(true)}>Saqlash va yana qo‘shish</button><button className="pro-btn primary" disabled={saving} onClick={()=>save()}>{saving?"Saqlanmoqda...":"Saqlash"}</button></>}>
-      <div className="pro-form-grid"><div className="product-media-field full"><div className="product-media-preview">{imagePreview?<img src={imagePreview} alt="Mahsulot rasmi"/>:<FiImage/>}</div><div className="product-media-picker"><strong>Mahsulot rasmi</strong><span>Ixtiyoriy. JPG, PNG yoki WebP, 5 MB gacha.</span><FilePicker file={imageFile} existingName={imageRemoved?"":form.imageName} accept="image/jpeg,image/png,image/webp" label="Rasm tanlash" hint="JPG, PNG yoki WebP" onChange={(file)=>{if(file&&file.size>5*1024*1024){setErrors((current)=>({...current,image:"Rasm hajmi 5 MB dan oshmasin."}));return;}setErrors((current)=>({...current,image:""}));setImageFile(file);setImageRemoved(false)}} onClear={()=>{setImageFile(null);setImageRemoved(Boolean(form.imageKey));setImagePreview("")}}/>{errors.image&&<small className="field-error">{errors.image}</small>}</div></div><label className="pro-field full"><span>Mahsulot nomi *</span><input autoFocus value={form.name} onChange={(event)=>setForm({...form,name:event.target.value})}/>{errors.name&&<small className="field-error">{errors.name}</small>}</label><label className="pro-field"><span>SKU *</span><input value={form.sku} onChange={(event)=>setForm({...form,sku:event.target.value})}/>{errors.sku&&<small className="field-error">{errors.sku}</small>}</label><div className="pro-field"><span>Shtrix-kod</span><div className="field-action-row"><input value={form.barcode} onChange={(event)=>setForm({...form,barcode:event.target.value})}/><button type="button" className="pro-btn secondary" onClick={generateProductBarcode}>Yaratish</button></div>{errors.barcode&&<small className="field-error">{errors.barcode}</small>}</div><label className="pro-field"><span>Kategoriya</span><input value={form.category} onChange={(event)=>setForm({...form,category:event.target.value})}/></label><label className="pro-field"><span>Sotuv narxi *</span><input type="number" min="0" value={form.sellPrice} onChange={(event)=>setForm({...form,sellPrice:event.target.value})}/>{errors.sellPrice&&<small className="field-error">{errors.sellPrice}</small>}</label><ProductAdvancedSettings value={form} onChange={setForm} errors={errors}>{canReceive&&<div className="full"><button type="button" className="pro-btn secondary" onClick={()=>guardFormClose(()=>{setModal(false);navigate("/inventory?receive=quick")})}>Excel orqali ommaviy kirim / ketma-ket shtrix-kod skanerlash</button></div>}</ProductAdvancedSettings>{errors.form&&<div className="field-error full" role="alert"><span>{errors.form}</span>{errors.code==='PRODUCT_LIMIT'&&(hasPermission('moduleBilling',currentUser?.appRole)?<button type="button" className="pro-btn secondary" onClick={()=>guardFormClose(()=>{setModal(false);navigate('/billing')})}>Tarifni oshirish <FiPlus/></button>:<small>Yangi mahsulot qo‘shish uchun biznes egasidan tarifni oshirishni so‘rang. Saqlangan mahsulotlar o‘chirilmaydi.</small>)}</div>}</div>
+      <div className="pro-form-grid"><div className="product-media-field full"><div className="product-media-preview">{imagePreview?<img src={imagePreview} alt="Mahsulot rasmi"/>:<FiImage/>}</div><div className="product-media-picker"><strong>Mahsulot rasmi</strong><span>Ixtiyoriy. JPG, PNG yoki WebP, 5 MB gacha.</span><FilePicker file={imageFile} existingName={imageRemoved?"":form.imageName} accept="image/jpeg,image/png,image/webp" label="Rasm tanlash" hint="JPG, PNG yoki WebP" onChange={(file)=>{if(file&&file.size>5*1024*1024){setErrors((current)=>({...current,image:"Rasm hajmi 5 MB dan oshmasin."}));return;}setErrors((current)=>({...current,image:""}));setImageFile(file);setImageRemoved(false)}} onClear={()=>{setImageFile(null);setImageRemoved(Boolean(form.imageKey));setImagePreview("")}}/>{errors.image&&<small className="field-error">{errors.image}</small>}</div></div><label className="pro-field full"><span>Mahsulot nomi *</span><input autoFocus value={form.name} onChange={(event)=>setForm({...form,name:event.target.value})}/>{errors.name&&<small className="field-error">{errors.name}</small>}</label><label className="pro-field"><span>SKU {editing?"*":"(avtomatik)"}</span><input value={form.sku} onChange={(event)=>setForm({...form,sku:event.target.value})}/>{errors.sku&&<small className="field-error">{errors.sku}</small>}</label><div className="pro-field"><span>Shtrix-kod (bo‘sh bo‘lsa avtomatik)</span><div className="field-action-row"><input value={form.barcode} onChange={(event)=>setForm({...form,barcode:event.target.value})}/><button type="button" className="pro-btn secondary" onClick={generateProductBarcode}>Yaratish</button></div>{errors.barcode&&<small className="field-error">{errors.barcode}</small>}</div><label className="pro-field"><span>Kategoriya</span><input value={form.category} onChange={(event)=>setForm({...form,category:event.target.value})}/></label><label className="pro-field"><span>Sotuv narxi *</span><input type="number" min="0" value={form.sellPrice} onChange={(event)=>setForm({...form,sellPrice:event.target.value})}/>{errors.sellPrice&&<small className="field-error">{errors.sellPrice}</small>}</label><ProductAdvancedSettings value={form} onChange={setForm} errors={errors}>{canReceive&&<div className="full"><button type="button" className="pro-btn secondary" onClick={()=>guardFormClose(()=>{setModal(false);navigate("/inventory?receive=quick")})}>Excel orqali ommaviy kirim / ketma-ket shtrix-kod skanerlash</button></div>}</ProductAdvancedSettings>{errors.form&&<div className="field-error full" role="alert"><span>{errors.form}</span>{errors.code==='PRODUCT_LIMIT'&&(hasPermission('moduleBilling',currentUser?.appRole)?<button type="button" className="pro-btn secondary" onClick={()=>guardFormClose(()=>{setModal(false);navigate('/billing')})}>Tarifni oshirish <FiPlus/></button>:<small>Yangi mahsulot qo‘shish uchun biznes egasidan tarifni oshirishni so‘rang. Saqlangan mahsulotlar o‘chirilmaydi.</small>)}</div>}</div>
     </Modal>
   </div>;
 }
