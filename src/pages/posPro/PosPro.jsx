@@ -39,7 +39,7 @@ export default function PosPro(){
 function Workspace({user,store}){
  const {confirm,guardNavigation}=useFeedback(),navigate=useNavigate(),catalog=useProCatalog(store.currentStoreId),settings=store.effectiveWorkspaceSettings;
  const canDiscount=user.appRole!=='CASHIER'||settings.pos.cashierDiscountAllowed===true,discountLimit=Math.max(0,Number(settings.pos.discountLimit??20)),creditAllowed=settings.pos.paymentMethods?.credit!==false;
- const primaryPaymentMethod=posPrimaryPaymentMethod(settings.pos.paymentMethods,creditAllowed);
+ const primaryPaymentMethod=posPrimaryPaymentMethod(settings.pos.paymentMethods,creditAllowed,settings.pos.defaultPayment);
  const session=useProSession({user,store,catalog,canDiscount,discountLimit,creditAllowed});
  const openElsewhere=Object.values(store.activeShifts||{}).find(s=>s.status==='open'&&s.storeId!==store.currentStoreId&&String(s.cashierAccountId||s.cashierId)===String(user.id));
  const openElsewhereStore=store.stores.find(s=>s.id===openElsewhere?.storeId&&s.active!==false);
@@ -58,6 +58,7 @@ function Workspace({user,store}){
  const deviceKey=`zenix:pos-pro-device:v1:${user.organizationId}:${user.id}:${store.currentStoreId}`;
  const [schemeText,setSchemeText]=useState(()=>{try{return localStorage.getItem(deviceKey)||'[]'}catch{return '[]'}}),[schemes,setSchemes]=useState(()=>{try{return validateWeightSchemes(JSON.parse(localStorage.getItem(deviceKey)||'[]'))}catch{return []}});
  const [configError,setConfigError]=useState(''),[openingCash,setOpeningCash]=useState(''),[shiftBusy,setShiftBusy]=useState(false),[shiftError,setShiftError]=useState(''),[trackingId,setTrackingId]=useState(null);
+ const [autoPrintError,setAutoPrintError]=useState('');
  const [activeProductId,setActiveProductId]=useState(null),[barcodeFocused,setBarcodeFocused]=useState(false);
  const searchRef=useRef(null),barcodeRef=useRef(null),queue=useRef(Promise.resolve()),pendingScans=useRef(0),active=useRef(true),actions=useRef(null),lastSale=useRef(null),summaryRequest=useRef(false);
  const totals=useMemo(()=>cartTotals(session.cart,session.cartPct),[session.cart,session.cartPct]);
@@ -81,7 +82,16 @@ function Workspace({user,store}){
  };
  const refreshRef=useRef(refreshSummary);refreshRef.current=refreshSummary;
  useEffect(()=>{void refreshRef.current();const interval=setInterval(()=>void refreshRef.current(),60000);const visible=()=>{if(!document.hidden)void refreshRef.current()};window.addEventListener('online',visible);document.addEventListener('visibilitychange',visible);return()=>{clearInterval(interval);window.removeEventListener('online',visible);document.removeEventListener('visibilitychange',visible)}},[store.activeShift?.id]);
- useEffect(()=>{if(!session.receipt)return;lastSale.current=session.receipt;void refreshRef.current()},[session.receipt]);
+ useEffect(()=>{
+  const sale=session.receipt;
+  if(!sale||lastSale.current===sale)return;
+  lastSale.current=sale;setAutoPrintError('');void refreshRef.current();
+  // Fresh, locally acknowledged checkout only. Recovered or replayed receipts
+  // stay available for manual print, rather than printing twice.
+  if(session.freshReceipt===sale&&settings.pos.autoPrintReceipt===true)
+   printReceipt(sale,options,error=>{if(active.current)setAutoPrintError(error?.message||'Avtomatik chek chop etilmadi. Qayta chop eting.')});
+ },[session.receipt]);
+ useEffect(()=>{setWidth(String(settings.receipt.width||'80'))},[settings.receipt.width]);
  useEffect(()=>{
   if(catalogMode!=='popular')return;
   const ids=[...new Set((summary?.popular||[]).map(row=>row?.product_id).filter(Boolean))].slice(0,40);
@@ -207,6 +217,6 @@ function Workspace({user,store}){
   <Modal open={modal==='hardware'} onClose={()=>setModal('')} title="Qurilmalar va chek"><div className="pp-hardware"><p>Klaviatura / HID kiritishi mavjud. Fizik scanner tekshirilmagan; ulanish holati brauzer orqali aniqlanmaydi. Scanner Enter suffix yuborishi kerak.</p><label className="pp-field">Chek eni<PremiumSelect value={width} onChange={e=>setWidth(e.target.value)}><option value="58">58 mm</option><option value="80">80 mm</option></PremiumSelect></label><p>Brauzer orqali chop etish mavjud. Printer dialogida mos qog‘ozni tanlang.</p><p>Web Serial API: {caps.serialAPI?'brauzerda mavjud':'mavjud emas'}. WebUSB API: {caps.usbAPI?'mavjud':'mavjud emas'}.</p><button disabled>Elektron tarozi — qurilma adapteri ulanmagan</button><button disabled>ESC/POS / kassa tortmasi — bridge ulanmagan</button><p>Bank terminali: qo‘lda tasdiqlash. Fiskal provider ulanmagan. Soxta QR yaratilmaydi.</p><button disabled={!store.hasPermission('settingsWrite')} onClick={()=>{setConfigError('');setModal('scale')}}>Tarozi barcode sxemasi</button><DeviceReadiness online={online} capabilities={caps}/></div></Modal>
   <Modal open={modal==='scale'} onClose={()=>setModal('hardware')} title="Tarozi yorlig‘i dekoderi" subtitle="Faqat qurilmangizga mos aniq sxemani kiriting. [] — o‘chirilgan." footer={<button className="pro-btn primary" onClick={saveSchemes}>Tekshirish va saqlash</button>}><p>Mahsulot kodi katalogdagi aniq barcode bilan teng bo‘lishi kerak. EAN-13 checksum majburiy. Oddiy barcode avval tekshiriladi.</p><pre>{'[ { "prefix":"21", "productStart":2, "productLength":5, "valueStart":7, "valueLength":5, "divisor":1000, "unit":"kg", "encoding":"weight" } ]'}</pre><textarea aria-label="Tarozi sxemasi JSON" rows={8} value={schemeText} onChange={e=>setSchemeText(e.target.value)}/>{configError&&<p role="alert">{configError}</p>}</Modal>
   <BarcodeScannerModal open={camera} onClose={()=>setCamera(false)} onDetected={code=>{setCamera(false);enqueue(code)}}/>
-  <Receipt sale={session.receipt} options={options} onClose={()=>{session.setReceipt(null);barcodeRef.current?.focus()}} onPrintError={printError}/>
+  <Receipt sale={session.receipt} autoPrintError={autoPrintError} options={options} onClose={()=>{session.setReceipt(null);barcodeRef.current?.focus()}} onPrintError={printError}/>
  </div>;
 }

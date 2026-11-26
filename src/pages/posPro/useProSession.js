@@ -16,6 +16,7 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[receipt,setReceipt]=useState(null);
  const [recovery,setRecovery]=useState(()=>readAttempt(localStorage,journal)),[holdRecovery,setHoldRecovery]=useState(()=>readAttempt(localStorage,holdJournal));
  const [held,setHeld]=useState([]);
+ const [freshReceipt,setFreshReceipt]=useState(null);
  const active=useRef(true),busyRef=useRef(false),reference=useRef(initial?.checkoutReference||`PRO-${crypto.randomUUID()}`),current=useRef(null);
  current.current={cart,cartPct,customerId,customer};
  const reconcile=(lines,products,pct=cartPct)=>{
@@ -49,12 +50,12 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   if(id)setCart(next);else setCartPct(n);
  };
  const reset=()=>{setCart([]);setCartPct(0);setCustomer('');setCustomerId('');setNotice('');reference.current=`PRO-${crypto.randomUUID()}`;clearPosDraft(localStorage,key)};
- const finish=(sale,packet)=>{
+ const finish=(sale,packet,fresh=false)=>{
   // Persist confirmation first; a page crash before local cleanup remains a safe replay.
   const originalKey=packet?.payload?.source==='pos-pro'?key:posDraftKey(user.organizationId,user.id,storeId);
   clearPosDraft(localStorage,originalKey);settleAttempt(localStorage,journal,'confirmed');
   if(!active.current)return;
-  setRecovery(null);setReceipt(sale);if(originalKey===key)reset();void reloadStore({silent:true});
+  setRecovery(null);setFreshReceipt(fresh?sale:null);setReceipt(sale);if(originalKey===key)reset();void reloadStore({silent:true});
  };
  const recover=async(retry=false)=>{
   if(busyRef.current||!navigator.onLine)return;busyRef.current=true;setBusy(true);setError('');
@@ -90,7 +91,7 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
    const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:plan.breakdown,creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
    if(!savePosDraft(localStorage,key,{...current.current,cartDiscountPct:cartPct,checkoutReference:saleId}))throw Error('Savdo oldidan draft saqlanmadi');
    const result=await commitSaleTransaction({sale,storeId});
-   if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet);else if(active.current){reset();setReceipt(result.sale)}});return true}
+   if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet,!result.reconciled);else if(active.current){reset();setFreshReceipt(null);setReceipt(result.sale)}});return true}
    if(active.current){setRecovery(readAttempt(localStorage,journal));setError(result.message||'Savdo bajarilmadi')}
    return false;
   }catch(e){if(active.current)setError(e.message);return false}
@@ -132,5 +133,5 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   }catch(e){if(active.current)setError(e.message);return false}
   finally{busyRef.current=false;if(active.current)setBusy(false)}
  };
- return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds,hasPendingCheckout:()=>Boolean(readAttempt(localStorage,journal))};
+ return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,freshReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds,hasPendingCheckout:()=>Boolean(readAttempt(localStorage,journal))};
 }
