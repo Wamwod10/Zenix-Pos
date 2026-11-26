@@ -45,3 +45,16 @@ test('historical reprint includes returned amount without altering original gros
  assert.match(html,/JAMI/);assert.match(html,/Qaytarilgan/);assert.match(html,/Sof/);
  assert.match(html,/71[ ,]000/);
 });
+
+test('merchant contact is opt-in, escaped, and dates follow organization preferences',()=>{
+ const options={phone:'+998 90 123 45 67',address:'<Market>',dateFormat:'YYYY-MM-DD',timeFormat:'12'};
+ const hidden=receiptHtml(basic,options);
+ assert.doesNotMatch(hidden,/998 90 123 45 67|&lt;Market&gt;/);
+ const visible=receiptHtml(basic,{...options,showPhone:true,showAddress:true,footer:''});
+ assert.match(visible,/Tel: \+998 90 123 45 67/);
+ assert.match(visible,/&lt;Market&gt;/);
+ assert.match(visible,/2026-11-20 02:30 PM/);
+ assert.doesNotMatch(visible,/Xaridingiz uchun rahmat/);
+ const other=receiptHtml(basic,{dateFormat:'MM/DD/YYYY',timeFormat:'24'});
+ assert.match(other,/11\/20\/2026 14:30/);
+});

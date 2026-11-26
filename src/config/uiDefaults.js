@@ -65,6 +65,8 @@ export const DEFAULT_WORKSPACE_SETTINGS = {
     width: "80",
     showLogo: true,
     showCashier: true,
+    showPhone: false,
+    showAddress: false,
     showPaymentBreakdown: true,
     footer: "Xaridingiz uchun rahmat!",
     printMode: "browser",

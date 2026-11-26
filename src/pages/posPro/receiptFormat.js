@@ -14,10 +14,16 @@ function paymentAmounts(sale){
  const method=sale.paymentMethod||sale.metadata?.paymentMethod||'cash';
  return method==='credit'?{cash:money(sale.cashTendered??sale.metadata?.cashTendered)}:{[method]:money(sale.total??sale.saleTotal)};
 }
-function receiptDate(sale,timezone){
+function receiptDate(sale,timezone,dateFormat,timeFormat){
  const value=sale.createdAt||sale.created_at, date=value?new Date(value):null;
  if(date&&Number.isFinite(date.getTime())){
-  const format=zone=>new Intl.DateTimeFormat('uz-UZ',{timeZone:zone,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+  const format=zone=>{
+   const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));
+   const day=dateFormat==='YYYY-MM-DD'?`${parts.year}-${parts.month}-${parts.day}`:dateFormat==='MM/DD/YYYY'?`${parts.month}/${parts.day}/${parts.year}`:`${parts.day}.${parts.month}.${parts.year}`;
+   const hour=Number(parts.hour);
+   const time=timeFormat==='12'?`${String(hour%12||12).padStart(2,'0')}:${parts.minute} ${hour>=12?'PM':'AM'}`:`${parts.hour}:${parts.minute}`;
+   return day+' '+time;
+  };
   try{return format(timezone)}catch{return format('Asia/Tashkent')}
  }
  return [sale.date||sale.dateISO,sale.time].filter(Boolean).join(' ')||'Sana mavjud emas';
@@ -34,7 +40,7 @@ function receiptRows(sale){
   return `<tr class="item-name"><td colspan="2">${escape(item.name||'Mahsulot')}</td></tr><tr class="item-detail"><td>${escape(qty)} ${escape(unit)} × ${escape(formatPrice(price))}${discount?`<br><span class="discount">${escape(discount)}</span>`:''}</td><td>${escape(formatPrice(paid))}</td></tr>`;
  }).join('');
 }
-export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',copies=1}={}){
+export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,copies=1}={}){
  const paper=String(width);
  if(!['58','80'].includes(paper))throw Error('Unsupported receipt width');
  if(!sale||!Array.isArray(sale.items)||!sale.items.length)throw Error('Tasdiqlangan chek ma’lumotlari to‘liq emas');
@@ -50,8 +56,8 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  const clerk=sale.sellerName||sale.seller||cashier;
  const due=sale.creditDueDate||sale.credit_due_date;
  const paperBody=`<main class="paper">
- <header><h1>${escape(business)}</h1>${showLogo?'<small class="brand">ZENIX POS</small>':''}<p>${escape(sale.store||branch||'Filial')}</p></header>
- <div class="rule"></div><p>Chek № ${escape(number)}</p><p>${escape(receiptDate(sale,timezone))}</p>
+ <header><h1>${escape(business)}</h1>${showLogo?'<small class="brand">ZENIX POS</small>':''}<p>${escape(sale.store||branch||'Filial')}</p>${showPhone===true&&phone?`<p>Tel: ${escape(phone)}</p>`:''}${showAddress===true&&address?`<p>${escape(address)}</p>`:''}</header>
+ <div class="rule"></div><p>Chek № ${escape(number)}</p><p>${escape(receiptDate(sale,timezone,dateFormat,timeFormat))}</p>
  ${showCashier&&clerk?`<p>Kassir: ${escape(clerk)}</p>`:''}${customer?`<p>Mijoz: ${escape(customer)}</p>`:''}
  <div class="rule"></div><table aria-label="Mahsulotlar"><tbody>${receiptRows(sale)}</tbody></table><div class="rule"></div>
  ${money(discount)>0?`<p class="row"><span>Chegirma</span><b>−${escape(formatPrice(discount))}</b></p>`:''}
