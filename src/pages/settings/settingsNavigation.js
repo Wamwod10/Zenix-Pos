@@ -31,7 +31,9 @@ export function searchSettingsTabs(index,query){
   return tokens.every(token=>hay.includes(token));
  });
 }
-export function filterSettingsHistory(entries,query=""){
- const tokens=normalizeSettingsSearch(query).split(" ").filter(Boolean);
- return (entries||[]).filter(entry=>entry.type==="settings"&&tokens.every(token=>normalizeSettingsSearch([entry.title,entry.description,entry.userName,entry.actorName,entry.user,entry.date,entry.time,entry.storeName].join(" ")).includes(token)));
+export function settingsAuditQuery({query="",page=0,from="",to=""}={}){
+ const params=new URLSearchParams({type:"settings",q:String(query).trim().slice(0,100),limit:"20",offset:String(Math.max(0,Math.min(50000,Math.floor(Number(page)||0)))*20)});
+ if(/^\d{4}-\d{2}-\d{2}$/.test(from))params.set("from",from);
+ if(/^\d{4}-\d{2}-\d{2}$/.test(to))params.set("to",to);
+ return params.toString();
 }
