@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import { useEffect, useRef, useState } from "react";
 import { FiCheck, FiCreditCard, FiEye, FiFileText, FiSearch, FiShield, FiUsers, FiX, FiRefreshCw, FiMapPin, FiUserCheck } from "react-icons/fi";
 import { useStore } from "../../context/StoreContext";
@@ -182,6 +183,7 @@ function PlatformAdmin(){
   };
   const resetPassword=async()=>{
     if(!detail?.id||!resetTarget||resetBusy||resetActionInFlightRef.current)return;
+    const policyError=newPasswordError(resetForm.password,12);if(policyError){notify({tone:"danger",title:"Yangi parol",message:policyError});return}
     if(resetForm.password.length<12||resetForm.reason.trim().length<10){notify({tone:"danger",title:"Parol 12 belgi, sabab 10 belgi bo'lishi kerak"});return}
     const request=resetRequestRef.current,organizationId=detail.id,userId=resetTarget.id,form={...resetForm};
     const lock={};

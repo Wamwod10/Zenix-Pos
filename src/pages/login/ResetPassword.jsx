@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import {useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api} from '../../services/apiClient';
@@ -12,6 +13,7 @@ export default function ResetPassword(){
   const [done,setDone]=useState(false);
   const submit=async event=>{
     event.preventDefault();if(busy)return;
+    const policyError=newPasswordError(password,12);if(policyError){setError(policyError);return}
     if(password!==confirmation){setError('Parollar mos emas');return}
     setBusy(true);setError('');
     try{await api.post('/api/auth/reset-password',{token:token.trim(),password});setDone(true);setToken('');setPassword('');setConfirmation('')}

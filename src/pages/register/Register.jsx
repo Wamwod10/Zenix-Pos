@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import SubscriptionPlans from '../../components/SubscriptionPlans';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -68,7 +69,7 @@ function Register(){
     if(form.phone.replace(/\D/g,"").length!==12)next.phone="Telefon raqamni to‘liq kiriting";
     if(form.login.trim().length<3)next.login="Kirish nomi kamida 3 ta belgi bo‘lsin";
     else if(isLoginTaken(form.login))next.login="Bu kirish nomi yoki email band";
-    if(form.password.length<8)next.password="Parol kamida 8 ta belgidan iborat bo‘lsin";
+    const passwordError=newPasswordError(form.password);if(passwordError)next.password=passwordError;
     setErrors(next);return Object.keys(next).length===0;
   };
   const submit=async(e)=>{e.preventDefault();if(submitting||!validate())return;if(form.startOption==="TRIAL"&&(!policy||(requiresOtp&&!canRegisterTrial(proof,form.phone)))){setOtpError("Trial uchun telefonni SMS kod bilan tasdiqlang");return}setSubmitting(true);const result=await register({...form,registrationToken:form.startOption==="TRIAL"&&requiresOtp?proof?.registrationToken:undefined});if(!result.success){if(result.code==='OTP_REQUIRED')loadPolicy();setErrors(registrationFieldErrors(result));setSubmitting(false);return}navigate(form.startOption==="TRIAL"?"/":"/activation")};
