@@ -140,6 +140,13 @@ export const StoreProvider = ({ children }) => {
   const retryWorkspaceSettings=useCallback(()=>setSettingsRetry(n=>n+1),[]);
   const settingsLatestRef=useRef(null);
   settingsLatestRef.current={identity:currentWorkspaceIdentity,owner:currentUser?.appRole===ROLES.OWNER,workspaceSettings:JSON.stringify(workspaceSettings),businessFeatures:JSON.stringify(businessFeatures),rolePermissions:JSON.stringify(rolePermissions)};
+  const uiPreferencesLatestRef=useRef(uiPreferences);
+  uiPreferencesLatestRef.current=uiPreferences;
+  const uiPreferenceQueueRef=useRef(Promise.resolve());
+  const uiPreferenceSequenceRef=useRef(0);
+  const uiPreferencePendingRef=useRef(null);
+  const [uiPreferenceSave,setUiPreferenceSave]=useState({identity:null,state:"idle",error:""});
+  const uiPreferenceStatus=useMemo(()=>uiPreferenceSave.identity===currentWorkspaceIdentity?uiPreferenceSave:{state:"idle",error:""},[uiPreferenceSave,currentWorkspaceIdentity]);
   const userThemeKey=currentUser?.id?`zenix:theme:v1:${currentUser.id}`:null;
   const getUserTheme=()=>{try{const value=userThemeKey?window.localStorage.getItem(userThemeKey):null;return ['light','dark','system'].includes(value)?value:null}catch{return null}};
   useEffect(()=>{
@@ -234,6 +241,7 @@ export const StoreProvider = ({ children }) => {
     if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);return;}
     try{
       const readRevision=settingsRevisionRef.current;
+      const readPreferenceRevision=uiPreferenceSequenceRef.current;
       const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap",{headers:{'x-zenix-bootstrap':'core'}}),api.get("/api/settings")]);
       if(!isCurrent())return;
       if(baseResult.status!=="fulfilled")throw baseResult.reason;
@@ -297,7 +305,10 @@ export const StoreProvider = ({ children }) => {
         setRolePermissions(nextRolePermissions);
         settingsConflictRef.current=null;
         setWorkspaceSaveState("saved");
-        setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{}),...(getUserTheme()?{theme:getUserTheme()}: {})});
+        if(uiPreferencePendingRef.current?.identity!==hydrationIdentity&&readPreferenceRevision===uiPreferenceSequenceRef.current){
+          setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{}),...(getUserTheme()?{theme:getUserTheme()}: {})});
+          setUiPreferenceSave({identity:hydrationIdentity,state:"saved",error:""});
+        }
       }
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
       setLoadedWorkspaceIdentity(hydrationIdentity);setWorkspaceLoading(false);
@@ -409,15 +420,44 @@ export const StoreProvider = ({ children }) => {
     return()=>clearTimeout(timer);
   },[workspaceSettings,businessFeatures,rolePermissions,workspaceReady,currentWorkspaceIdentity,currentUser?.organizationId,currentUser?.appRole,hasPermission,settingsRetry]);
 
-  const setUiPreferences=useCallback((updater)=>{
-    setUiPreferencesState((previous)=>{
-      const patch=typeof updater==="function"?updater(previous):updater;const next={...previous,...(patch||{})};
-      try{if(userThemeKey&&next.theme)window.localStorage.setItem(userThemeKey,next.theme)}catch{}
-      runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:next}).catch((error)=>setPersistenceError(error?.message||"Interfeys sozlamalarini saqlab bo‘lmadi"))});
-      return next;
+  const persistUiPreferences=useCallback(next=>{
+    const identity=currentWorkspaceIdentity;
+    runForOrganizationUser(currentUser,()=>{
+      if(currentWorkspaceIdentityRef.current!==identity)return;
+      const sequence=++uiPreferenceSequenceRef.current;
+      const pending={identity,sequence,next};
+      uiPreferencePendingRef.current=pending;
+      setUiPreferenceSave({identity,state:"saving",error:""});
+      uiPreferenceQueueRef.current=uiPreferenceQueueRef.current.catch(()=>undefined).then(async()=>{
+        if(currentWorkspaceIdentityRef.current!==identity||uiPreferencePendingRef.current!==pending)return;
+        try{
+          await api.patch("/api/settings/preferences",{uiPreferences:next});
+          if(currentWorkspaceIdentityRef.current!==identity||uiPreferencePendingRef.current!==pending)return;
+          uiPreferencePendingRef.current=null;
+          setUiPreferenceSave({identity,state:"saved",error:""});
+        }catch(error){
+          if(currentWorkspaceIdentityRef.current!==identity||uiPreferencePendingRef.current!==pending)return;
+          setUiPreferenceSave({identity,state:"failed",error:error?.message||"Interfeys sozlamalarini saqlab bo‘lmadi"});
+        }
+      });
     });
-  },[currentUser?.organizationId,currentUser?.appRole,userThemeKey]);
-  const resetUiPreferences=useCallback(()=>{try{if(userThemeKey)window.localStorage.removeItem(userThemeKey)}catch{}setUiPreferencesState(DEFAULT_UI_PREFERENCES);runForOrganizationUser(currentUser,()=>{api.patch("/api/settings/preferences",{uiPreferences:DEFAULT_UI_PREFERENCES}).catch(()=>{})})},[currentUser?.organizationId,currentUser?.appRole,userThemeKey]);
+  },[currentWorkspaceIdentity,currentUser]);
+  const applyUiPreferences=useCallback(next=>{
+    uiPreferencesLatestRef.current=next;
+    setUiPreferencesState(next);
+    try{if(userThemeKey&&next.theme)window.localStorage.setItem(userThemeKey,next.theme)}catch{}
+    persistUiPreferences(next);
+  },[userThemeKey,persistUiPreferences]);
+  const setUiPreferences=useCallback(updater=>{
+    const previous=uiPreferencesLatestRef.current;
+    const patch=typeof updater==="function"?updater(previous):updater;
+    applyUiPreferences({...previous,...(patch||{})});
+  },[applyUiPreferences]);
+  const resetUiPreferences=useCallback(()=>{
+    applyUiPreferences({...DEFAULT_UI_PREFERENCES});
+    try{if(userThemeKey)window.localStorage.removeItem(userThemeKey)}catch{}
+  },[applyUiPreferences,userThemeKey]);
+  const retryUiPreferences=useCallback(()=>persistUiPreferences(uiPreferencesLatestRef.current),[persistUiPreferences]);
 
   const generateBarcode = useCallback(async ({ reserved = [] } = {}) => {
     const blocked=new Set((reserved||[]).map((value)=>String(value||"").trim()).filter(Boolean));
@@ -886,9 +926,9 @@ export const StoreProvider = ({ children }) => {
     expenses,setExpenses,returns,setReturns,activeShift,activeShifts,shiftHistory,setShiftHistory,
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
-    uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
+    uiPreferences,setUiPreferences,resetUiPreferences,uiPreferenceStatus,retryUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
     employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,workspaceSaveState,retryWorkspaceSettings,catalogComplete,catalogError,catalogEpoch,ensureCatalog,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,workspaceSaveState,retryWorkspaceSettings,reloadStore]);
+  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,uiPreferenceStatus,retryUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,workspaceSaveState,retryWorkspaceSettings,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };

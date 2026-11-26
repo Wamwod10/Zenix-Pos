@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { hardwareCapabilities } from "../posPro/hardware";
+import { hardwareCapabilities, ean13CheckDigit } from "../posPro/hardware";
 const DeviceReadiness=lazy(()=>import("../posPro/DeviceReadiness"));
 import {
   FiActivity, FiArchive, FiCheckCircle, FiClipboard, FiCreditCard, FiDatabase, FiDownload,
@@ -11,25 +11,22 @@ import { useStore } from "../../context/StoreContext";
 import { PremiumSelect, StatusBadge } from "../../components/Ui";
 import { useFeedback } from "../../context/FeedbackContext";
 import { createXlsxBlob } from "../../utils/simpleXlsx";
+import { safeCsvCell } from "../../utils/safeCsvCell";
+import { printReportDocument } from "../../utils/printReportDocument";
 import { supplierOpenDebt } from "../../utils/supplierLedger";
 import { workspaceDateISO } from "../../utils/workspaceDate";
 import { api } from "../../services/apiClient";
 
 const humanCell=(value)=>{if(value==null)return"";if(Array.isArray(value))return value.map(humanCell).filter(Boolean).join(", ");if(typeof value==="object")return Object.entries(value).map(([key,item])=>`${key.replace(/[_-]+/g," ")}: ${humanCell(item)}`).join(" · ");return String(value)};
-const csvCell = (value) => {
-  const text = humanCell(value);
-  return `"${text.replace(/"/g, '""')}"`;
-};
+const csvCell = value=>safeCsvCell(typeof value==="number"?value:humanCell(value));
 const toCsv = (headers, rows) => [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
 const escapeHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const openPrintableReport = (title, headers, rows) => {
-  const popup = window.open("", "_blank", "noopener,noreferrer");
-  if (!popup) return false;
+  
   const tableHead = headers.map((cell)=>`<th>${escapeHtml(cell)}</th>`).join("");
   const tableRows = rows.map((row)=>`<tr>${row.map((cell)=>`<td>${escapeHtml(humanCell(cell))}</td>`).join("")}</tr>`).join("");
-  popup.document.write(`<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#16181b}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;color:#6b7280;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #d7dbe0;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-weight:700}@page{size:auto;margin:12mm}@media print{body{margin:0}}</style></head><body><h1>${escapeHtml(title)}</h1><div class="meta">Zenix POS · ${new Intl.DateTimeFormat("uz-UZ",{dateStyle:"medium",timeStyle:"short"}).format(new Date())}</div><table><thead><tr>${tableHead}</tr></thead><tbody>${tableRows}</tbody></table><script>window.onload=()=>{window.print()}<\/script></body></html>`);
-  popup.document.close();
-  return true;
+  const markup=`<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#16181b}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;color:#6b7280;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #d7dbe0;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-weight:700}@page{size:auto;margin:12mm}@media print{body{margin:0}}</style></head><body><h1>${escapeHtml(title)}</h1><div class="meta">Zenix POS · ${new Intl.DateTimeFormat("uz-UZ",{dateStyle:"medium",timeStyle:"short"}).format(new Date())}</div><table><thead><tr>${tableHead}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+  return printReportDocument(markup,"Hisobotni chop etish");
 };
 const safeFilePart = (value) => String(value || "zenix").trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "zenix";
 const downloadBlob = (content, type, name) => {
@@ -83,7 +80,7 @@ export function ExportCenter() {
     const next = [entry, ...history].slice(0, 12);
     setUiPreferences({exportHistory:next});
     addActivityLog({ type: "export", title: "Ma’lumot eksport qilindi", description: `${label} · ${count} ta yozuv` });
-    notify({ tone: "success", title: mode === "print" ? "PDF / chop oynasi ochildi" : "Eksport tayyor", message: fileName });
+    notify({ tone: "success", title: mode === "print" ? "Chop etish so‘rovi yuborildi" : "Eksport tayyor", message: fileName });
   };
   const today = workspaceDateISO(new Date(), workspaceSettings?.organization?.timezone || "Asia/Tashkent");
   const base = safeFilePart(organization?.name || currentUser?.organizationName || "zenix");
@@ -97,7 +94,7 @@ export function ExportCenter() {
     }
     if (format === "pdf") {
       const opened = openPrintableReport(label, headers, rows);
-      if (!opened) { notify({ tone:"warning", title:"PDF oynasi ochilmadi", message:"Brauzer yangi oynani bloklagan bo‘lishi mumkin." }); return; }
+      if (!opened) { notify({ tone:"warning", title:"PDF oynasi ochilmadi", message:"Brauzer chop etish hujjatini yarata olmadi." }); return; }
       remember(label, `${base}-${slug}-${today}.pdf`, rows.length, "print");
       return;
     }
@@ -193,11 +190,11 @@ export function ExportCenter() {
       },
     },
     {
-      id: "backup", icon: FiDatabase, title: "Ish maydoni nusxasi", description: "Ish maydonidagi server ma’lumotlarining to‘liq JSON nusxasi.", count: inventoryState.length + sales.length + suppliers.length + expenses.length,
+      id: "backup", icon: FiDatabase, title: "Ish maydoni nusxasi", description: "Hozir yuklangan ish maydoni ma’lumotlarining JSON eksporti. To‘liq server backup emas.", count: inventoryState.length + sales.length + suppliers.length + expenses.length,
       run: (format) => {
         if(!canExport){notify({tone:"warning",title:"Eksportga ruxsat yo‘q",message:"Egasi bu amal uchun alohida ruxsat berishi kerak."});return;}
         const payload = {
-          exportedAt: new Date().toISOString(), organization, stores, inventory: inventoryState, sales,
+          schema:"zenix-workspace-export-v1",completeDatabaseBackup:false,scope:"loaded-workspace",exportedAt: new Date().toISOString(), organization, stores, inventory: inventoryState, sales,
           suppliers, expenses, returns, inventoryTransfers, stockMovements, shiftHistory,
           activityLogs, workspaceSettings, employees,
         };
@@ -209,7 +206,7 @@ export function ExportCenter() {
   ];
 
   return <>
-    <div className="pro-card-head"><div><h2>Eksport markazi</h2><p>Asosiy ma’lumotlarni xavfsiz faylga chiqarib oling. Eksport ma’lumotni o‘zgartirmaydi.</p></div><div className="export-format-control"><small>Jadval formati</small><PremiumSelect value={exportFormat} onChange={(event)=>setExportFormat(event.target.value)}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF / chop</option></PremiumSelect></div></div>
+    <div className="pro-card-head"><div><h2>Eksport markazi</h2><p>Yuklangan ma’lumotlarni faylga eksport qiling. Bu server zaxira nusxasi yoki tiklash fayli emas.</p></div><div className="export-format-control"><small>Jadval formati</small><PremiumSelect value={exportFormat} onChange={(event)=>setExportFormat(event.target.value)}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option><option value="pdf">PDF / chop</option></PremiumSelect></div></div>
     {!canExport&&<div className="pro-alert warning">Ma’lumotlarni yuklab olish uchun “Ma’lumot eksport qilish” ruxsati kerak.</div>}
     <div className="export-center-grid">
       {actions.map((item) => { const Icon = item.icon; return <article key={item.id} className="export-card"><span className="export-card-icon"><Icon/></span><span><strong>{item.title}</strong><small>{item.description}</small><em>{item.count} ta yozuv</em></span><button type="button" className="pro-btn secondary" disabled={!canExport} onClick={()=>item.run(item.id==="backup"?"json":exportFormat)}>{item.id==="backup"?<FiDatabase/>:exportFormat==="pdf"?<FiPrinter/>:<FiDownload/>} {item.id==="backup"?"JSON yuklash":exportFormat==="pdf"?"PDF / chop":exportFormat==="xlsx"?"Excel yuklash":"CSV yuklash"}</button></article>; })}
@@ -226,6 +223,8 @@ export function SystemDiagnostics() {
   const [apiHealth,setApiHealth]=useState({status:"checking",message:"Server tekshirilmoqda."});
   const [online,setOnline]=useState(()=>typeof navigator === "undefined" ? true : navigator.onLine);
   const [showDeviceChecklist,setShowDeviceChecklist]=useState(false);
+  const [scanInput,setScanInput]=useState(""),[scanResult,setScanResult]=useState(null);
+  const checkScanner=()=>{const code=scanInput.trim();if(!code)return;setScanResult({length:code.length,format:/^\d{13}$/.test(code)?"EAN-13": "Boshqa kod",valid:/^\d{13}$/.test(code)?ean13CheckDigit(code.slice(0,12))===code[12]:null});setScanInput("")};
   useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener("online",update);window.addEventListener("offline",update);return()=>{window.removeEventListener("online",update);window.removeEventListener("offline",update)}},[]);
   const manifest = typeof document !== "undefined" ? Boolean(document.querySelector('link[rel="manifest"]')) : false;
   const serviceWorkerSupported = typeof navigator !== "undefined" && "serviceWorker" in navigator;
@@ -266,6 +265,7 @@ export function SystemDiagnostics() {
     <div className="pro-card-head"><div><h2>Tizim diagnostikasi</h2><p>Zenix POS ishlashi uchun muhim brauzer va integratsiya holatlarini tekshiring.</p></div><div className="diagnostics-actions"><button type="button" className="pro-btn secondary" onClick={()=>setVersion((value)=>value+1)}><FiRefreshCw/> Qayta tekshirish</button><button type="button" className="pro-btn secondary" onClick={copySummary}><FiClipboard/> Nusxalash</button></div></div>
     <div className="diagnostics-grid">{checks.map((item) => { const Icon = item.icon; return <article key={item.id} className="diagnostic-card"><span className={`diagnostic-icon ${item.tone}`}><Icon/></span><span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p></span><StatusBadge tone={item.tone}>{item.tone === "success" ? "Yaxshi" : item.tone === "danger" ? "Xato" : item.tone === "warning" ? "E’tibor" : "Holat"}</StatusBadge></article>; })}</div>
     <div className="pro-card-head settings-device-heading"><div><h2>Qurilmalar tekshiruvi</h2><p>Printer, skaner, tarozi va terminalni operator yordamida sinash. API mavjudligi haqiqiy ulanishni tasdiqlamaydi.</p></div><button type="button" className="pro-btn secondary" aria-expanded={showDeviceChecklist} onClick={()=>setShowDeviceChecklist(v=>!v)}>{showDeviceChecklist?"Sinovlarni yopish":"Qurilma sinovlarini ochish"}</button></div>{showDeviceChecklist&&<Suspense fallback={<p role="status">Sinovlar yuklanmoqda...</p>}><DeviceReadiness online={online} capabilities={hardwareCapabilities()}/></Suspense>}
+    <div className="pro-card-head settings-device-heading"><div><h2>Shtrix-kod skaneri</h2><p>Sinov maydoniga skaner bilan kod kiriting va Enter bosing. Mahsulot yoki savdo yaratilmaydi.</p></div></div><div className="pro-toolbar"><div className="pro-search"><input aria-label="Skaner sinov kodi" value={scanInput} maxLength={128} onChange={e=>setScanInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();checkScanner()}}} placeholder="Sinov shtrix-kodi"/></div><button type="button" className="pro-btn secondary" disabled={!scanInput.trim()} onClick={checkScanner}>Kodni tekshirish</button></div>{scanResult&&<p role="status">{scanResult.format} · {scanResult.length} belgi · {scanResult.valid===null?"Qabul qilindi, format tekshirilmagan":scanResult.valid?"Nazorat raqami to‘g‘ri":"Nazorat raqami noto‘g‘ri"}. Bu faqat kiritish sinovi, fizik qurilma tasdig‘i emas.</p>}
     <div className="diagnostics-note"><FiCheckCircle/><span><strong>Tizim diagnostikasi</strong><small>API, ma’lumotlar bazasi, Telegram, fayl yuklash va brauzer xizmatlari holatini shu markazdan tekshiring.</small></span></div>
   </>;
 }

@@ -1,5 +1,6 @@
 import {formatProMoney as formatPrice} from './model.js';
 import {lineAmount,sumMoney} from '../../utils/posMoney.js';
+import {printReportDocument} from '../../utils/printReportDocument.js';
 
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cash:'Naqd',card:'Karta (qo‘lda tasdiqlangan)',transfer:'O‘tkazma (qo‘lda tasdiqlangan)',split:'Aralash',credit:'Nasiya'};
@@ -40,8 +41,6 @@ function receiptRows(sale){
   return `<tr class="item-name"><td colspan="2">${escape(item.name||'Mahsulot')}</td></tr><tr class="item-detail"><td>${escape(qty)} ${escape(unit)} × ${escape(formatPrice(price))}${discount?`<br><span class="discount">${escape(discount)}</span>`:''}</td><td>${escape(formatPrice(paid))}</td></tr>`;
  }).join('');
 }
-
-// Central receipt options: all checkout, reprint and settings preview paths use the same defaults.
 export function workspaceReceiptOptions({organization={},receipt={}}={},extra={}){
  return {width:String(receipt.width||'80'),business:organization.businessName||extra.business||'ZENIX POS',
   showLogo:receipt.showLogo!==false,showCashier:receipt.showCashier!==false,showPaymentBreakdown:receipt.showPaymentBreakdown!==false,
@@ -50,11 +49,12 @@ export function workspaceReceiptOptions({organization={},receipt={}}={},extra={}
   timezone:organization.timezone||'Asia/Tashkent',copies:receipt.copies||1,template:receipt.template||'classic',...extra};
 }
 
-export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,copies=1}={}){
+export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,template='classic',copies=1}={}){
  const paper=String(width);
  if(!['58','80'].includes(paper))throw Error('Unsupported receipt width');
  if(!sale||!Array.isArray(sale.items)||!sale.items.length)throw Error('Tasdiqlangan chek ma’lumotlari to‘liq emas');
  const quantity=Math.max(1,Math.min(3,Math.floor(Number(copies)||1)));
+ const chosenTemplate=['classic','compact','large'].includes(template)?template:'classic';
  const breakdown=paymentAmounts(sale), method=sale.paymentMethod||sale.metadata?.paymentMethod||'cash';
  const payments=showPaymentBreakdown
   ?Object.entries(breakdown).filter(([,n])=>money(n)>0).map(([name,n])=>`<p class="row"><span>${escape(labels[name]||name)}: </span><b>${escape(formatPrice(n))}</b></p>`).join('')
@@ -91,28 +91,11 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  .grand{font-size:17px;font-weight:700;line-height:1.25}.grand b{font-size:18px}
  footer{margin-top:16px;font-size:11px}footer small{display:block;margin-top:7px;font-size:10px}
  @media print{.paper{max-width:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
- </style></head><body>${Array.from({length:quantity},()=>paperBody).join('')}</body></html>`;
+ .receipt-compact{font-size:11px;line-height:1.3}.receipt-compact .rule{margin:5px 0}.receipt-compact .item-name td{padding-top:3px}.receipt-compact .item-detail td{padding-bottom:3px}.receipt-compact footer{margin-top:10px}
+ .receipt-large{font-family:Arial,sans-serif;font-size:14px;line-height:1.5}.receipt-large h1{font-size:19px}.receipt-large .grand,.receipt-large .grand b{font-size:20px}
+ </style></head><body class="receipt-${chosenTemplate}">${Array.from({length:quantity},()=>paperBody).join('')}</body></html>`;
 }
 export function printReceipt(sale,options,onError){
- let markup;
- try{markup=receiptHtml(sale,options)}catch(error){onError?.(error);return}
- const frame=document.createElement('iframe');
- frame.title='POS Pro chek';
- frame.style.cssText='position:fixed;width:1px;height:1px;bottom:0;left:0;border:0';
- let cleaned=false;
- const cleanup=()=>{if(cleaned)return;cleaned=true;clearTimeout(fallback);frame.remove()};
- // Some browsers never dispatch afterprint, including blocked or cancelled print dialogs.
- const fallback=setTimeout(cleanup,180000);
- const fail=error=>{cleanup();onError?.(error instanceof Error?error:new Error('Printer oynasini ochib bo‘lmadi'))};
- frame.onerror=()=>fail(new Error('Chekni chop etish oynasi yuklanmadi'));
- frame.onload=()=>{
-  if(cleaned)return;
-  try{
-   const target=frame.contentWindow;
-   if(!target?.print)throw Error('Brauzer chop etishni qo‘llab-quvvatlamadi');
-   target.addEventListener('afterprint',cleanup,{once:true});
-   target.focus();target.print();
-  }catch(error){fail(error)}
- };
- try{frame.srcdoc=markup;document.body.append(frame)}catch(error){fail(error)}
+ try{return printReportDocument(receiptHtml(sale,options),'POS Pro chek',onError)}
+ catch(error){onError?.(error)}
 }

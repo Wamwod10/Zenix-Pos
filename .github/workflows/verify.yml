@@ -25,6 +25,8 @@ jobs:
       - run: npm run audit
       - run: npm run verify:production
       - run: npm run build
+      - name: Synthetic CPU and bundle regression budgets
+        run: node scripts/check-performance-budget.mjs --bundle
       - name: POS Pro HID, checkout, recovery and responsive browser acceptance
         run: |
           # Ubuntu mirror DNS may fail when apt tries to install optional fonts.
@@ -58,8 +60,6 @@ jobs:
           path: ci-artifacts/pos-pro/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Synthetic CPU and bundle regression budgets
-        run: node scripts/check-performance-budget.mjs --bundle
 
       # Read-only browser check against a local Vite preview; no Neon credentials.
       - name: Install Playwright Chromium for local login smoke

@@ -24,14 +24,28 @@ export const AuthProvider=({children})=>{
   const [workspaceAccounts,setWorkspaceAccounts]=useState([]);
   const [sessions,setSessions]=useState([]);
   const sessionRevision=useRef(0);
+  const sessionReadRevision=useRef(0);
+  const sessionIdentityRef=useRef(null);
+  sessionIdentityRef.current=currentUser?`${currentUser.id}:${currentUser.sessionId||""}`:null;
+  const [sessionRead,setSessionRead]=useState({identity:null,state:"idle",error:""});
+  const sessionListStatus=useMemo(()=>sessionRead.identity===sessionIdentityRef.current?sessionRead:{state:"idle",error:""},[sessionRead,currentUser?.id,currentUser?.sessionId]);
 
   const refreshSessions=useCallback(async()=>{
+    const identity=sessionIdentityRef.current,revision=++sessionReadRevision.current,authRevision=sessionRevision.current;
+    if(!identity)return [];
+    setSessionRead({identity,state:"loading",error:""});
     try{
       const data=await api.get("/api/users/me/sessions");
-      setSessions((data.sessions||[]).map((item)=>({...item,device:item.device||"Brauzer"})));
-      return data.sessions||[];
-    }catch{
-      setSessions([]);
+      if(sessionIdentityRef.current!==identity||sessionReadRevision.current!==revision||sessionRevision.current!==authRevision)return [];
+      const items=(data.sessions||[]).map(item=>({...item,device:item.device||"Brauzer"}));
+      setSessions(items);
+      setSessionRead({identity,state:"ready",error:""});
+      return items;
+    }catch(error){
+      if(sessionIdentityRef.current===identity&&sessionReadRevision.current===revision&&sessionRevision.current===authRevision){
+        setSessions([]);
+        setSessionRead({identity,state:"error",error:apiMessage(error,"Faol sessiyalarni yuklab bo‘lmadi")});
+      }
       return [];
     }
   },[]);
@@ -224,16 +238,22 @@ export const AuthProvider=({children})=>{
 
   const getActiveSessions=()=>sessions;
   const revokeSession=async(sessionId)=>{
+    const identity=sessionIdentityRef.current,revision=sessionRevision.current;
     try{
       const data=await api.delete(`/api/users/me/sessions/${encodeURIComponent(sessionId)}`);
-      if(data.current){setCurrentUser(null);setSessions([])}else setSessions((items)=>items.filter((item)=>item.id!==sessionId));
+      if(sessionIdentityRef.current!==identity||sessionRevision.current!==revision)return {success:true};
+      sessionReadRevision.current+=1;
+      if(data.current){sessionRevision.current+=1;setCurrentUser(null);setSessions([]);notifyAuthChanged()}else await refreshSessions();
       return {success:true};
     }catch(error){return {success:false,message:apiMessage(error,"Sessiyani yopib bo‘lmadi")}}
   };
   const revokeOtherSessions=async()=>{
+    const identity=sessionIdentityRef.current,revision=sessionRevision.current;
     try{
       await api.delete("/api/users/me/sessions/others");
-      setSessions((items)=>items.filter((item)=>item.current));
+      if(sessionIdentityRef.current!==identity||sessionRevision.current!==revision)return {success:true};
+      sessionReadRevision.current+=1;
+      await refreshSessions();
       return {success:true};
     }catch(error){return {success:false,message:apiMessage(error,"Boshqa sessiyalarni yopib bo‘lmadi")}}
   };
@@ -252,8 +272,8 @@ export const AuthProvider=({children})=>{
   const value=useMemo(()=>({
     currentUser,authLoading,login,register,isLoginTaken,createWorkspaceUser,updateWorkspaceUser,resetWorkspaceUserPassword,changeCurrentPassword,
     getWorkspaceAccounts,getEmployeeAccount,upsertEmployeeAccount,syncEmployeeAccount,updateCurrentProfile,getActiveSessions,revokeSession,revokeOtherSessions,
-    refreshWorkspaceAccounts,refreshSessions,logout,
-  }),[currentUser,authLoading,workspaceAccounts,sessions,refreshWorkspaceAccounts,refreshSessions]);
+    refreshWorkspaceAccounts,refreshSessions,sessionListStatus,logout,
+  }),[currentUser,authLoading,workspaceAccounts,sessions,refreshWorkspaceAccounts,refreshSessions,sessionListStatus]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

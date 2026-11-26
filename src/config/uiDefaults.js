@@ -63,6 +63,7 @@ export const DEFAULT_WORKSPACE_SETTINGS = {
   },
   receipt: {
     width: "80",
+    template: "classic",
     showLogo: true,
     showCashier: true,
     showPhone: false,
