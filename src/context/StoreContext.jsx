@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {settingsChanges,canApplySettingsRead} from "../utils/settingsPersistence";
 import { useAuth } from "./AuthContext";
 import { DEFAULT_BUSINESS_FEATURES, DEFAULT_UI_PREFERENCES, DEFAULT_WORKSPACE_SETTINGS, DEFAULT_ROLE_PERMISSIONS } from "../config/uiDefaults";
 import { ROLES, runForOrganizationUser } from "../config/roles";
@@ -132,6 +133,12 @@ export const StoreProvider = ({ children }) => {
   currentWorkspaceIdentityRef.current=currentWorkspaceIdentity;
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
   const settingsSaveQueueRef=useRef(Promise.resolve());
+  const settingsRevisionRef=useRef(0);
+  const [workspaceSaveState,setWorkspaceSaveState]=useState("idle");
+  const [settingsRetry,setSettingsRetry]=useState(0);
+  const retryWorkspaceSettings=useCallback(()=>setSettingsRetry(n=>n+1),[]);
+  const settingsLatestRef=useRef(null);
+  settingsLatestRef.current={identity:currentWorkspaceIdentity,owner:currentUser?.appRole===ROLES.OWNER,workspaceSettings:JSON.stringify(workspaceSettings),businessFeatures:JSON.stringify(businessFeatures),rolePermissions:JSON.stringify(rolePermissions)};
   const userThemeKey=currentUser?.id?`zenix:theme:v1:${currentUser.id}`:null;
   const getUserTheme=()=>{try{const value=userThemeKey?window.localStorage.getItem(userThemeKey):null;return ['light','dark','system'].includes(value)?value:null}catch{return null}};
   useEffect(()=>{
@@ -225,6 +232,7 @@ export const StoreProvider = ({ children }) => {
     }
     if(!org){setLoadedWorkspaceIdentity(hydrationIdentity);if(!silent)setWorkspaceLoading(false);return;}
     try{
+      const readRevision=settingsRevisionRef.current;
       const [baseResult,settingsResult]=await Promise.allSettled([api.get("/api/bootstrap",{headers:{'x-zenix-bootstrap':'core'}}),api.get("/api/settings")]);
       if(!isCurrent())return;
       if(baseResult.status!=="fulfilled")throw baseResult.reason;
@@ -265,7 +273,7 @@ export const StoreProvider = ({ children }) => {
           setWorkspaceSettings(DEFAULT_WORKSPACE_SETTINGS);setBusinessFeatures(DEFAULT_BUSINESS_FEATURES);setRolePermissions(DEFAULT_ROLE_PERMISSIONS);setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(getUserTheme()?{theme:getUserTheme()}: {})});
         }
       }
-      if(settingsLoaded){
+      if(settingsLoaded&&canApplySettingsRead({identity:hydrationIdentity,baseline:settingsBaselineRef.current,current:settingsLatestRef.current,readRevision,revision:settingsRevisionRef.current,owner:currentUser?.appRole===ROLES.OWNER})){
         const rawWorkspace=settingsData.workspaceSettings||{};
         const nextWorkspaceSettings={
           ...DEFAULT_WORKSPACE_SETTINGS,...rawWorkspace,
@@ -285,6 +293,7 @@ export const StoreProvider = ({ children }) => {
         setWorkspaceSettings(nextWorkspaceSettings);
         setBusinessFeatures(nextBusinessFeatures);
         setRolePermissions(nextRolePermissions);
+        setWorkspaceSaveState("saved");
         setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{}),...(getUserTheme()?{theme:getUserTheme()}: {})});
       }
       setEmployees((base.employees||[]).map((row)=>({id:row.id,accountId:row.id,name:row.name,phone:row.phone||"",login:row.username,role:row.app_role||row.appRole,storeId:row.store_id||row.storeId||null,active:row.active!==false,permissionOverrides:row.permission_overrides||row.permissionOverrides||{}})));
@@ -358,30 +367,36 @@ export const StoreProvider = ({ children }) => {
     if(!workspaceReady||!currentUser?.organizationId||!hasPermission("settingsWrite",currentUser?.appRole))return undefined;
     // Defaults after a failed read are not an authorized configuration change.
     if(settingsBaselineRef.current.identity!==currentWorkspaceIdentity)return undefined;
-    const snapshots={
-      workspaceSettings:JSON.stringify(workspaceSettings),
-      businessFeatures:JSON.stringify(businessFeatures),
-      rolePermissions:JSON.stringify(rolePermissions),
-    };
-    const baseline=settingsBaselineRef.current;
-    const payload={};
-    if(snapshots.workspaceSettings!==baseline.workspaceSettings)payload.workspaceSettings=workspaceSettings;
-    if(snapshots.businessFeatures!==baseline.businessFeatures)payload.businessFeatures=businessFeatures;
-    if(currentUser?.appRole===ROLES.OWNER&&snapshots.rolePermissions!==baseline.rolePermissions){
-      payload.rolePermissions=Object.fromEntries(Object.entries(rolePermissions||{}).filter(([role])=>role!==ROLES.OWNER&&role!==ROLES.PLATFORM_ADMIN));
-    }
-    if(!Object.keys(payload).length)return undefined;
+    const identity=currentWorkspaceIdentity;
+    const latest=settingsLatestRef.current;
+    if(!settingsChanges(latest,settingsBaselineRef.current,latest.owner).length)return undefined;
+    setWorkspaceSaveState("saving");
     const timer=setTimeout(()=>{
       settingsSaveQueueRef.current=settingsSaveQueueRef.current.catch(()=>undefined).then(async()=>{
+        // Never send a queued organization A update after switching to B or logging out.
+        const snapshots=settingsLatestRef.current;
+        if(currentWorkspaceIdentityRef.current!==identity||snapshots.identity!==identity||settingsBaselineRef.current.identity!==identity)return;
+        const changed=settingsChanges(snapshots,settingsBaselineRef.current,snapshots.owner);
+        if(!changed.length){setWorkspaceSaveState("saved");return}
+        const payload=Object.fromEntries(changed.map(key=>[key,JSON.parse(snapshots[key])]));
+        if(payload.rolePermissions)payload.rolePermissions=Object.fromEntries(Object.entries(payload.rolePermissions).filter(([role])=>role!==ROLES.OWNER&&role!==ROLES.PLATFORM_ADMIN));
         try{
           await api.patch("/api/settings/workspace",payload);
-          settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(Object.keys(payload).map((key)=>[key,snapshots[key]]))};
+          if(currentWorkspaceIdentityRef.current!==identity||settingsBaselineRef.current.identity!==identity)return;
+          settingsRevisionRef.current+=1;
+          settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(changed.map(key=>[key,snapshots[key]]))};
           setPersistenceError("");
-        }catch(error){setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi")}
+          const current=settingsLatestRef.current;
+          setWorkspaceSaveState(settingsChanges(current,settingsBaselineRef.current,current.owner).length?"saving":"saved");
+        }catch(error){
+          if(currentWorkspaceIdentityRef.current!==identity)return;
+          setWorkspaceSaveState("failed");
+          setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi");
+        }
       });
     },350);
     return()=>clearTimeout(timer);
-  },[workspaceSettings,businessFeatures,rolePermissions,workspaceReady,currentUser?.organizationId,currentUser?.appRole,hasPermission]);
+  },[workspaceSettings,businessFeatures,rolePermissions,workspaceReady,currentWorkspaceIdentity,currentUser?.organizationId,currentUser?.appRole,hasPermission,settingsRetry]);
 
   const setUiPreferences=useCallback((updater)=>{
     setUiPreferencesState((previous)=>{
@@ -861,8 +876,8 @@ export const StoreProvider = ({ children }) => {
     telegramSettings,setTelegramSettings,activityLogs,setActivityLogs,addActivityLog,inventoryTransfers,setInventoryTransfers,stockMovements,setStockMovements,inventoryCounts,setInventoryCounts,stores,setStores,
     currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,
     uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,setBusinessFeatures,workspaceSettings,setWorkspaceSettings,effectiveWorkspaceSettings,
-    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,catalogComplete,catalogError,catalogEpoch,ensureCatalog,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
-  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,reloadStore]);
+    employees,setEmployees,rolePermissions,setRolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,workspaceSaveState,retryWorkspaceSettings,catalogComplete,catalogError,catalogEpoch,ensureCatalog,loading:!workspaceReady,loadingMessage:workspaceReady?"":"Ish maydoni yuklanmoqda...",error:"",reloadStore,
+  }), [catalogComplete,catalogError,catalogEpoch,ensureCatalog,inventory,generateBarcode,saveProduct,setProductArchived,deleteProduct,patchProducts,inventoryState,getStoreStock,getStoreProduct,commitInventoryAdjustment,commitInventoryReceipt,recoverInventoryReceipt,commitInventoryTransferCreate,recoverInventoryTransfer,commitInventoryTransferTransition,commitInventoryCountSubmit,commitInventoryCountReview,loadSaleHolds,createSaleHold,deleteSaleHold,commitSaleTransaction,commitReturnTransaction,commitBusinessDay,saveSupplier,setSupplierArchived,commitSupplierPayment,commitExpenseTransaction,commitShiftOpen,commitShiftMovement,commitShiftClose,dailySales,salesHistory,suppliers,expenses,returns,activeShift,activeShifts,shiftHistory,telegramSettings,activityLogs,addActivityLog,inventoryTransfers,stockMovements,inventoryCounts,stores,currentStore,currentStoreId,selectedStoreId,setSelectedStoreId,addStore,updateStore,branchAssignmentValid,organizations,payments,platformOverview,billingDraft,loadBillingDraft,createBillingDraft,cancelBillingDraft,getBillingReceipt,commitBillingSubmission,commitBillingReview,uiPreferences,setUiPreferences,resetUiPreferences,businessFeatures,workspaceSettings,effectiveWorkspaceSettings,employees,rolePermissions,hasPermission,workspaceReady,workspaceLoadError,persistenceError,workspaceSaveState,retryWorkspaceSettings,reloadStore]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 };
