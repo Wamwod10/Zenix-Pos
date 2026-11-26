@@ -1,5 +1,6 @@
 import {formatProMoney as formatPrice} from './model.js';
 import {lineAmount,sumMoney} from '../../utils/posMoney.js';
+import {printReportDocument} from '../../utils/printReportDocument.js';
 
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cash:'Naqd',card:'Karta (qo‘lda tasdiqlangan)',transfer:'O‘tkazma (qo‘lda tasdiqlangan)',split:'Aralash',credit:'Nasiya'};
@@ -95,25 +96,6 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  </style></head><body class="receipt-${chosenTemplate}">${Array.from({length:quantity},()=>paperBody).join('')}</body></html>`;
 }
 export function printReceipt(sale,options,onError){
- let markup;
- try{markup=receiptHtml(sale,options)}catch(error){onError?.(error);return}
- const frame=document.createElement('iframe');
- frame.title='POS Pro chek';
- frame.style.cssText='position:fixed;width:1px;height:1px;bottom:0;left:0;border:0';
- let cleaned=false;
- const cleanup=()=>{if(cleaned)return;cleaned=true;clearTimeout(fallback);frame.remove()};
- // Some browsers never dispatch afterprint, including blocked or cancelled print dialogs.
- const fallback=setTimeout(cleanup,180000);
- const fail=error=>{cleanup();onError?.(error instanceof Error?error:new Error('Printer oynasini ochib bo‘lmadi'))};
- frame.onerror=()=>fail(new Error('Chekni chop etish oynasi yuklanmadi'));
- frame.onload=()=>{
-  if(cleaned)return;
-  try{
-   const target=frame.contentWindow;
-   if(!target?.print)throw Error('Brauzer chop etishni qo‘llab-quvvatlamadi');
-   target.addEventListener('afterprint',cleanup,{once:true});
-   target.focus();target.print();
-  }catch(error){fail(error)}
- };
- try{frame.srcdoc=markup;document.body.append(frame)}catch(error){fail(error)}
+ try{return printReportDocument(receiptHtml(sale,options),'POS Pro chek',onError)}
+ catch(error){onError?.(error)}
 }

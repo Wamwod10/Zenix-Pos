@@ -26,7 +26,7 @@ const openPrintableReport = (title, headers, rows) => {
   const tableHead = headers.map((cell)=>`<th>${escapeHtml(cell)}</th>`).join("");
   const tableRows = rows.map((row)=>`<tr>${row.map((cell)=>`<td>${escapeHtml(humanCell(cell))}</td>`).join("")}</tr>`).join("");
   const markup=`<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#16181b}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;color:#6b7280;margin-bottom:18px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #d7dbe0;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-weight:700}@page{size:auto;margin:12mm}@media print{body{margin:0}}</style></head><body><h1>${escapeHtml(title)}</h1><div class="meta">Zenix POS · ${new Intl.DateTimeFormat("uz-UZ",{dateStyle:"medium",timeStyle:"short"}).format(new Date())}</div><table><thead><tr>${tableHead}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
-  return printReportDocument(markup);
+  return printReportDocument(markup,"Hisobotni chop etish");
 };
 const safeFilePart = (value) => String(value || "zenix").trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "zenix";
 const downloadBlob = (content, type, name) => {

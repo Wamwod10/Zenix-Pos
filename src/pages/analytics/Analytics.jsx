@@ -6,6 +6,7 @@ import useBranchFilter from "../../utils/useBranchFilter";
 import useScopedReport, {reportSales} from "../../utils/useScopedReport";
 import { formatPrice } from "../../utils/formatPrice";
 import { workspaceDateISO } from "../../utils/workspaceDate";
+import {safeCsvCell} from "../../utils/safeCsvCell";
 import {
   financialSalesEvents, matchesStore, projectInventoryScope, recordDateKey, recordInRange, periodRange, previousPeriodRange, returnedAmountForSale,
   saleNetPaymentBreakdown, saleNetProfit, saleNetRevenue, scopedSale, netItemContribution,
@@ -161,7 +162,7 @@ function Analytics() {
       ["Ko‘rsatkich","Qiymat"], ["Sof savdo",revenue], ["Yalpi foyda",gross], ["Xarajat",canCalculateNet ? expenseTotal : "Filtr sabab hisoblanmadi"],
       ["Sof foyda",canCalculateNet ? net : "Filtr sabab hisoblanmadi"], ["Tranzaksiyalar",transactionCount], ["O‘rtacha chek",avg], ["Qaytarish",returnTotal],
     ];
-    const csvCell=(value)=>{const text=String(value??"");return /[",\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text};
+    const csvCell=safeCsvCell;
     const csv = "\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const anchor = document.createElement("a");
     anchor.href = URL.createObjectURL(new Blob([csv], { type:"text/csv" }));
