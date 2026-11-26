@@ -387,7 +387,11 @@ export const StoreProvider = ({ children }) => {
           settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(changed.map(key=>[key,snapshots[key]]))};
           setPersistenceError("");
           const current=settingsLatestRef.current;
-          setWorkspaceSaveState(settingsChanges(current,settingsBaselineRef.current,current.owner).length?"saving":"saved");
+          const hasPendingEdits=settingsChanges(current,settingsBaselineRef.current,current.owner).length>0;
+          setWorkspaceSaveState(hasPendingEdits?"saving":"saved");
+          // A user may revert to the old baseline while an earlier write is
+          // in flight. Re-evaluate against the newly acknowledged baseline.
+          if(hasPendingEdits)setSettingsRetry(n=>n+1);
         }catch(error){
           if(currentWorkspaceIdentityRef.current!==identity)return;
           setWorkspaceSaveState("failed");
