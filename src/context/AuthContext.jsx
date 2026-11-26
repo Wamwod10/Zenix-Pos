@@ -31,18 +31,18 @@ export const AuthProvider=({children})=>{
   const sessionListStatus=useMemo(()=>sessionRead.identity===sessionIdentityRef.current?sessionRead:{state:"idle",error:""},[sessionRead,currentUser?.id,currentUser?.sessionId]);
 
   const refreshSessions=useCallback(async()=>{
-    const identity=sessionIdentityRef.current,revision=++sessionReadRevision.current;
+    const identity=sessionIdentityRef.current,revision=++sessionReadRevision.current,authRevision=sessionRevision.current;
     if(!identity)return [];
     setSessionRead({identity,state:"loading",error:""});
     try{
       const data=await api.get("/api/users/me/sessions");
-      if(sessionIdentityRef.current!==identity||sessionReadRevision.current!==revision)return [];
+      if(sessionIdentityRef.current!==identity||sessionReadRevision.current!==revision||sessionRevision.current!==authRevision)return [];
       const items=(data.sessions||[]).map(item=>({...item,device:item.device||"Brauzer"}));
       setSessions(items);
       setSessionRead({identity,state:"ready",error:""});
       return items;
     }catch(error){
-      if(sessionIdentityRef.current===identity&&sessionReadRevision.current===revision){
+      if(sessionIdentityRef.current===identity&&sessionReadRevision.current===revision&&sessionRevision.current===authRevision){
         setSessions([]);
         setSessionRead({identity,state:"error",error:apiMessage(error,"Faol sessiyalarni yuklab bo‘lmadi")});
       }
@@ -238,16 +238,20 @@ export const AuthProvider=({children})=>{
 
   const getActiveSessions=()=>sessions;
   const revokeSession=async(sessionId)=>{
+    const identity=sessionIdentityRef.current,revision=sessionRevision.current;
     try{
       const data=await api.delete(`/api/users/me/sessions/${encodeURIComponent(sessionId)}`);
+      if(sessionIdentityRef.current!==identity||sessionRevision.current!==revision)return {success:true};
       sessionReadRevision.current+=1;
       if(data.current){sessionRevision.current+=1;setCurrentUser(null);setSessions([]);notifyAuthChanged()}else await refreshSessions();
       return {success:true};
     }catch(error){return {success:false,message:apiMessage(error,"Sessiyani yopib bo‘lmadi")}}
   };
   const revokeOtherSessions=async()=>{
+    const identity=sessionIdentityRef.current,revision=sessionRevision.current;
     try{
       await api.delete("/api/users/me/sessions/others");
+      if(sessionIdentityRef.current!==identity||sessionRevision.current!==revision)return {success:true};
       sessionReadRevision.current+=1;
       await refreshSessions();
       return {success:true};

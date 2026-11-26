@@ -46,7 +46,7 @@ export default function Profile() {
     setProfileOpen(false);notify({tone:"success",title:"Profil yangilandi"});
   };
   const closeSessions=async(session)=>{
-    if(sessionBusyRef.current||session?.current||session?.id===currentUser?.sessionId)return;
+    if(sessionBusyRef.current||(session&&(session.current||session.id===currentUser?.sessionId)))return;
     sessionBusyRef.current=true;setSessionBusy(true);
     try{
       const accepted=await confirm({title:session?"Qurilmadan chiqish":"Boshqa qurilmalardan chiqish",message:session?"Tanlangan boshqa qurilmadagi hisob yopiladi.":"Barcha boshqa faol sessiyalar yopiladi. Joriy qurilma ochiq qoladi.",confirmLabel:"Sessiyani yopish",cancelLabel:"Bekor qilish",tone:"danger"});
