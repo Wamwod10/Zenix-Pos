@@ -1,7 +1,7 @@
 import {safeCsvCell} from '../../utils/safeCsvCell.js';
 export const customerSegmentOptions=[
  ['all','Barcha mijozlar'],['debtors','Qarzdorlar'],['overdue','Muddati o‘tgan qarzlar'],
- ['vip','VIP mijoz turi'],['regular','Oddiy mijozlar'],['wholesale','Ulgurji mijozlar'],
+ ['vip','VIP'],['regular','Oddiy mijozlar'],['wholesale','Ulgurji mijozlar'],
  ['tier-standard','Loyalty — Standard'],['tier-silver','Loyalty — Silver'],['tier-gold','Loyalty — Gold'],['tier-vip','Loyalty — VIP'],
  ['loyalty-points','Bonus balli mavjud'],['active','Faol'],['inactive','Nofaol']
 ];
