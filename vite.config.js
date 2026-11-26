@@ -30,4 +30,10 @@ const pwaAssetPrecache=()=>({
 
 export const previewBuildDefines=(source=process.env)=>source.VERCEL_ENV==='preview'?{'import.meta.env.VITE_API_URL':'""'}:{}
 
-export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines()})
+// Related lazy administration/report pages share compressed code, while their
+// dependencies remain in automatic chunks. Never capture startup dependencies.
+const lazyPageGroups={includeDependenciesRecursively:false,groups:[
+  {name:'settings-center',test:/[\\/]src[\\/]pages[\\/](settings|profile|activityLog|help)[\\/]/},
+  {name:'report-center',test:/[\\/]src[\\/]pages[\\/](analytics|sellerAnalytics)[\\/].*\.jsx$/},
+]};
+export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})
