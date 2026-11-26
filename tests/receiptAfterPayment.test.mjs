@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {receiptHtml} from '../src/pages/posPro/receiptFormat.js';
+import {receiptHtml,workspaceReceiptOptions} from '../src/pages/posPro/receiptFormat.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const basic={id:'confirmed',saleNumber:'S-123',store:'Filial A',sellerName:'Ali',createdAt:'2026-11-20T09:30:00Z',total:83000,subtotal:90000,discountTotal:7000,items:[{name:'Oziq-ovqat',unit:'dona',quantity:2,finalPrice:41500}]};
 test('confirmed cash receipt contains ID, branch, tender, change and discount',()=>{
@@ -32,11 +32,11 @@ test('copies are capped and receipt width is validated',()=>{
 });
 test('post-payment printing never invokes browser shell and preserves sale metadata',()=>{
  const sales=read('src/pages/sales/Sales.jsx'),pos=read('src/pages/posPro/PosPro.jsx'),store=read('src/context/StoreContext.jsx');
- assert.match(sales,/import \{receiptHtml,printReceipt\} from "\.\.\/posPro\/receiptFormat"/);
+ assert.match(sales,/import \{receiptHtml,printReceipt,workspaceReceiptOptions\} from "\.\.\/posPro\/receiptFormat"/);
  assert.doesNotMatch(sales,/window\.print\(\)/);assert.match(sales,/receiptConfirmedHere\)printConfirmedReceipt/);
  assert.match(sales,/payment==="credit"\?Number\(creditPaid\|\|0\)/);
  assert.match(store,/cashTendered:sale\.cashTendered,change:sale\.change/);
- assert.match(pos,/copies:settings\.receipt\?\.copies\|\|1/);
+ assert.match(pos,/workspaceReceiptOptions\(settings,\{/);
  const history=read('src/pages/history/History.jsx');assert.doesNotMatch(history,/window\.print\(\)/);assert.match(history,/printHistoricalReceipt/);
 });
 
@@ -44,4 +44,23 @@ test('historical reprint includes returned amount without altering original gros
  const html=receiptHtml({...basic,returnedTotal:12000,paymentBreakdown:{cash:83000}});
  assert.match(html,/JAMI/);assert.match(html,/Qaytarilgan/);assert.match(html,/Sof/);
  assert.match(html,/71[ ,]000/);
+});
+
+test('merchant contact is opt-in, escaped, and dates follow organization preferences',()=>{
+ const options={phone:'+998 90 123 45 67',address:'<Market>',dateFormat:'YYYY-MM-DD',timeFormat:'12'};
+ const hidden=receiptHtml(basic,options);
+ assert.doesNotMatch(hidden,/998 90 123 45 67|&lt;Market&gt;/);
+ const visible=receiptHtml(basic,{...options,showPhone:true,showAddress:true,footer:''});
+ assert.match(visible,/Tel: \+998 90 123 45 67/);
+ assert.match(visible,/&lt;Market&gt;/);
+ assert.match(visible,/2026-11-20 02:30 PM/);
+ assert.doesNotMatch(visible,/Xaridingiz uchun rahmat/);
+ const other=receiptHtml(basic,{dateFormat:'MM/DD/YYYY',timeFormat:'24'});
+ assert.match(other,/11\/20\/2026 14:30/);
+});
+
+test('workspace receipt options are shared, retain explicitly empty footer and chosen width',()=>{
+ const options=workspaceReceiptOptions({organization:{businessName:'Market',phone:'123'},receipt:{width:'58',footer:'',copies:3,showPhone:true}},{cashier:'Ali'});
+ assert.equal(options.width,'58');assert.equal(options.footer,'');assert.equal(options.copies,3);assert.equal(options.phone,'123');assert.equal(options.showPhone,true);assert.equal(options.cashier,'Ali');
+ assert.equal(workspaceReceiptOptions({}, {width:'80'}).width,'80');
 });

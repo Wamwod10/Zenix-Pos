@@ -15,7 +15,7 @@ import { customerDisplayName } from "../../utils/customer";
 import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput, ColumnPicker , LoadingNotice } from "../../components/Ui";
 import usePersistentColumns from "../../utils/usePersistentColumns";
 import Modal from "../../components/Modal";
-import {receiptHtml,printReceipt} from "../posPro/receiptFormat";
+import {receiptHtml,printReceipt,workspaceReceiptOptions} from "../posPro/receiptFormat";
 import "./history.scss";
 
 const payLabel={cash:"Naqd",card:"Karta",transfer:"O‘tkazma",split:"Aralash"};
@@ -37,7 +37,7 @@ function History(){
   const {visible:historyColumns,toggle:toggleHistoryColumn,orderedVisibleDefinitions:orderedHistoryColumns,columnStyle:historyColumnStyle}=historyColumnsControl;
   const isCashier=currentUser?.appRole===ROLES.CASHIER;const canReturn=hasPermission("returns",currentUser?.appRole);
   const receiptCopies=Math.max(1,Math.min(3,Number(workspaceSettings.receipt?.copies||1)));
-  const receiptOptionsFor=sale=>({width:String(workspaceSettings.receipt?.width||'80'),business:workspaceSettings.organization?.businessName||'ZENIX POS',branch:sale?.store||'',cashier:sale?.sellerName||sale?.seller||'',showLogo:workspaceSettings.receipt?.showLogo!==false,showCashier:workspaceSettings.receipt?.showCashier!==false,showPaymentBreakdown:workspaceSettings.receipt?.showPaymentBreakdown!==false,footer:workspaceSettings.receipt?.footer||'Xaridingiz uchun rahmat.',timezone:workspaceSettings.organization?.timezone||'Asia/Tashkent',copies:receiptCopies});
+  const receiptOptionsFor=sale=>workspaceReceiptOptions(workspaceSettings,{branch:sale?.store||'',cashier:sale?.sellerName||sale?.seller||'',copies:receiptCopies});
   const printHistoricalReceipt=()=>{if(!selected?.items?.length){setReceiptPrintError('Chek tarkibi topilmadi.');return}setReceiptPrintError('');printReceipt(selected,receiptOptionsFor(selected),error=>setReceiptPrintError(error?.message||'Chop etishda xatolik'))};
   const currentIdentityIds=[currentUser?.employeeId,currentUser?.id].filter(Boolean).map(String);
   const sellerKey=(sale)=>String(sale?.sellerId||sale?.sellerAccountId||`name:${sale?.sellerName||sale?.seller||""}`);

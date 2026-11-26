@@ -24,6 +24,7 @@ import Cart from './Cart';
 import TouchConsole from './TouchConsole';
 import Payment,{paymentLabels} from './Payment';
 import Receipt,{printReceipt} from './Receipt';
+import {workspaceReceiptOptions} from './receiptFormat';
 import DeviceReadiness from './DeviceReadiness';
 import './posPro.scss';
 import './posQuick.scss';
@@ -62,7 +63,7 @@ function Workspace({user,store}){
  const [activeProductId,setActiveProductId]=useState(null),[barcodeFocused,setBarcodeFocused]=useState(false);
  const searchRef=useRef(null),barcodeRef=useRef(null),queue=useRef(Promise.resolve()),pendingScans=useRef(0),active=useRef(true),actions=useRef(null),lastSale=useRef(null),summaryRequest=useRef(false);
  const totals=useMemo(()=>cartTotals(session.cart,session.cartPct),[session.cart,session.cartPct]);
- const options={width,business:settings.organization?.businessName||user.organizationName||'ZENIX POS',branch:store.currentStore?.name,cashier:user.name,showLogo:settings.receipt?.showLogo!==false,showCashier:settings.receipt?.showCashier!==false,showPaymentBreakdown:settings.receipt?.showPaymentBreakdown!==false,footer:settings.receipt?.footer||'Xaridingiz uchun rahmat.',copies:settings.receipt?.copies||1,timezone:settings.organization?.timezone||'Asia/Tashkent'};
+ const options=workspaceReceiptOptions(settings,{width,business:settings.organization?.businessName||user.organizationName||'ZENIX POS',branch:store.currentStore?.name,cashier:user.name});
  useEffect(()=>{const changed=()=>setKiosk(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed)},[]);
  useEffect(()=>{if(session.ready&&!modal&&!payment&&!camera&&!trackingId&&!session.receipt)barcodeRef.current?.focus()},[session.ready,modal,payment,camera,trackingId,session.receipt]);
  useUnsavedGuard(session.cart.length>0||Boolean(session.recovery)||Boolean(session.holdRecovery),'Joriy POS Pro chek drafti saqlanadi. Noma’lum to‘lov bo‘lsa, shu savdoni qayta tekshiring.');
