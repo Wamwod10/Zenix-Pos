@@ -491,7 +491,7 @@ export const StoreProvider = ({ children }) => {
       const body={
         storeId,warehouseId:meta.warehouseId||null,
         lines:sourceLines.map((line)=>({
-          productId:line.productId||null,name:String(line.name||"").trim(),sku:String(line.sku||"").trim(),barcode:String(line.barcode||"").trim(),category:String(line.category||"").trim(),brand:String(line.brand||"").trim(),unit:line.unit||"dona",
+          productId:line.productId||null,...(line.createNew===true?{createNew:true}:{}),name:String(line.name||"").trim(),sku:String(line.sku||"").trim(),barcode:String(line.barcode||"").trim(),category:String(line.category||"").trim(),brand:String(line.brand||"").trim(),unit:line.unit||"dona",
           quantity:Math.max(0,number(line.qty??line.quantity,0)),costPrice:Math.max(0,number(line.costPrice,0)),sellPrice:Math.max(0,number(line.sellPrice,0)),wholesalePrice:Math.max(0,number(line.wholesalePrice,0)),minStock:Math.max(0,number(line.minStock,workspaceSettings.inventory?.defaultLowStock||0)),
           batchNo:String(line.batchNo||"").trim(),expiryDate:String(line.expiryDate||line.expiry||"").trim()||null,manufacturedDate:String(line.manufacturedDate||'').trim()||null,
           serials:String(line.serial||"").split(/[\n,;]+/).map((value)=>value.trim()).filter(Boolean),

@@ -15,6 +15,7 @@ import { PageHeader, StatCard, StatusBadge, PremiumSelect, PremiumDateInput, Mul
 import { analyzeImportFiles } from "../../services/documentImportService";
 import { cellToText } from "../../utils/spreadsheetImport";
 import { isBarcodeDuplicate } from "../../utils/barcode";
+import {matchReceiptProduct,validateReceiptIdentities,prepareReceiptIdentities} from "../../utils/productIdentity";
 import Modal from "../../components/Modal";
 import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import useUnsavedGuard from "../../utils/useUnsavedGuard";
@@ -236,7 +237,8 @@ function Inventory(){
   const submitReceive=async(another=false)=>{
     if(!canAdjust)return;
     setFormError("");
-    const existing=inventory.find((item)=>item.id===receive.productId)||inventory.find((item)=>receive.barcode&&String(item.barcode||"")===String(receive.barcode));
+    const existing=inventory.find((item)=>item.id===receive.productId);
+    if(!existing&&receive.barcode&&isBarcodeDuplicate(inventory,receive.barcode)){setFormError("Bu shtrix-kod band. Mavjud mahsulotni tanlang yoki yangi kod yarating.");return}
     if(!existing&&!receive.name.trim()){setFormError("Yangi mahsulot uchun nomini kiriting.");return}
     if(Number(receive.qty||0)<=0){setFormError("Kirim miqdorini kiriting.");return}
     if(!warehouseState.selectedId||warehouseState.loading){setFormError("Avval omborni tanlang.");return}
@@ -256,8 +258,11 @@ function Inventory(){
     }
     if(receiptBusyRef.current)return;receiptBusyRef.current=true;
     const operationScope=receiptScope;
+    let prepared;
+    try{prepared=await prepareReceiptIdentities([receiptLine],inventory,generateBarcode)}catch(error){receiptBusyRef.current=false;setFormError(error.message);return}
+    if(receiptScopeRef.current!==operationScope){receiptBusyRef.current=false;return}
     const result=await commitInventoryReceipt({
-      lines:[receiptLine],
+      lines:prepared,
       meta:{...(businessFeatures.supplierTracking?receive:{...receive,supplierId:"",newSupplierName:"",newSupplierPhone:""}),warehouseId:warehouseState.selectedId},
       activity:{type:"inventory",title:"Omborga kirim",description:`${existing?.name||receive.name} · +${Number(receive.qty)} ${existing?.unit||receive.unit||"dona"}`},
     });
@@ -273,7 +278,7 @@ function Inventory(){
 
   const selectReceiveProduct=(id)=>{
     const product=inventory.find((item)=>item.id===id);
-    if(!product){setReceive((state)=>({...state,productId:""}));return}
+    if(!product){setReceive((state)=>({...emptyReceive,qty:state.qty,clientReference:state.clientReference,supplierId:state.supplierId,payment:state.payment,paidAmount:state.paidAmount,invoiceNo:state.invoiceNo,dueDate:state.dueDate,note:state.note}));return}
     setReceive((state)=>({...state,...product,qty:state.qty,packageUnit:"",batchNo:"",serial:"",productId:product.id,barcode:product.barcode||"",name:product.name,sku:product.sku||"",category:product.category||"",brand:product.brand||"",unit:product.unit||"dona",costPrice:String(product.costPrice||""),sellPrice:String(product.sellPrice||product.price||"")}));
   };
 
@@ -292,7 +297,7 @@ function Inventory(){
     if(!result.success){setFormError(result.message);return}
     const barcode=result.barcode;
     setFormError("");
-    setReceive((state)=>({...state,productId:"",barcode,sku:state.sku?.trim()?state.sku:`BC-${barcode}`}));
+    setReceive((state)=>({...state,productId:"",barcode,sku:`BC-${barcode}`}));
   };
 
   const mapDocumentTable=(table,fileName="",forcedMapping=null)=>{
@@ -302,9 +307,7 @@ function Inventory(){
     return (table?.rows||[]).flatMap((raw,index)=>{
       const get=(field)=>mapping[field]>=0?cellToText(raw[mapping[field]],{identifier:["barcode","sku"].includes(field)}).trim():"";
       const barcode=get("barcode"),sku=get("sku"),name=get("name");
-      const product=inventory.find((item)=>barcode&&String(item.barcode||"")===barcode)
-        ||inventory.find((item)=>sku&&String(item.sku||"").toLowerCase()===sku.toLowerCase())
-        ||inventory.find((item)=>name&&String(item.name||"").toLowerCase()===name.toLowerCase());
+      const product=matchReceiptProduct(inventory,{barcode,sku});
       if(!product&&!name&&!barcode&&!sku)return[];
       const qty=csvNumber(get("qty")),costPrice=csvNumber(get("costPrice")),sellPrice=csvNumber(get("sellPrice"));
       const missing=[];
@@ -361,9 +364,7 @@ function Inventory(){
 
   const enrichLooseRows=(rows,fileName="")=>(rows||[]).map((raw,index)=>{
     const barcode=String(raw.barcode||"").trim(),sku=String(raw.sku||"").trim(),name=String(raw.name||"").trim();
-    const product=inventory.find((item)=>barcode&&String(item.barcode||"")===barcode)
-      ||inventory.find((item)=>sku&&String(item.sku||"").toLowerCase()===sku.toLowerCase())
-      ||inventory.find((item)=>name&&String(item.name||"").toLowerCase()===name.toLowerCase());
+    const product=matchReceiptProduct(inventory,{barcode,sku});
     const missing=[...(raw.missing||[])];
     if(!product&&!name&&!missing.includes("nomi"))missing.push("nomi");
     if(Number(raw.qty||0)<=0&&!missing.includes("miqdor"))missing.push("miqdor");
@@ -467,13 +468,7 @@ function Inventory(){
     if(validRows.some((row)=>!Number.isFinite(Number(row.costPrice))||Number(row.costPrice)<=0)){
       setFormError("Omborga kirim uchun har bir mahsulotning tannarxini 0 dan katta qilib tasdiqlang.");return;
     }
-    const seen=new Set();
-    for(const row of validRows){
-      const key=row.productId?`id:${row.productId}`:row.barcode?.trim()?`barcode:${row.barcode.trim()}`:`sku:${String(row.sku||row.name||"").trim().toLowerCase()}`;
-      if(seen.has(key)){setFormError("Bir mahsulot Tezkor kirimda ikki marta kiritilgan. Miqdorlarni bitta qatorda birlashtiring.");return}
-      if(!row.productId&&row.barcode&&isBarcodeDuplicate(inventory,row.barcode)){setFormError(`${row.name||row.barcode}: bu shtrix-kod katalogda allaqachon mavjud.`);return}
-      seen.add(key);
-    }
+    try{validateReceiptIdentities(validRows,inventory)}catch(error){setFormError(error.message);return}
     const documentTotal=validRows.reduce((sum,row)=>sum+Math.max(0,Number(row.qty||0))*Math.max(0,Number(row.costPrice||0)),0);
     if(quickImportNotice){
       const mismatch=quickExpectedTotal>0&&Math.abs(quickExpectedTotal-documentTotal)>Math.max(1,quickExpectedTotal*0.001);
@@ -494,8 +489,11 @@ function Inventory(){
     const meta={...(businessFeatures.supplierTracking?quickMeta:{...quickMeta,supplierId:"",newSupplierName:"",newSupplierPhone:""}),warehouseId:warehouseState.selectedId};
     if(receiptBusyRef.current)return;receiptBusyRef.current=true;
     const operationScope=receiptScope;
+    let prepared;
+    try{prepared=await prepareReceiptIdentities(validRows,inventory,generateBarcode)}catch(error){receiptBusyRef.current=false;setFormError(error.message);return}
+    if(receiptScopeRef.current!==operationScope){receiptBusyRef.current=false;return}
     const result=await commitInventoryReceipt({
-      lines:validRows.map((row)=>({...row,...quickMeta})),meta,
+      lines:prepared.map((row)=>({...row,...quickMeta})),meta,
       activity:{type:"inventory",title:"Tezkor kirim",description:`${validRows.length} ta mahsulot · ${quickMeta.invoiceNo||"bitta kirim hujjati"}`},
     });
     receiptBusyRef.current=false;
@@ -532,7 +530,7 @@ function Inventory(){
     if(!result.success){setFormError(result.message);return}
     const barcode=result.barcode;
     setFormError("");
-    setQuickRows((rows)=>rows.map((row)=>row.id===rowId?{...row,productId:"",barcode,sku:row.sku?.trim()?row.sku:`BC-${barcode}`}:row));
+    setQuickRows((rows)=>rows.map((row)=>row.id===rowId?{...row,productId:"",barcode,sku:`BC-${barcode}`}:row));
   };
 
   const openAdjustment=(product)=>{if(!canAdjust)return;setAdjustment(product);setAdjustQty("");setAdjustReason("")};
@@ -672,7 +670,7 @@ function Inventory(){
 
     <BarcodeScannerModal open={receiveScannerOpen} onClose={()=>setReceiveScannerOpen(false)} title="Omborga kirim uchun shtrix-kod" onDetected={(code)=>{setReceive((state)=>({...state,barcode:String(code),productId:""}));lookupReceiveBarcode(code);setReceiveScannerOpen(false)}}/>
     <Modal open={receiveOpen} onClose={closeReceive} title="Omborga kirim" subtitle="Mavjud mahsulotni tanlang yoki barcode orqali yangi mahsulot yarating." size="lg" footer={<><button className="pro-btn secondary" onClick={closeReceive}>Bekor qilish</button><button className="pro-btn secondary" onClick={()=>submitReceive(true)}>Saqlash va yana kirim</button><button className="pro-btn primary" onClick={()=>submitReceive(false)}>Kirimni tasdiqlash</button></>}>
-      <div className="receive-product-picker"><label className="pro-field full"><span>Mavjud mahsulot</span><input aria-label="Kirim mahsulotini qidirish" placeholder="Nomi, SKU yoki shtrix-kod..." value={receiveSearch} onChange={event=>setReceiveSearch(event.target.value)}/><PremiumSelect value={receive.productId} onChange={(event)=>selectReceiveProduct(event.target.value)}><option value="">Yangi mahsulot / barcode bilan topish</option>{inventory.filter((product)=>!product.archived&&(product.id===receive.productId||`${product.name} ${product.sku||""} ${product.barcode||""}`.toLowerCase().includes(receiveSearch.toLowerCase()))).map((product)=><option key={product.id} value={product.id}>{product.name} · {product.sku}</option>)}</PremiumSelect></label><div className="barcode-receive"><div className="pro-field"><span>Shtrix-kod</span><div className="field-action-row"><input value={receive.barcode} onChange={(event)=>{setReceive({...receive,barcode:event.target.value,productId:""});setFormError("")}} onKeyDown={(event)=>event.key==="Enter"&&lookupReceiveBarcode()} placeholder="Skanerlang yoki kodni kiriting..."/><button type="button" className="pro-btn secondary" onClick={()=>setReceiveScannerOpen(true)}><FiCamera/> Skanerlash</button></div></div><div className="barcode-receive-actions"><button type="button" className="pro-btn secondary" onClick={()=>lookupReceiveBarcode()}><FiSearch/> Topish</button><button type="button" className="pro-btn secondary" onClick={generateReceiveBarcode}>Kod yaratish</button></div></div></div>
+      <div className="receive-product-picker"><label className="pro-field full"><span>Mavjud mahsulot</span><input aria-label="Kirim mahsulotini qidirish" placeholder="Nomi, SKU yoki shtrix-kod..." value={receiveSearch} onChange={event=>setReceiveSearch(event.target.value)}/><PremiumSelect value={receive.productId} onChange={(event)=>selectReceiveProduct(event.target.value)}><option value="">Yangi mahsulot / barcode bilan topish</option>{inventory.filter((product)=>!product.archived&&(product.id===receive.productId||`${product.name} ${product.sku||""} ${product.barcode||""}`.toLowerCase().includes(receiveSearch.toLowerCase()))).map((product)=><option key={product.id} value={product.id}>{product.name} · {product.sku}</option>)}</PremiumSelect></label><div className="barcode-receive"><div className="pro-field"><span>Shtrix-kod</span><div className="field-action-row"><input value={receive.barcode} onChange={(event)=>{setReceive({...receive,barcode:event.target.value,productId:"",sku:receive.sku===`BC-${receive.barcode}`||receive.productId?`BC-${event.target.value}`:receive.sku});setFormError("")}} onKeyDown={(event)=>event.key==="Enter"&&lookupReceiveBarcode()} placeholder="Skanerlang yoki kodni kiriting..."/><button type="button" className="pro-btn secondary" onClick={()=>setReceiveScannerOpen(true)}><FiCamera/> Skanerlash</button></div></div><div className="barcode-receive-actions"><button type="button" className="pro-btn secondary" onClick={()=>lookupReceiveBarcode()}><FiSearch/> Topish</button><button type="button" className="pro-btn secondary" onClick={generateReceiveBarcode}>Kod yaratish</button></div></div></div>
       {!receive.productId&&<div className="receive-new-product"><div className="receive-section-title"><strong>Yangi mahsulot</strong><span>Barcode bazada bo‘lmasa shu kirim bilan katalogga ham qo‘shiladi.</span></div><div className="pro-form-grid"><label className="pro-field full"><span>Mahsulot nomi *</span><input data-modal-autofocus value={receive.name} onChange={(event)=>setReceive({...receive,name:event.target.value})}/></label><label className="pro-field"><span>SKU</span><input value={receive.sku} onChange={(event)=>setReceive({...receive,sku:event.target.value})}/></label><label className="pro-field"><span>Brend</span><input value={receive.brand} onChange={(event)=>setReceive({...receive,brand:event.target.value})}/></label><label className="pro-field"><span>Kategoriya</span><input value={receive.category} onChange={(event)=>setReceive({...receive,category:event.target.value})}/></label><label className="pro-field"><span>Birlik</span><PremiumSelect value={receive.unit} onChange={(event)=>setReceive({...receive,unit:event.target.value})}>{PRODUCT_UNITS.map(unit=><option key={unit}>{unit}</option>)}</PremiumSelect></label></div></div>}
       <ProductAdvancedSettings value={receive} onChange={setReceive} errors={validateProductOptions(receive)}><label className="pro-field"><span>Kirim birligi</span><PremiumSelect value={receive.packageUnit} onChange={event=>setReceive({...receive,packageUnit:event.target.value})}><option value="">{receive.unit||"dona"} (asosiy birlik)</option>{(receive.packaging||[]).map(row=><option key={row.unit} value={row.unit}>{row.unit} = {row.factor} {receive.unit||"dona"}</option>)}</PremiumSelect></label><label className="pro-field"><span>Partiya / batch raqami (LOT)</span><input value={receive.batchNo} onChange={event=>setReceive({...receive,batchNo:event.target.value})}/></label><label className="pro-field"><span>Serial / IMEI raqamlari</span><textarea value={receive.serial} onChange={event=>setReceive({...receive,serial:event.target.value})} placeholder="Har bir raqam yangi qatorda"/></label></ProductAdvancedSettings>
       <div className="receive-section-title"><strong>Kirim ma’lumotlari</strong><span>Miqdor va narxlar</span></div><div className="pro-form-grid"><label className="pro-field"><span>Miqdor *</span><input type="number" min="0" step="any" value={receive.qty} onChange={(event)=>setReceive({...receive,qty:event.target.value})}/></label><label className="pro-field"><span>{receive.packageUnit?"Bir qadoq tannarxi *":"Tannarx *"}</span><input type="number" min="0" value={receive.costPrice} onChange={(event)=>setReceive({...receive,costPrice:event.target.value})}/></label><label className="pro-field"><span>Sotuv narxi</span><input type="number" min="0" value={receive.sellPrice} onChange={(event)=>setReceive({...receive,sellPrice:event.target.value})}/></label><label className="pro-field"><span>Nakladnoy / hujjat raqami</span><input value={receive.invoiceNo} onChange={(event)=>setReceive({...receive,invoiceNo:event.target.value})}/></label></div>
@@ -732,11 +730,11 @@ function Inventory(){
       <div className="document-mapping-grid">{receiveMappingFields.map(([field,label])=><label className="pro-field" key={field}><span>{label}</span><PremiumSelect value={mappingDraft[field]??"-1"} onChange={(event)=>setMappingDraft((current)=>({...current,[field]:event.target.value}))}><option value="-1">Tanlanmagan</option>{(mappingTarget?.table?.headers||[]).map((header,index)=><option key={`${field}-${index}`} value={String(index)}>{header||`Ustun ${index+1}`}</option>)}</PremiumSelect></label>)}</div>
     </Modal>
 
-    <Modal open={quickOpen} onClose={closeQuick} title="Tezkor kirim" subtitle="Bir nechta mahsulotni bitta operatsiyada qabul qiling." size="xl" footer={<><button className="pro-btn secondary" onClick={closeQuick}>Bekor qilish</button><button className="pro-btn primary" onClick={submitQuick}>Barchasini qabul qilish</button></>}>
+    <Modal open={quickOpen} onClose={closeQuick} title="Tezkor kirim" subtitle="Bir xil nomli mahsulotlarga alohida shtrix-kod beriladi. Bo‘sh kod avtomatik yaratiladi." size="xl" footer={<><button className="pro-btn secondary" onClick={closeQuick}>Bekor qilish</button><button className="pro-btn primary" onClick={submitQuick}>Barchasini qabul qilish</button></>}>
       {quickImportNotice&&<div className="pro-alert success">{quickImportNotice}</div>}
       <label className="pro-field full"><span>Ketma-ket shtrix-kod skanerlash</span><input aria-label="Tezkor shtrix-kod" value={quickBarcode} onChange={event=>setQuickBarcode(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addQuickBarcode()}}} placeholder="Skanerlang va Enter bosing"/></label>
       <div className="quick-receive-meta">{businessFeatures.supplierTracking&&<><label className="pro-field"><span>Ta’minotchi</span><PremiumSelect value={quickMeta.supplierId} onChange={(event)=>setQuickMeta({...quickMeta,supplierId:event.target.value})}><option value="">Tanlanmagan</option>{suppliers.filter((supplier)=>!supplier.archived).map((supplier)=><option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}<option value="__new__">+ Yangi ta’minotchi</option></PremiumSelect></label><label className="pro-field"><span>Hisob-kitob</span><PremiumSelect value={quickMeta.payment} onChange={(event)=>setQuickMeta({...quickMeta,payment:event.target.value,paidAmount:event.target.value==="partial"?quickMeta.paidAmount:""})}><option value="paid">To‘liq to‘langan</option><option value="partial">Qisman to‘langan</option><option value="credit">Qarzga</option></PremiumSelect></label></>}<label className="pro-field"><span>Nakladnoy / hujjat raqami</span><input value={quickMeta.invoiceNo} onChange={(event)=>setQuickMeta({...quickMeta,invoiceNo:event.target.value})}/></label>{businessFeatures.supplierTracking&&quickMeta.payment==="partial"&&<label className="pro-field"><span>To‘langan summa *</span><input type="number" min="0" max={quickDocumentTotal||undefined} value={quickMeta.paidAmount} onChange={(event)=>setQuickMeta({...quickMeta,paidAmount:event.target.value})}/></label>}{businessFeatures.supplierTracking&&quickSettlement.balance>0&&<label className="pro-field"><span>Qarz muddati</span><PremiumDateInput value={quickMeta.dueDate} onChange={(event)=>setQuickMeta({...quickMeta,dueDate:event.target.value})}/></label>}</div>{businessFeatures.supplierTracking&&quickMeta.supplierId==="__new__"&&<div className="quick-new-supplier"><label className="pro-field"><span>Yangi ta’minotchi *</span><input value={quickMeta.newSupplierName} onChange={(event)=>setQuickMeta({...quickMeta,newSupplierName:event.target.value})}/></label><label className="pro-field"><span>Telefon</span><input value={quickMeta.newSupplierPhone} onChange={(event)=>setQuickMeta({...quickMeta,newSupplierPhone:event.target.value})}/></label></div>}{businessFeatures.supplierTracking&&<div className="receive-settlement-summary quick-settlement"><span><small>Jami</small><strong>{formatPrice(quickDocumentTotal)}</strong></span><span><small>To‘langan</small><strong>{formatPrice(quickSettlement.paidAmount)}</strong></span><span><small>Qarz</small><strong>{formatPrice(quickSettlement.balance)}</strong></span></div>}
-      <div className="quick-receive-table"><div className="quick-receive-head"><span>Mahsulot</span><span>Yangi nomi</span><span>Shtrix-kod</span><span>Miqdor / birlik</span><span>Tannarx</span><span>Sotuv</span><i/></div>{quickRows.map((row)=><div className="quick-receive-row" key={row.id}><PremiumSelect value={row.productId} onChange={(event)=>setQuickProduct(row.id,event.target.value)}><option value="">+ Yangi mahsulot</option>{inventory.filter((product)=>!product.archived).map((product)=><option key={product.id} value={product.id}>{product.name}</option>)}</PremiumSelect><input disabled={!!row.productId} value={row.name} onChange={(event)=>updateQuick(row.id,{name:event.target.value})} placeholder="Yangi mahsulot nomi"/><div className="quick-barcode-cell"><input disabled={!!row.productId} value={row.barcode} onChange={(event)=>updateQuick(row.id,{barcode:event.target.value,sku:event.target.value?`BC-${event.target.value}`:row.sku})} placeholder="Shtrix-kod"/><button type="button" disabled={!!row.productId} onClick={()=>generateQuickBarcode(row.id)}>Yaratish</button></div><div style={{display:"flex",gap:4,alignItems:"center",minWidth:0}}><input style={{minWidth:0,flex:1}} type="number" min="0" step="any" value={row.qty} onChange={(event)=>updateQuick(row.id,{qty:event.target.value})} placeholder="0"/><span className="quick-unit-selector" style={{width:82,flexShrink:0}}><PremiumSelect aria-label="O‘lchov birligi" disabled={!!row.productId} style={{width:82,flexShrink:0}} value={row.unit||"dona"} onChange={(event)=>updateQuick(row.id,{unit:event.target.value})}>{["dona","kg","g","litr","ml","mg","metr","m²","quti","paket"].map(unit=><option key={unit} value={unit}>{unit}</option>)}</PremiumSelect></span></div><input type="number" min="0" value={row.costPrice} onChange={(event)=>updateQuick(row.id,{costPrice:event.target.value})} placeholder="0"/><input type="number" min="0" value={row.sellPrice} onChange={(event)=>updateQuick(row.id,{sellPrice:event.target.value})} placeholder="0"/><button disabled={quickRows.length===1} onClick={()=>setQuickRows((rows)=>rows.filter((item)=>item.id!==row.id))}><FiX/></button></div>)}</div><button className="pro-btn secondary quick-add-row" onClick={()=>setQuickRows((rows)=>[...rows,emptyQuickRow()])}><FiPlus/> Yana qator</button>{formError&&<div className="pro-alert danger">{formError}</div>}
+      <div className="quick-receive-table"><div className="quick-receive-head"><span>Mahsulot</span><span>Yangi nomi</span><span>Shtrix-kod</span><span>Miqdor / birlik</span><span>Tannarx</span><span>Sotuv</span><i/></div>{quickRows.map((row)=><div className="quick-receive-row" key={row.id}><PremiumSelect value={row.productId} onChange={(event)=>setQuickProduct(row.id,event.target.value)}><option value="">+ Yangi mahsulot</option>{inventory.filter((product)=>!product.archived).map((product)=><option key={product.id} value={product.id}>{product.name} · {product.sku||product.barcode||"—"}</option>)}</PremiumSelect><input disabled={!!row.productId} value={row.name} onChange={(event)=>updateQuick(row.id,{name:event.target.value})} placeholder="Yangi mahsulot nomi"/><div className="quick-barcode-cell"><input disabled={!!row.productId} value={row.barcode} onChange={(event)=>updateQuick(row.id,{barcode:event.target.value,sku:event.target.value?`BC-${event.target.value}`:""})} placeholder="Shtrix-kod"/><button type="button" disabled={!!row.productId} onClick={()=>generateQuickBarcode(row.id)}>Yaratish</button></div><div style={{display:"flex",gap:4,alignItems:"center",minWidth:0}}><input style={{minWidth:0,flex:1}} type="number" min="0" step="any" value={row.qty} onChange={(event)=>updateQuick(row.id,{qty:event.target.value})} placeholder="0"/><span className="quick-unit-selector" style={{width:82,flexShrink:0}}><PremiumSelect aria-label="O‘lchov birligi" disabled={!!row.productId} style={{width:82,flexShrink:0}} value={row.unit||"dona"} onChange={(event)=>updateQuick(row.id,{unit:event.target.value})}>{["dona","kg","g","litr","ml","mg","metr","m²","quti","paket"].map(unit=><option key={unit} value={unit}>{unit}</option>)}</PremiumSelect></span></div><input type="number" min="0" value={row.costPrice} onChange={(event)=>updateQuick(row.id,{costPrice:event.target.value})} placeholder="0"/><input type="number" min="0" value={row.sellPrice} onChange={(event)=>updateQuick(row.id,{sellPrice:event.target.value})} placeholder="0"/><button disabled={quickRows.length===1} onClick={()=>setQuickRows((rows)=>rows.filter((item)=>item.id!==row.id))}><FiX/></button></div>)}</div><button className="pro-btn secondary quick-add-row" onClick={()=>setQuickRows((rows)=>[...rows,emptyQuickRow()])}><FiPlus/> Yana qator</button>{formError&&<div className="pro-alert danger">{formError}</div>}
     </Modal>
 
     <Modal open={!!adjustment} onClose={()=>setAdjustment(null)} title="Qoldiqni tuzatish" subtitle={adjustment?.name} size="sm"><div className="pro-form-grid"><label className="pro-field full"><span>Miqdor *</span><input data-modal-autofocus type="number" min="1" value={adjustQty} onChange={(event)=>setAdjustQty(event.target.value)}/></label><label className="pro-field full"><span>Sabab *</span><textarea value={adjustReason} onChange={(event)=>setAdjustReason(event.target.value)} placeholder="Masalan: buzilgan, qayta sanaldi..."/></label></div><div className="adjustment-actions"><button className="pro-btn secondary" onClick={()=>saveAdjustment("in")}>+ Qo‘shish</button><button className="pro-btn danger" onClick={()=>saveAdjustment("out")}>− Ayirish</button></div></Modal>
