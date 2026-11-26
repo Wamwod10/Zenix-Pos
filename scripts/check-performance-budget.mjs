@@ -29,12 +29,20 @@ if(process.argv.includes('--bundle')){
  const total=chunks.reduce((sum,c)=>sum+c.gzipBytes,0),main=chunks.find(c=>/^index-/.test(c.name));
  assert.ok(main,'main entry chunk missing');
  assert.ok(main.gzipBytes<130000,`main gzip ${main.gzipBytes} exceeds 130000 bytes`);
- assert.ok(total<470000,`total gzip ${total} exceeds 470000 bytes`);
+ // Explicit 5 kB aggregate allowance for the new receipt branding and customer display.
+ // Preserve the original startup/entry budgets and separately bound the affected lazy chunks.
+ assert.ok(total<475000,`total gzip ${total} exceeds 475000 bytes`);
+ const routeBudgets=[['PosPro',24000],['receiptFormat',7000]];
+ for(const [prefix,limit] of routeBudgets){
+  const chunk=chunks.find(c=>c.name.startsWith(prefix+'-'));
+  assert.ok(chunk,`missing ${prefix} lazy chunk`);
+  assert.ok(chunk.gzipBytes<limit,`${prefix} gzip ${chunk.gzipBytes} exceeds ${limit} bytes`);
+ }
  const entryHtml=fs.readFileSync('dist/index.html','utf8');
  assert.doesNotMatch(entryHtml,/\/assets\/(?:settings-center|report-center|catalog-center)-[^"']+\.js/,'administrative/report pages must stay lazy');
  const entryNames=new Set([...entryHtml.matchAll(/\/assets\/([^"'\s]+\.js)/g)].map(m=>m[1]));
  const startupGzip=chunks.filter(c=>entryNames.has(c.name)).reduce((sum,c)=>sum+c.gzipBytes,0);
  assert.ok(startupGzip<140000,`initial JS gzip ${startupGzip} exceeds 140000 bytes`);
- results.push({bundle:{mainGzipBytes:main.gzipBytes,totalGzipBytes:total,startupGzipBytes:startupGzip,budgets:{main:130000,total:470000,startup:140000}}});
+ results.push({bundle:{mainGzipBytes:main.gzipBytes,totalGzipBytes:total,startupGzipBytes:startupGzip,budgets:{main:130000,total:475000,startup:140000,posPro:24000,receiptFormat:7000}}});
 }
 console.log(JSON.stringify({environment:'synthetic CPU and optional local build',results},null,2));
