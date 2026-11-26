@@ -40,6 +40,14 @@ function receiptRows(sale){
   return `<tr class="item-name"><td colspan="2">${escape(item.name||'Mahsulot')}</td></tr><tr class="item-detail"><td>${escape(qty)} ${escape(unit)} × ${escape(formatPrice(price))}${discount?`<br><span class="discount">${escape(discount)}</span>`:''}</td><td>${escape(formatPrice(paid))}</td></tr>`;
  }).join('');
 }
+export function workspaceReceiptOptions({organization={},receipt={}}={},extra={}){
+ return {width:String(receipt.width||'80'),business:organization.businessName||extra.business||'ZENIX POS',
+  showLogo:receipt.showLogo!==false,showCashier:receipt.showCashier!==false,showPaymentBreakdown:receipt.showPaymentBreakdown!==false,
+  footer:receipt.footer??'Xaridingiz uchun rahmat.',phone:organization.phone,address:organization.address,
+  showPhone:receipt.showPhone===true,showAddress:receipt.showAddress===true,dateFormat:organization.dateFormat,timeFormat:organization.timeFormat,
+  timezone:organization.timezone||'Asia/Tashkent',copies:receipt.copies||1,template:receipt.template||'classic',...extra};
+}
+
 export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,template='classic',copies=1}={}){
  const paper=String(width);
  if(!['58','80'].includes(paper))throw Error('Unsupported receipt width');

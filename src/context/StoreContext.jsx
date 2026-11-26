@@ -453,7 +453,10 @@ export const StoreProvider = ({ children }) => {
     const patch=typeof updater==="function"?updater(previous):updater;
     applyUiPreferences({...previous,...(patch||{})});
   },[applyUiPreferences]);
-  const resetUiPreferences=useCallback(()=>applyUiPreferences({...DEFAULT_UI_PREFERENCES}),[applyUiPreferences]);
+  const resetUiPreferences=useCallback(()=>{
+    applyUiPreferences({...DEFAULT_UI_PREFERENCES});
+    try{if(userThemeKey)window.localStorage.removeItem(userThemeKey)}catch{}
+  },[applyUiPreferences,userThemeKey]);
   const retryUiPreferences=useCallback(()=>persistUiPreferences(uiPreferencesLatestRef.current),[persistUiPreferences]);
 
   const generateBarcode = useCallback(async ({ reserved = [] } = {}) => {

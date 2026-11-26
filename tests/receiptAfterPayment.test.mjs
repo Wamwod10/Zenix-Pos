@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {receiptHtml} from '../src/pages/posPro/receiptFormat.js';
+import {receiptHtml,workspaceReceiptOptions} from '../src/pages/posPro/receiptFormat.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const basic={id:'confirmed',saleNumber:'S-123',store:'Filial A',sellerName:'Ali',createdAt:'2026-11-20T09:30:00Z',total:83000,subtotal:90000,discountTotal:7000,items:[{name:'Oziq-ovqat',unit:'dona',quantity:2,finalPrice:41500}]};
 test('confirmed cash receipt contains ID, branch, tender, change and discount',()=>{
@@ -32,11 +32,11 @@ test('copies are capped and receipt width is validated',()=>{
 });
 test('post-payment printing never invokes browser shell and preserves sale metadata',()=>{
  const sales=read('src/pages/sales/Sales.jsx'),pos=read('src/pages/posPro/PosPro.jsx'),store=read('src/context/StoreContext.jsx');
- assert.match(sales,/import \{receiptHtml,printReceipt\} from "\.\.\/posPro\/receiptFormat"/);
+ assert.match(sales,/import \{receiptHtml,printReceipt,workspaceReceiptOptions\} from "\.\.\/posPro\/receiptFormat"/);
  assert.doesNotMatch(sales,/window\.print\(\)/);assert.match(sales,/receiptConfirmedHere\)printConfirmedReceipt/);
  assert.match(sales,/payment==="credit"\?Number\(creditPaid\|\|0\)/);
  assert.match(store,/cashTendered:sale\.cashTendered,change:sale\.change/);
- assert.match(pos,/copies:settings\.receipt\?\.copies\|\|1/);
+ assert.match(pos,/workspaceReceiptOptions\(settings,\{/);
  const history=read('src/pages/history/History.jsx');assert.doesNotMatch(history,/window\.print\(\)/);assert.match(history,/printHistoricalReceipt/);
 });
 
@@ -62,4 +62,10 @@ test('merchant contact is opt-in, escaped, and dates follow organization prefere
 test('receipt templates retain the same confirmed sale values and safe fixed CSS',()=>{
  for(const template of ['classic','compact','large']){const html=receiptHtml(basic,{template});assert.match(html,new RegExp('body class="receipt-'+template+'"'));assert.match(html,/83[ ,]000/);assert.match(html,/Chek № S-123/)}
  assert.match(receiptHtml(basic,{template:'<script>'}),/body class="receipt-classic"/);
+});
+
+test('workspace receipt options are shared, retain explicitly empty footer and chosen width',()=>{
+ const options=workspaceReceiptOptions({organization:{businessName:'Market',phone:'123'},receipt:{width:'58',footer:'',copies:3,showPhone:true}},{cashier:'Ali'});
+ assert.equal(options.width,'58');assert.equal(options.footer,'');assert.equal(options.copies,3);assert.equal(options.phone,'123');assert.equal(options.showPhone,true);assert.equal(options.cashier,'Ali');
+ assert.equal(workspaceReceiptOptions({}, {width:'80'}).width,'80');
 });

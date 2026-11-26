@@ -1,4 +1,4 @@
-import {receiptHtml,printReceipt} from "../posPro/receiptFormat";
+import {receiptHtml,printReceipt,workspaceReceiptOptions} from "../posPro/receiptFormat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FiAlertTriangle, FiBell, FiCheck, FiChevronLeft, FiClock, FiCopy, FiCreditCard, FiDatabase, FiDownload, FiGrid, FiLayers, FiMapPin, FiMonitor, FiPrinter, FiRotateCcw, FiSearch, FiSettings, FiShield, FiSliders, FiSmartphone, FiUsers } from "react-icons/fi";
@@ -41,7 +41,7 @@ function Settings(){
   const tab=settingsTabFromSearch(location.search); const [mobileSectionOpen,setMobileSectionOpen]=useState(false); const [testSent,setTestSent]=useState(false); const [telegramBusy,setTelegramBusy]=useState(false); const [telegramClock,setTelegramClock]=useState(()=>Date.now()); const [advancedUi,setAdvancedUi]=useState(false);
   const [settingsQuery,setSettingsQuery]=useState("");const [scope,setScope]=useState("global");
   const settingsSearchRef=useRef(null);
-  const auditTimers=useRef(new Map());const storeNameBaselines=useRef(new Map());const telegramSavePending=useRef(false);const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
+  const storeNameBaselines=useRef(new Map());const telegramSavePending=useRef(false);const telegramConnectAttempt=useRef(0);const telegramConnectAbort=useRef(null);
   const [employeeModal,setEmployeeModal]=useState(false);const [employeeBusy,setEmployeeBusy]=useState(false);const [employeeError,setEmployeeError]=useState("");
   const [permissionEmployee,setPermissionEmployee]=useState(null);const [permissionSaveBusy,setPermissionSaveBusy]=useState(false);const permissionSaveRef=useRef(false);
   const [mobilePermissionRole,setMobilePermissionRole]=useState(ROLES.MANAGER);
@@ -63,18 +63,12 @@ function Settings(){
   const closeEmployeeModal=()=>{if(employeeBusy)return;guardEmployeeClose(()=>{setEmployeeModal(false);setEmployeeError("");employeeFormInitial.current=null})};
   const scopedSection=(section)=>scope==="store"&&STORE_SCOPED_TABS.has(tab)?{...(workspaceSettings[section]||{}),...(workspaceSettings.storeOverrides?.[currentStoreId]?.[section]||{})}:(workspaceSettings[section]||{});
   const org=workspaceSettings.organization; const pos=scopedSection("pos"); const receipt=scopedSection("receipt"); const inv=scopedSection("inventory"); const businessDay=scopedSection("businessDay"); const notificationSettings=scopedSection("notifications");
-  const queueSettingsAudit=(section,key,before,value)=>{
-    const auditKey=`${scope}:${currentStoreId}:${section}:${key}`;const previous=auditTimers.current.get(auditKey);if(previous)clearTimeout(previous);
-    const timer=setTimeout(()=>{addActivityLog({type:"settings",title:"Sozlama o‘zgartirildi",description:`${section}.${key}${scope==="store"?` · ${currentStore?.name||"Filial"}`:" · Barcha filiallar"}`,before:String(before??"—"),after:String(value??"—"),changes:{field:`${section}.${key}`,before,after:value}});auditTimers.current.delete(auditKey)},700);
-    auditTimers.current.set(auditKey,timer);
-  };
   const updateSection=(section,key,value)=>{
-    if(!canWrite)return;const before=scopedSection(section)?.[key];
+    if(!canWrite)return;
     setWorkspaceSettings(prev=>{
       if(scope==="store"&&STORE_SCOPED_TABS.has(tab)){const storeOverrides=prev.storeOverrides||{};const currentOverride=storeOverrides[currentStoreId]||{};return{...prev,storeOverrides:{...storeOverrides,[currentStoreId]:{...currentOverride,[section]:{...(currentOverride[section]||{}),[key]:value}}}}}
       return{...prev,[section]:{...(prev[section]||{}),[key]:value}};
     });
-    queueSettingsAudit(section,key,before,value);
   };
   const clearCurrentStoreOverrides=()=>{if(!canWrite||scope!=="store")return;const sectionByTab={Chek:"receipt",POS:"pos",Ombor:"inventory","Ish kuni":"businessDay",Bildirishnomalar:"notifications"};const section=sectionByTab[tab];if(!section)return;setWorkspaceSettings(prev=>{const all={...(prev.storeOverrides||{})};const row={...(all[currentStoreId]||{})};delete row[section];if(Object.keys(row).length)all[currentStoreId]=row;else delete all[currentStoreId];return{...prev,storeOverrides:all}});addActivityLog({type:"settings",title:"Filial sozlamasi tiklandi",description:`${currentStore?.name||"Filial"} · ${tab} umumiy sozlamaga qaytarildi`})};
   const changeUi=patch=>setUiPreferences(patch);
@@ -395,7 +389,7 @@ function Settings(){
     addActivityLog({type:"settings",title:"Biznes turi tanlandi",description:type});
   };
   const sampleReceipt={saleNumber:"TEST",store:currentStore?.name||"Filial",sellerName:"Sinov kassiri",createdAt:new Date().toISOString(),paymentMethod:"cash",paymentBreakdown:{cash:205000},cashTendered:210000,change:5000,total:205000,items:[{name:"Mahsulot",quantity:1,unit:"dona",unitPrice:120000,lineTotal:120000},{name:"Mahsulot 2",quantity:1,unit:"dona",unitPrice:85000,lineTotal:85000}]};
-  const sampleReceiptOptions={business:org.businessName||"ZENIX POS",width:String(receipt.width||"80"),template:receipt.template||"classic",showLogo:receipt.showLogo!==false,showCashier:receipt.showCashier!==false,showPaymentBreakdown:receipt.showPaymentBreakdown!==false,footer:receipt.footer??"",timezone:org.timezone||"Asia/Tashkent",dateFormat:org.dateFormat,timeFormat:org.timeFormat,phone:org.phone,address:org.address,showPhone:receipt.showPhone===true,showAddress:receipt.showAddress===true,copies:receipt.copies||1};
+  const sampleReceiptOptions=workspaceReceiptOptions({organization:org,receipt});
   const printReceiptTest=()=>printReceipt(sampleReceipt,sampleReceiptOptions,error=>notify({tone:"warning",title:"Sinov cheki chop etilmadi",message:error.message}));
 
   return <div className="pro-page settings-pro"><PageHeader title="Sozlamalar" subtitle="Tashkilot, xodimlar, POS, ombor va platforma qoidalarini boshqaring." actions={<><span role="status" className={`settings-autosave ${persistenceError?"failed":workspaceSaveState||"idle"}`}>{persistenceError?<FiAlertTriangle/>:workspaceSaveState==="saved"?<FiCheck/>:<FiClock/>} {workspaceSaveState==="conflict"?"Sozlamalar konflikti":persistenceError?"Serverda saqlanmadi":workspaceSaveState==="saving"?"Serverga saqlanmoqda...":workspaceSaveState==="saved"?"Ish maydoni saqlangan":"Ish maydoni holati"}</span><Link className="pro-btn secondary" to="/billing"><FiCreditCard/> Tarif va to‘lovlar</Link></>}/>
