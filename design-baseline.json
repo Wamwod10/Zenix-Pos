@@ -26,5 +26,6 @@
   "src/pages/posPro/touchPos.scss": "f5d4beaf857a337de03fb2b6b03a438e924bc58aff9228b1692226f30f4978df",
   "src/components/moduleViewSwitcher.scss": "e01b2fca4199c3ed5f71346fdae2abf9f4734b47c1d5dcbea1e133b9a26b4748",
   "src/pages/posPro/posQuick.scss": "ca6049efe2565c507f0ca5529861911642527297acb616cb70519fd95293e8c2",
-  "src/pages/platformAdmin/platformCustomerModal.scss": "51216468dd2bf6fb46f3ac1df5ae53f51703e3acbbd78af331c736bdf629aa70"
+  "src/pages/platformAdmin/platformCustomerModal.scss": "51216468dd2bf6fb46f3ac1df5ae53f51703e3acbbd78af331c736bdf629aa70",
+  "src/pages/settings/settingsPremium.scss": "38d975f5bb09c8425bc7cdc1703068a94574c42684ea5e4a5f6e981762993ddc"
 }

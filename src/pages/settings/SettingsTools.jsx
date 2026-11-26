@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { hardwareCapabilities } from "../posPro/hardware";
+const DeviceReadiness=lazy(()=>import("../posPro/DeviceReadiness"));
 import {
   FiActivity, FiArchive, FiCheckCircle, FiClipboard, FiCreditCard, FiDatabase, FiDownload,
   FiFileText, FiHardDrive, FiMonitor, FiPackage, FiPrinter, FiRefreshCw,
@@ -222,7 +224,9 @@ export function SystemDiagnostics() {
   const { notify } = useFeedback();
   const [version, setVersion] = useState(0);
   const [apiHealth,setApiHealth]=useState({status:"checking",message:"Server tekshirilmoqda."});
-  const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  const [online,setOnline]=useState(()=>typeof navigator === "undefined" ? true : navigator.onLine);
+  const [showDeviceChecklist,setShowDeviceChecklist]=useState(false);
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener("online",update);window.addEventListener("offline",update);return()=>{window.removeEventListener("online",update);window.removeEventListener("offline",update)}},[]);
   const manifest = typeof document !== "undefined" ? Boolean(document.querySelector('link[rel="manifest"]')) : false;
   const serviceWorkerSupported = typeof navigator !== "undefined" && "serviceWorker" in navigator;
   const serviceWorkerActive = serviceWorkerSupported && Boolean(navigator.serviceWorker.controller);
@@ -242,7 +246,7 @@ export function SystemDiagnostics() {
     { id:"internet", icon: online ? FiWifi : FiWifiOff, label:"Internet", value:online ? "Ulangan" : "Ulanmagan", tone:online ? "success" : "warning", note:online ? "Tarmoq mavjud." : "Server operatsiyalari internet tiklanguncha bajarilmaydi." },
     { id:"api", icon:FiDatabase, label:"Backend API", value:apiHealth.status==="ready"?"Ulangan":apiHealth.status==="checking"?"Tekshirilmoqda":"Ulanmagan", tone:apiHealth.status==="ready"?"success":apiHealth.status==="checking"?"warning":"danger", note:apiHealth.message },
     { id:"files", icon:FiFileText, label:"Fayl yuklash", value:typeof File !== "undefined" && typeof FileReader !== "undefined" ? "Tayyor" : "Cheklangan", tone:typeof File !== "undefined" ? "success" : "warning", note:"PDF, jadval, matn va rasm importi uchun brauzer imkoniyati." },
-    { id:"print", icon:FiPrinter, label:"Chop etish", value:typeof window !== "undefined" && typeof window.print === "function" ? "Tayyor" : "Cheklangan", tone:typeof window !== "undefined" && typeof window.print === "function" ? "success" : "warning", note:"Haqiqiy printer tanlovi brauzer/OS printer oynasida bajariladi." },
+    { id:"print", icon:FiPrinter, label:"Chop etish API", value:typeof window !== "undefined" && typeof window.print === "function" ? "Mavjud" : "Cheklangan", tone:typeof window !== "undefined" && typeof window.print === "function" ? "success" : "warning", note:"Haqiqiy printer tanlovi brauzer/OS printer oynasida bajariladi." },
     { id:"fullscreen", icon:FiMonitor, label:"To‘liq ekran", value:typeof document !== "undefined" && document.fullscreenEnabled ? "Qo‘llanadi" : "Qo‘llanmaydi", tone:typeof document !== "undefined" && document.fullscreenEnabled ? "success" : "neutral", note:"POS va ish joyi uchun fullscreen rejimi." },
     { id:"telegram", icon:FiActivity, label:"Telegram", value:connectedTelegram ? "Ulangan" : "Ulanmagan", tone:connectedTelegram ? "success" : "neutral", note:connectedTelegram ? `${telegramConnections.filter((item)=>item?.connected).length || 1} ta filial guruhi ulangan` : "Bot serverga ulanganda real bildirishnomalar ishlaydi." },
     { id:"pwa", icon:FiMonitor, label:"Ilova rejimi (PWA)", value:manifest && serviceWorkerActive ? "Faol" : manifest || serviceWorkerSupported ? "Tayyorlanmoqda" : "Qo‘llanmaydi", tone:manifest && serviceWorkerActive ? "success" : "warning", note:`Manifest: ${manifest ? "bor" : "yo‘q"} · Service Worker: ${serviceWorkerActive ? "faol" : serviceWorkerSupported ? "qo‘llanadi" : "yo‘q"}` },
@@ -261,6 +265,7 @@ export function SystemDiagnostics() {
   return <>
     <div className="pro-card-head"><div><h2>Tizim diagnostikasi</h2><p>Zenix POS ishlashi uchun muhim brauzer va integratsiya holatlarini tekshiring.</p></div><div className="diagnostics-actions"><button type="button" className="pro-btn secondary" onClick={()=>setVersion((value)=>value+1)}><FiRefreshCw/> Qayta tekshirish</button><button type="button" className="pro-btn secondary" onClick={copySummary}><FiClipboard/> Nusxalash</button></div></div>
     <div className="diagnostics-grid">{checks.map((item) => { const Icon = item.icon; return <article key={item.id} className="diagnostic-card"><span className={`diagnostic-icon ${item.tone}`}><Icon/></span><span><small>{item.label}</small><strong>{item.value}</strong><p>{item.note}</p></span><StatusBadge tone={item.tone}>{item.tone === "success" ? "Yaxshi" : item.tone === "danger" ? "Xato" : item.tone === "warning" ? "E’tibor" : "Holat"}</StatusBadge></article>; })}</div>
+    <div className="pro-card-head settings-device-heading"><div><h2>Qurilmalar tekshiruvi</h2><p>Printer, skaner, tarozi va terminalni operator yordamida sinash. API mavjudligi haqiqiy ulanishni tasdiqlamaydi.</p></div><button type="button" className="pro-btn secondary" aria-expanded={showDeviceChecklist} onClick={()=>setShowDeviceChecklist(v=>!v)}>{showDeviceChecklist?"Sinovlarni yopish":"Qurilma sinovlarini ochish"}</button></div>{showDeviceChecklist&&<Suspense fallback={<p role="status">Sinovlar yuklanmoqda...</p>}><DeviceReadiness online={online} capabilities={hardwareCapabilities()}/></Suspense>}
     <div className="diagnostics-note"><FiCheckCircle/><span><strong>Tizim diagnostikasi</strong><small>API, ma’lumotlar bazasi, Telegram, fayl yuklash va brauzer xizmatlari holatini shu markazdan tekshiring.</small></span></div>
   </>;
 }
