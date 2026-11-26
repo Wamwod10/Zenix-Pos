@@ -134,6 +134,7 @@ export const StoreProvider = ({ children }) => {
   const settingsBaselineRef = useRef({workspaceSettings:"",businessFeatures:"",rolePermissions:""});
   const settingsSaveQueueRef=useRef(Promise.resolve());
   const settingsRevisionRef=useRef(0);
+  const settingsConflictRef=useRef(null);
   const [workspaceSaveState,setWorkspaceSaveState]=useState("idle");
   const [settingsRetry,setSettingsRetry]=useState(0);
   const retryWorkspaceSettings=useCallback(()=>setSettingsRetry(n=>n+1),[]);
@@ -286,6 +287,7 @@ export const StoreProvider = ({ children }) => {
         const nextRolePermissions=Object.fromEntries(Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([role,defaults])=>[role,{...defaults,...(settingsData.rolePermissions?.[role]||{})}]));
         settingsBaselineRef.current={
           identity:hydrationIdentity,
+          serverRevision:settingsData.revision||null,
           workspaceSettings:JSON.stringify(nextWorkspaceSettings),
           businessFeatures:JSON.stringify(nextBusinessFeatures),
           rolePermissions:JSON.stringify(nextRolePermissions),
@@ -293,6 +295,7 @@ export const StoreProvider = ({ children }) => {
         setWorkspaceSettings(nextWorkspaceSettings);
         setBusinessFeatures(nextBusinessFeatures);
         setRolePermissions(nextRolePermissions);
+        settingsConflictRef.current=null;
         setWorkspaceSaveState("saved");
         setUiPreferencesState({...DEFAULT_UI_PREFERENCES,...(settingsData.uiPreferences||{}),...(getUserTheme()?{theme:getUserTheme()}: {})});
       }
@@ -368,6 +371,7 @@ export const StoreProvider = ({ children }) => {
     // Defaults after a failed read are not an authorized configuration change.
     if(settingsBaselineRef.current.identity!==currentWorkspaceIdentity)return undefined;
     const identity=currentWorkspaceIdentity;
+    if(settingsConflictRef.current===identity)return undefined;
     const latest=settingsLatestRef.current;
     if(!settingsChanges(latest,settingsBaselineRef.current,latest.owner).length)return undefined;
     setWorkspaceSaveState("saving");
@@ -375,16 +379,18 @@ export const StoreProvider = ({ children }) => {
       settingsSaveQueueRef.current=settingsSaveQueueRef.current.catch(()=>undefined).then(async()=>{
         // Never send a queued organization A update after switching to B or logging out.
         const snapshots=settingsLatestRef.current;
-        if(currentWorkspaceIdentityRef.current!==identity||snapshots.identity!==identity||settingsBaselineRef.current.identity!==identity)return;
+        if(currentWorkspaceIdentityRef.current!==identity||snapshots.identity!==identity||settingsBaselineRef.current.identity!==identity||settingsConflictRef.current===identity)return;
         const changed=settingsChanges(snapshots,settingsBaselineRef.current,snapshots.owner);
         if(!changed.length){setWorkspaceSaveState("saved");return}
         const payload=Object.fromEntries(changed.map(key=>[key,JSON.parse(snapshots[key])]));
         if(payload.rolePermissions)payload.rolePermissions=Object.fromEntries(Object.entries(payload.rolePermissions).filter(([role])=>role!==ROLES.OWNER&&role!==ROLES.PLATFORM_ADMIN));
         try{
-          await api.patch("/api/settings/workspace",payload);
+          const expectedRevision=settingsBaselineRef.current.serverRevision;
+          if(expectedRevision)payload.expectedRevision=expectedRevision;
+          const response=await api.patch("/api/settings/workspace",payload);
           if(currentWorkspaceIdentityRef.current!==identity||settingsBaselineRef.current.identity!==identity)return;
           settingsRevisionRef.current+=1;
-          settingsBaselineRef.current={...settingsBaselineRef.current,...Object.fromEntries(changed.map(key=>[key,snapshots[key]]))};
+          settingsBaselineRef.current={...settingsBaselineRef.current,serverRevision:response?.revision||null,...Object.fromEntries(changed.map(key=>[key,snapshots[key]]))};
           setPersistenceError("");
           const current=settingsLatestRef.current;
           const hasPendingEdits=settingsChanges(current,settingsBaselineRef.current,current.owner).length>0;
@@ -394,7 +400,8 @@ export const StoreProvider = ({ children }) => {
           if(hasPendingEdits)setSettingsRetry(n=>n+1);
         }catch(error){
           if(currentWorkspaceIdentityRef.current!==identity)return;
-          setWorkspaceSaveState("failed");
+          if(error?.code==="SETTINGS_CONFLICT"){settingsConflictRef.current=identity;setWorkspaceSaveState("conflict")}
+          else setWorkspaceSaveState("failed");
           setPersistenceError(error?.message||"Sozlamalarni serverga saqlab bo‘lmadi");
         }
       });
