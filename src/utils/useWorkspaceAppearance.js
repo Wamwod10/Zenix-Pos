@@ -39,9 +39,15 @@ export default function useWorkspaceAppearance(uiPreferences,workspaceSettings){
     document.body.dataset.navbarCompact=String(Boolean(pref.navbarCompact));
     document.body.classList.toggle("no-card-shadow",!pref.cardShadow);
     document.body.classList.toggle("reduce-motion",Boolean(pref.reducedMotion));
-    const dark=pref.theme==="dark"||(pref.theme==="system"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches);
-    document.body.classList.toggle("dark-mode",dark);
-    const themeMeta=document.querySelector('meta[name="theme-color"]');
-    if(themeMeta)themeMeta.setAttribute("content",dark?"#111315":"#f3f4f4");
+    const media=window.matchMedia?.("(prefers-color-scheme: dark)");
+    const applyTheme=()=>{
+      const dark=pref.theme==="dark"||(pref.theme==="system"&&Boolean(media?.matches));
+      document.body.classList.toggle("dark-mode",dark);
+      const themeMeta=document.querySelector('meta[name="theme-color"]');
+      if(themeMeta)themeMeta.setAttribute("content",dark?"#111315":"#f3f4f4");
+    };
+    applyTheme();
+    if(pref.theme==="system")media?.addEventListener?.("change",applyTheme);
+    return()=>media?.removeEventListener?.("change",applyTheme);
   },[uiPreferences,workspaceSettings.organization.currency]);
 }
