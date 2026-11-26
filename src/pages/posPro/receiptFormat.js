@@ -1,6 +1,7 @@
 import {formatProMoney as formatPrice} from './model.js';
 import {lineAmount,sumMoney} from '../../utils/posMoney.js';
 import {printReportDocument} from '../../utils/printReportDocument.js';
+import {thermalLogoSource} from '../../utils/thermalLogo.js';
 
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={cash:'Naqd',card:'Karta (qo‘lda tasdiqlangan)',transfer:'O‘tkazma (qo‘lda tasdiqlangan)',split:'Aralash',credit:'Nasiya'};
@@ -43,13 +44,13 @@ function receiptRows(sale){
 }
 export function workspaceReceiptOptions({organization={},receipt={}}={},extra={}){
  return {width:String(receipt.width||'80'),business:organization.businessName||extra.business||'ZENIX POS',
-  showLogo:receipt.showLogo!==false,showCashier:receipt.showCashier!==false,showPaymentBreakdown:receipt.showPaymentBreakdown!==false,
+  showLogo:receipt.showLogo!==false,logoData:receipt.logoData,showCashier:receipt.showCashier!==false,showPaymentBreakdown:receipt.showPaymentBreakdown!==false,
   footer:receipt.footer??'Xaridingiz uchun rahmat.',phone:organization.phone,address:organization.address,
   showPhone:receipt.showPhone===true,showAddress:receipt.showAddress===true,dateFormat:organization.dateFormat,timeFormat:organization.timeFormat,
   timezone:organization.timezone||'Asia/Tashkent',copies:receipt.copies||1,template:receipt.template||'classic',...extra};
 }
 
-export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,template='classic',copies=1}={}){
+export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,logoData='',showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,template='classic',copies=1}={}){
  const paper=String(width);
  if(!['58','80'].includes(paper))throw Error('Unsupported receipt width');
  if(!sale||!Array.isArray(sale.items)||!sale.items.length)throw Error('Tasdiqlangan chek ma’lumotlari to‘liq emas');
@@ -65,8 +66,9 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  const number=sale.saleNumber||sale.sale_number||sale.clientReference||sale.id||'—';
  const clerk=sale.sellerName||sale.seller||cashier;
  const due=sale.creditDueDate||sale.credit_due_date;
+ const logo=showLogo?thermalLogoSource(logoData):'';
  const paperBody=`<main class="paper">
- <header><h1>${escape(business)}</h1>${showLogo?'<small class="brand">ZENIX POS</small>':''}<p>${escape(sale.store||branch||'Filial')}</p>${showPhone===true&&phone?`<p>Tel: ${escape(phone)}</p>`:''}${showAddress===true&&address?`<p>${escape(address)}</p>`:''}</header>
+ <header><h1>${escape(business)}</h1>${showLogo?(logo?`<img class="receipt-logo" src="${logo}" alt="Korxona logotipi">`:'<small class="brand">ZENIX POS</small>'):''}<p>${escape(sale.store||branch||'Filial')}</p>${showPhone===true&&phone?`<p>Tel: ${escape(phone)}</p>`:''}${showAddress===true&&address?`<p>${escape(address)}</p>`:''}</header>
  <div class="rule"></div><p>Chek № ${escape(number)}</p><p>${escape(receiptDate(sale,timezone,dateFormat,timeFormat))}</p>
  ${showCashier&&clerk?`<p>Kassir: ${escape(clerk)}</p>`:''}${customer?`<p>Mijoz: ${escape(customer)}</p>`:''}
  <div class="rule"></div><table aria-label="Mahsulotlar"><tbody>${receiptRows(sale)}</tbody></table><div class="rule"></div>
@@ -81,7 +83,7 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  body{font:12px/1.42 ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace}
  .paper{width:${Number(paper)-4}mm;max-width:100%;margin:0 auto;padding:1mm 0 2mm;overflow-wrap:anywhere;break-after:page}
  .paper:last-child{break-after:auto}h1{font-size:17px;line-height:1.2;margin:0 0 3px;font-weight:700;overflow-wrap:anywhere}
- header,footer{text-align:center}header p{margin:3px 0}.brand{display:block;font-size:9px;letter-spacing:.07em}
+ header,footer{text-align:center}header p{margin:3px 0}.brand{display:block;font-size:9px;letter-spacing:.07em}.receipt-logo{display:block;max-width:36mm;max-height:20mm;width:auto;height:auto;margin:3px auto}
  p{margin:5px 0;overflow-wrap:anywhere}.rule{border-top:1px dashed #111;margin:9px 0}
  table{width:100%;border-collapse:collapse;table-layout:fixed}td{padding:1px 0;vertical-align:top;overflow-wrap:anywhere}
  .item-detail td:last-child{text-align:right;width:39%}.item-name td{text-align:left;font-weight:650;padding-top:6px}

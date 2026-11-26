@@ -69,3 +69,11 @@ test('workspace receipt options are shared, retain explicitly empty footer and c
  assert.equal(options.width,'58');assert.equal(options.footer,'');assert.equal(options.copies,3);assert.equal(options.phone,'123');assert.equal(options.showPhone,true);assert.equal(options.cashier,'Ali');
  assert.equal(workspaceReceiptOptions({}, {width:'80'}).width,'80');
 });
+
+test('receipt displays only bounded safe thermal PNG logos',()=>{
+ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+ assert.match(receiptHtml(basic,{logoData:png}),/<img class="receipt-logo"/);
+ assert.doesNotMatch(receiptHtml(basic,{logoData:png,showLogo:false}),/<img /);
+ for(const bad of ['https://example.com/logo.png','data:image/svg+xml;base64,PHN2Zz4=',png+'" onerror="x'])assert.doesNotMatch(receiptHtml(basic,{logoData:bad}),/<img /);
+ assert.equal(workspaceReceiptOptions({receipt:{logoData:png}}).logoData,png);
+});

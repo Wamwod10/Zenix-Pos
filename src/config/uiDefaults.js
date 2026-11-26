@@ -65,6 +65,7 @@ export const DEFAULT_WORKSPACE_SETTINGS = {
     width: "80",
     template: "classic",
     showLogo: true,
+    logoData: "",
     showCashier: true,
     showPhone: false,
     showAddress: false,
