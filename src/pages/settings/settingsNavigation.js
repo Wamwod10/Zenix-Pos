@@ -1,6 +1,6 @@
 export const SETTINGS_TAB_NAMES = [
   "Tashkilot","Filiallar","Xodimlar","Ruxsatlar","Chek","POS","Ombor","Ish kuni",
-  "Bildirishnomalar","Telegram","Interfeys","Funksiyalar","Eksport","Diagnostika","Tarix",
+  "Bildirishnomalar","Telegram","Interfeys","Funksiyalar","Eksport","Diagnostika","Tarix","Xavfsizlik",
 ];
 
 export const settingsTabFromSearch = (search = "") => {
@@ -19,7 +19,7 @@ export const SETTINGS_GROUPS=[
  {id:"business",label:"Biznes boshqaruvi",tabs:["Tashkilot","Filiallar","Xodimlar","Ruxsatlar","Funksiyalar"]},
  {id:"sales",label:"Savdo va kassa",tabs:["POS","Chek","Ombor","Ish kuni"]},
  {id:"automation",label:"Aloqa va avtomatlashtirish",tabs:["Bildirishnomalar","Telegram"]},
- {id:"system",label:"Tizim va xavfsizlik",tabs:["Interfeys","Eksport","Diagnostika","Tarix"]},
+ {id:"system",label:"Tizim va xavfsizlik",tabs:["Interfeys","Xavfsizlik","Eksport","Diagnostika","Tarix"]},
 ];
 export const normalizeSettingsSearch=value=>String(value??"").toLowerCase().normalize("NFKD").replace(/[‘’ʻʼ`']/g,"").replace(/[–—_-]/g," ").replace(/\s+/g," ").trim();
 export function searchSettingsTabs(index,query){
