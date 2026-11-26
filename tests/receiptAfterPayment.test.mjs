@@ -58,3 +58,8 @@ test('merchant contact is opt-in, escaped, and dates follow organization prefere
  const other=receiptHtml(basic,{dateFormat:'MM/DD/YYYY',timeFormat:'24'});
  assert.match(other,/11\/20\/2026 14:30/);
 });
+
+test('receipt templates retain the same confirmed sale values and safe fixed CSS',()=>{
+ for(const template of ['classic','compact','large']){const html=receiptHtml(basic,{template});assert.match(html,new RegExp('body class="receipt-'+template+'"'));assert.match(html,/83[ ,]000/);assert.match(html,/Chek № S-123/)}
+ assert.match(receiptHtml(basic,{template:'<script>'}),/body class="receipt-classic"/);
+});

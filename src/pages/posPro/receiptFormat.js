@@ -40,11 +40,12 @@ function receiptRows(sale){
   return `<tr class="item-name"><td colspan="2">${escape(item.name||'Mahsulot')}</td></tr><tr class="item-detail"><td>${escape(qty)} ${escape(unit)} × ${escape(formatPrice(price))}${discount?`<br><span class="discount">${escape(discount)}</span>`:''}</td><td>${escape(formatPrice(paid))}</td></tr>`;
  }).join('');
 }
-export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,copies=1}={}){
+export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cashier='',showLogo=true,showCashier=true,showPaymentBreakdown=true,footer='Xaridingiz uchun rahmat.',timezone='Asia/Tashkent',dateFormat='DD.MM.YYYY',timeFormat='24',phone='',address='',showPhone=false,showAddress=false,template='classic',copies=1}={}){
  const paper=String(width);
  if(!['58','80'].includes(paper))throw Error('Unsupported receipt width');
  if(!sale||!Array.isArray(sale.items)||!sale.items.length)throw Error('Tasdiqlangan chek ma’lumotlari to‘liq emas');
  const quantity=Math.max(1,Math.min(3,Math.floor(Number(copies)||1)));
+ const chosenTemplate=['classic','compact','large'].includes(template)?template:'classic';
  const breakdown=paymentAmounts(sale), method=sale.paymentMethod||sale.metadata?.paymentMethod||'cash';
  const payments=showPaymentBreakdown
   ?Object.entries(breakdown).filter(([,n])=>money(n)>0).map(([name,n])=>`<p class="row"><span>${escape(labels[name]||name)}: </span><b>${escape(formatPrice(n))}</b></p>`).join('')
@@ -81,7 +82,9 @@ export function receiptHtml(sale,{width='80',business='ZENIX POS',branch='',cash
  .grand{font-size:17px;font-weight:700;line-height:1.25}.grand b{font-size:18px}
  footer{margin-top:16px;font-size:11px}footer small{display:block;margin-top:7px;font-size:10px}
  @media print{.paper{max-width:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
- </style></head><body>${Array.from({length:quantity},()=>paperBody).join('')}</body></html>`;
+ .receipt-compact{font-size:11px;line-height:1.3}.receipt-compact .rule{margin:5px 0}.receipt-compact .item-name td{padding-top:3px}.receipt-compact .item-detail td{padding-bottom:3px}.receipt-compact footer{margin-top:10px}
+ .receipt-large{font-family:Arial,sans-serif;font-size:14px;line-height:1.5}.receipt-large h1{font-size:19px}.receipt-large .grand,.receipt-large .grand b{font-size:20px}
+ </style></head><body class="receipt-${chosenTemplate}">${Array.from({length:quantity},()=>paperBody).join('')}</body></html>`;
 }
 export function printReceipt(sale,options,onError){
  let markup;
