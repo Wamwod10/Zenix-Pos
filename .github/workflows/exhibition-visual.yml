@@ -34,6 +34,16 @@ jobs:
           VISUAL_EXHIBITION_GATE: '1'
           VISUAL_OUTPUT: ci-artifacts/exhibition-all-routes
         run: node tests/visualResponsive.browser.mjs
+      - name: Compact dashboard KPI cards on desktop and mobile
+        if: always()
+        env:
+          VISUAL_DASHBOARD_ONLY: '1'
+          VISUAL_WIDTHS: '390,1366,1920'
+          VISUAL_ALL_ROUTES: '1'
+          VISUAL_CAPTURE_ALL: '1'
+          VISUAL_EXHIBITION_GATE: '1'
+          VISUAL_OUTPUT: ci-artifacts/dashboard-compact
+        run: node tests/visualResponsive.browser.mjs
       - name: Archive synthetic visual evidence
         if: always()
         uses: actions/upload-artifact@v4
