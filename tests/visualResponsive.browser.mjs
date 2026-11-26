@@ -11,7 +11,8 @@ const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROM
 const store='11111111-1111-4111-8111-111111111111',org='22222222-2222-4222-8222-222222222222';
 const results=[],errors=[],interactions=[];
 const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,name:i?'Mahsulot '+i:'Tabiiy sutli shokolad va yong‘oqli supermarket mahsuloti katta oila uchun',sku:'SKU-'+i,barcode:'1234567890123456789012345678901234567890',unit:'kg',sellPrice:12000,costPrice:5000,quantity:1000,stockByStore:{[store]:1000},archived:false});
-const routes=['/','/sales','/pos-pro','/shifts','/products','/inventory','/suppliers','/customers','/history','/expenses','/analytics','/seller-analytics','/activity-log','/settings','/billing','/profile','/help','/login','/register','/reset-password','/platform','/?ai=open'];
+const allRoutes=['/','/sales','/pos-pro','/shifts','/products','/inventory','/suppliers','/customers','/history','/expenses','/analytics','/seller-analytics','/activity-log','/settings','/billing','/profile','/help','/login','/register','/reset-password','/platform','/?ai=open'];
+const routes=process.env.VISUAL_DASHBOARD_ONLY==='1'?['/']:allRoutes;
 const matrix=process.env.VISUAL_MATRIX?JSON.parse(process.env.VISUAL_MATRIX):[[320,700],[360,780],[375,812],[390,844],[430,932],[600,800],[680,900],[700,900],[760,900],[768,1024],[820,1180],[900,600],[980,800],[1024,768],[1280,800],[1366,768],[1440,900],[1600,900],[1920,1080]];
 try{
  for(const [width,height] of matrix.filter(([w])=>!process.env.VISUAL_WIDTHS||process.env.VISUAL_WIDTHS.split(',').includes(String(w)))){
@@ -63,6 +64,16 @@ try{
        if(!process.env.VISUAL_GEOMETRY_ONLY)await page.screenshot({path:`${out}/${width}-products-grid-${theme}.png`,fullPage:true});
        await page.getByRole('button',{name:'Jadval',exact:true}).click();
        await expect(page.locator('.product-table tbody tr').first()).toBeVisible();
+     }
+     if(route==='/'&&process.env.VISUAL_DASHBOARD_ONLY==='1'){
+       const cards=await page.locator('.dashboard-kpis .pro-stat').evaluateAll(nodes=>nodes.map(card=>{
+         const box=card.getBoundingClientRect(),icon=card.querySelector('.pro-stat-icon').getBoundingClientRect(),label=card.querySelector('.pro-stat-copy>span').getBoundingClientRect(),value=card.querySelector('.pro-stat-copy>strong'),v=value.getBoundingClientRect();
+         const foot=card.querySelector('.pro-stat-foot').getBoundingClientRect();
+         return {height:box.height,width:box.width,iconLabelAligned:Math.abs((icon.top+icon.height/2)-(label.top+label.height/2))<2,contained:v.left>=box.left&&v.right<=box.right&&foot.bottom<=box.bottom,fullValue:getComputedStyle(value).whiteSpace==='normal'&&getComputedStyle(value).overflow==='visible'};
+       }));
+       assert.equal(cards.length,6,'all KPI cards');
+       for(const c of cards){assert.ok(c.iconLabelAligned&&c.contained&&c.fullValue,JSON.stringify(c));if(width>=1700)assert.ok(c.height<=160,'desktop KPI card too tall: '+JSON.stringify(c));}
+       console.log(JSON.stringify({compactKpis:cards,width,theme}));
      }
      const measurement=await page.evaluate(()=>{
       const rect=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};
