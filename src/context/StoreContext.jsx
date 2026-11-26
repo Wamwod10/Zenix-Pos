@@ -289,6 +289,7 @@ export const StoreProvider = ({ children }) => {
           organization:{...DEFAULT_WORKSPACE_SETTINGS.organization,...(settingsData.organization||{}),...(rawWorkspace.organization||{}),businessName:settingsData.organization?.businessName||currentUser.organizationName||""},
           pos:{...DEFAULT_WORKSPACE_SETTINGS.pos,...(rawWorkspace.pos||{})},inventory:{...DEFAULT_WORKSPACE_SETTINGS.inventory,...(rawWorkspace.inventory||{})},
           businessDay:{...DEFAULT_WORKSPACE_SETTINGS.businessDay,...(rawWorkspace.businessDay||{})},receipt:{...DEFAULT_WORKSPACE_SETTINGS.receipt,...(rawWorkspace.receipt||{})},
+          loyalty:{...DEFAULT_WORKSPACE_SETTINGS.loyalty,...(rawWorkspace.loyalty||{})},
           notifications:{...DEFAULT_WORKSPACE_SETTINGS.notifications,...(rawWorkspace.notifications||{})},storeOverrides:{...(rawWorkspace.storeOverrides||{})},
         };
         const nextBusinessFeatures={...DEFAULT_BUSINESS_FEATURES,...(settingsData.businessFeatures||{})};
