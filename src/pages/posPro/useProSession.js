@@ -91,7 +91,7 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
    const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:plan.breakdown,creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
    if(!savePosDraft(localStorage,key,{...current.current,cartDiscountPct:cartPct,checkoutReference:saleId}))throw Error('Savdo oldidan draft saqlanmadi');
    const result=await commitSaleTransaction({sale,storeId});
-   if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet,true);else if(active.current){reset();setFreshReceipt(null);setReceipt(result.sale)}});return true}
+   if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet,!result.reconciled);else if(active.current){reset();setFreshReceipt(null);setReceipt(result.sale)}});return true}
    if(active.current){setRecovery(readAttempt(localStorage,journal));setError(result.message||'Savdo bajarilmadi')}
    return false;
   }catch(e){if(active.current)setError(e.message);return false}

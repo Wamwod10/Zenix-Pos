@@ -11,7 +11,7 @@ test('configured primary payment is used only when enabled',()=>{
 });
 test('only fresh locally acknowledged receipt can trigger configured automatic printing',()=>{
  const pos=read('src/pages/posPro/PosPro.jsx'),session=read('src/pages/posPro/useProSession.js');
- assert.match(session,/finish\(result\.sale,packet,true\)/);
+ assert.match(session,/finish\(result\.sale,packet,!result\.reconciled\)/);
  assert.match(session,/const finish=\(sale,packet,fresh=false\)/);
  assert.match(session,/setFreshReceipt\(fresh\?sale:null\)/);
  assert.match(pos,/lastSale\.current===sale/);
