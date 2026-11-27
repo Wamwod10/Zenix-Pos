@@ -1,0 +1,19 @@
+import {useState} from 'react';
+import {PremiumSelect} from '../../components/Ui';
+import {buildPromotionRule,promotionRuleForm} from './promotionRuleForm';
+export default function PromotionSettings({policy,products,stores,canEdit,ensureCatalog,catalogComplete,onChange}){
+ const rules=policy?.rules||[],[form,setForm]=useState(null),[q,setQ]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const change=(key,value)=>setForm(f=>({...f,[key]:value}));
+ const open=async rule=>{setForm(promotionRuleForm(rule));setQ('');setError('');if(!catalogComplete){setBusy(true);try{await ensureCatalog()}catch(e){setError(e.message)}finally{setBusy(false)}}};
+ const save=()=>{try{const row=buildPromotionRule(form,form.id||crypto.randomUUID());onChange({enabled:policy?.enabled===true,rules:form.id?rules.map(r=>r.id===row.id?row:r):[...rules,row]});setForm(null)}catch(e){setError(e.message)}};
+ const input=(key,label,type='number',step=1)=><label className="pro-field" key={key}><span>{label}</span><input type={type} step={step} value={form[key]} onChange={e=>change(key,e.target.value)}/></label>;
+ return <section className="settings-subsection"><h3>Avtomatik aksiyalar</h3><p>2+1, 3+1 yoki miqdoriy chegirma. POS sinovi tugamaguncha yoqilmaydi.</p>
+ {policy?.enabled&&<button className="pro-btn secondary" disabled={!canEdit} onClick={()=>onChange({enabled:false,rules})}>O‘chirish</button>}
+ <button className="pro-btn secondary" disabled={!canEdit||!!form||rules.length>=200} onClick={()=>open()}>Aksiya qo‘shish</button>
+ {rules.map(r=><div className="pro-switch-row" key={r.id}><div><strong>{products.find(p=>p.id===r.productId)?.name||r.productId}</strong><small>{r.kind==='BUY_GET'?r.buy+'+'+r.free:r.minQuantity+' dona · '+r.discountBps/100+'%'} · {r.enabled?'Tayyor':'O‘chiq'}</small></div><button className="pro-btn secondary" disabled={!canEdit||!!form} onClick={()=>open(r)}>Tahrirlash</button></div>)}
+ {form&&<><div className="pro-form-grid"><label className="pro-field"><span>Mahsulot qidirish</span><input value={q} onChange={e=>setQ(e.target.value)}/></label><label className="pro-field"><span>Mahsulot (dona)</span><PremiumSelect value={form.productId} onChange={e=>change('productId',e.target.value)}><option value="">Tanlang</option>{products.filter(p=>p.id===form.productId||!p.archived&&p.unit==='dona'&&[p.name,p.sku,p.barcode].some(v=>String(v||'').toLowerCase().includes(q.toLowerCase()))).slice(0,50).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</PremiumSelect></label>
+ <label className="pro-field"><span>Turi</span><PremiumSelect value={form.kind} onChange={e=>change('kind',e.target.value)}><option value="BUY_GET">X+Y bepul</option><option value="QUANTITY_PERCENT">Miqdoriy chegirma</option></PremiumSelect></label>{form.kind==='BUY_GET'?[input('buy','Xarid'),input('free','Bepul'),input('maxGroups','Takrorlanish limiti')]:[input('minQuantity','Minimal miqdor'),input('percent','Chegirma %','number',0.01)]}
+ {input('startsAt','Boshlanish (UTC)','datetime-local',60)}{input('endsAt','Tugash (UTC)','datetime-local',60)}</div>
+ <fieldset><legend>Filiallar (bo‘sh — barchasi)</legend>{stores.filter(s=>s.active!==false).map(s=><label className="pro-switch-row" key={s.id}>{s.name}<input type="checkbox" checked={form.storeIds.includes(s.id)} onChange={e=>change('storeIds',e.target.checked?[...form.storeIds,s.id]:form.storeIds.filter(id=>id!==s.id))}/></label>)}</fieldset><label className="pro-switch-row">Qoida tayyor<input type="checkbox" checked={form.enabled} onChange={e=>change('enabled',e.target.checked)}/></label>{error&&<p role="alert">{error}</p>}<div className="modal-actions"><button className="pro-btn secondary" onClick={()=>setForm(null)}>Bekor qilish</button><button className="pro-btn primary" disabled={!canEdit||busy} onClick={save}>Saqlash</button></div></>}
+ </section>
+}
