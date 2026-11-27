@@ -1,12 +1,11 @@
-import {cartTotals,finalUnitPrice,formatProMoney} from './model.js';
-import {lineAmount} from '../../utils/posMoney.js';
+import {cartTotals,payableLineTotal,formatProMoney} from './model.js';
 const text=value=>String(value??'').slice(0,250);
 export function customerDisplaySnapshot({business,branch,cart=[],cartPct=0,confirmedSale=null}){
  const totals=cartTotals(cart,cartPct),confirmed=!cart.length&&confirmedSale&&Array.isArray(confirmedSale.items)&&confirmedSale.items.length>0;
  // Only customer-visible amounts, names, and quantities; never expose
  // customer identity, cashier ID, cost, inventory, payment or session secrets.
  const lines=confirmed?[]:cart.map(line=>({
-  name:text(line.name),quantity:text(line.cartQty)+' '+text(line.unit||'dona'),amount:formatProMoney(lineAmount(line.cartQty,finalUnitPrice(line,cartPct)))
+  name:text(line.name),quantity:text(line.cartQty)+' '+text(line.unit||'dona'),amount:formatProMoney(payableLineTotal(line,cartPct))
  }));
  return {business:text(business||'ZENIX POS'),branch:text(branch),state:confirmed?'confirmed':lines.length?'cart':'idle',lines,
   total:formatProMoney(confirmed?confirmedSale.total??confirmedSale.saleTotal??0:totals.total),
