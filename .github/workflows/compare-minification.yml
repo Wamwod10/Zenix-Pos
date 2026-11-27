@@ -1,4 +1,4 @@
-name: Compare frontend minification
+name: Compare lazy chunk profiles
 on:
   pull_request:
     branches: [main]
@@ -11,6 +11,10 @@ jobs:
   compare:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [original, related, compact]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,17 +22,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --include=optional
-      - name: Install pinned comparison-only minifier
-        run: npm install --save-dev --save-exact --ignore-scripts terser@5.51.4
-      - name: Compare existing and candidate gzip budgets
+      - name: Measure profile without changing budgets
         shell: bash
+        env:
+          ZENIX_CHUNK_PROFILE: ${{ matrix.profile }}
         run: |
-          set -euo pipefail
           npm run build
-          node -e 'const fs=require("node:fs"),z=require("node:zlib"); console.log("OXC_TOTAL_GZIP",fs.readdirSync("dist/assets").filter(x=>x.endsWith(".js")).reduce((n,x)=>n+z.gzipSync(fs.readFileSync("dist/assets/"+x)).length,0))'
-          ZENIX_COMPARE_TERSER=1 npm run build
-          node -e 'const fs=require("node:fs"),z=require("node:zlib"); console.log("TERSER_TOTAL_GZIP",fs.readdirSync("dist/assets").filter(x=>x.endsWith(".js")).reduce((n,x)=>n+z.gzipSync(fs.readFileSync("dist/assets/"+x)).length,0))'
+          node -e 'const fs=require("node:fs"),z=require("node:zlib"),rows=fs.readdirSync("dist/assets").filter(x=>x.endsWith(".js")).map(name=>({name,gzip:z.gzipSync(fs.readFileSync("dist/assets/"+name)).length})); console.log("PROFILE",process.env.ZENIX_CHUNK_PROFILE,"TOTAL_GZIP",rows.reduce((n,x)=>n+x.gzip,0)); console.log(JSON.stringify(rows));'
           node scripts/check-performance-budget.mjs --bundle
-      - name: Record candidate dependency lockfile
-        if: always()
-        run: git diff -- package.json package-lock.json
