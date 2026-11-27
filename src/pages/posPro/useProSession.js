@@ -1,5 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {usePromotionQuotes,quoteCart} from './usePromotionQuotes';
+import {getLoyaltyQuote} from './useLoyaltyQuote';
+import {loyaltyPaymentAmount} from './loyaltyPayment';
 import {promotionSignature} from './promotionQuotes';
 import {validateSerialChoice} from './serialSelection';
 import {api} from '../../services/apiClient';
@@ -87,7 +89,14 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
    if(!promotions.ready)throw Error('Aksiya hisobini yangilang');
    const quoted=promotionsEnabled?await quoteCart(checked.lines,cartPct,storeId):checked.lines;
    if(promotionSignature(quoted)!==promotionSignature(promotions.lines)){promotions.refresh();throw Error('Aksiya o‘zgardi. To‘lovni yoping va yangi summani tekshiring.')}
-   const totals=cartTotals(quoted,cartPct),plan=paymentPlan({...payment,total:totals.total,customerId,creditAllowed});
+   const totals=cartTotals(quoted,cartPct);
+   const loyalty=payment.loyaltyRedemption;
+   if(loyalty){
+    if(store.effectiveWorkspaceSettings?.loyalty?.redemption?.enabled!==true||!customerId||payment.method==='credit')throw Error('Bonus to‘lovi mavjud emas');
+    const quote=await getLoyaltyQuote({storeId,customerId,total:totals.total,points:loyalty.points});
+    if(quote.amount!==loyalty.amount)throw Error('Bonus hisobi o‘zgardi. To‘lovni qayta oching.');
+   }
+   const plan=paymentPlan({...payment,total:loyaltyPaymentAmount(totals.total,loyalty,payment.method),customerId,creditAllowed});
    const saleId=reference.current;
    const items=quoted.map(p=>{
     validateSerialChoice(p,storeId);
@@ -95,7 +104,7 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
     if(!tracking.success)throw Error(tracking.message);
     return {...p,quantity:p.cartQty,finalPrice:p.promotionQuote?p.promotionNet/p.cartQty:finalUnitPrice(p,cartPct),...(p.promotionQuote?{lineTotal:p.promotionNet}:{}),cartDiscountPercent:cartPct,tracking:tracking.tracking};
    });
-   const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:plan.breakdown,creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
+   const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:loyalty?{...plan.breakdown,loyalty:loyalty.amount}:plan.breakdown,...(loyalty?{loyaltyRedemption:loyalty}:{}),creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
    if(!savePosDraft(localStorage,key,{...current.current,cartDiscountPct:cartPct,checkoutReference:saleId}))throw Error('Savdo oldidan draft saqlanmadi');
    const result=await commitSaleTransaction({sale,storeId});
    if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet,!result.reconciled);else if(active.current){reset();setFreshReceipt(null);setReceipt(result.sale)}});return true}
