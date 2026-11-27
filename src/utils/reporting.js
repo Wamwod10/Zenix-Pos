@@ -145,7 +145,7 @@ export const saleGrossPaymentBreakdown = (sale) => {
   if(!sale)return result;
   // Server payment rows are actual captures; a credit sale's display method
   // may be cash even when only a deposit (or no payment) was collected.
-  if(Array.isArray(sale.payments))return capturedPayment(sale);
+  if(Array.isArray(sale.payments)||Number(sale.paymentBreakdown?.loyalty||sale.loyaltyRedemption?.amount||0)>0&&sale.paymentBreakdown)return capturedPayment(sale);
   const gross=Math.max(0,Number(sale.saleTotal??sale.total??0));
   if(sale.paymentMethod==='credit'){
     const captured=sale.paymentBreakdown||{};
