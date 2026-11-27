@@ -183,7 +183,7 @@ export const saleNetPaymentBreakdown = (sale) => {
   result.card = Number(source.card || 0) * ratio;
   result.transfer = Number(source.transfer || 0) * ratio;
   const allocated = result.cash + result.card + result.transfer;
-  if (allocated > 0 && Math.abs(allocated - net) > 0.01) {
+  if (allocated > 0 && !Number(source.loyalty||0) && Math.abs(allocated - net) > 0.01) {
     const scale = net / allocated;
     result.cash *= scale; result.card *= scale; result.transfer *= scale;
   }
