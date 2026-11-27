@@ -1,3 +1,4 @@
+import {newPasswordError} from '../src/utils/passwordPolicy.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -7,6 +8,7 @@ const source=readFileSync(new URL('../src/pages/platformAdmin/PlatformAdmin.jsx'
 function makeFixture({confirm,post}){
   const lock={current:null},request={current:0},busy=[],calls=[],notices=[],tokens=[];
   const vars={
+    newPasswordError,
     detail:{id:'test-organization'},resetTarget:{id:'test-user'},
     resetBusy:false,resetActionInFlightRef:lock,resetRequestRef:request,
     resetForm:{reason:'Verified admin support reason',password:'SyntheticPassword123'},
@@ -87,4 +89,10 @@ test('closing reset dialog before confirmation resolves prevents stale write',as
   await pending;
   assert.equal(ctx.calls.length,0);
   assert.equal(ctx.lock.current,null);
+});
+
+test('overlong new credential never opens confirmation or submits a reset',async()=>{
+ const ctx=makeFixture({confirm:async()=>{throw Error('confirmation must not open')},post:async()=>{throw Error('must not write')}});
+ ctx.resetForm.password='a'.repeat(73);
+ await ctx.resetPassword();assert.equal(ctx.calls.length,0);assert.equal(ctx.lock.current,null);assert.equal(ctx.notices.at(-1)?.tone,'danger');
 });

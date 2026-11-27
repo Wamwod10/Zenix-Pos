@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiCheckCircle, FiEye, FiEyeOff, FiLock, FiShield } from "react-icons/fi";
@@ -23,6 +24,7 @@ export default function ChangePassword(){
   const submit=async(event)=>{
     event.preventDefault();
     if(busy)return;
+    const policyError=newPasswordError(form.next);if(policyError){setError(policyError);return}
     if(form.next!==form.confirm){setError("Yangi parollar bir xil emas");return;}
     if(form.next===form.current){setError("Yangi parol joriy paroldan farq qilishi kerak");return;}
     setBusy(true);setError("");

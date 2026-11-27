@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import {receiptHtml,printReceipt,workspaceReceiptOptions} from "../posPro/receiptFormat";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -142,6 +143,7 @@ function Settings(){
   const createEmployee=async()=>{
     if(!canWrite||employeeBusy)return;
     const name=employeeForm.name.trim(),login=employeeForm.login.trim(),phone=formatUzPhone(employeeForm.phone);
+    const policyError=newPasswordError(employeeForm.password);if(policyError){setEmployeeError(policyError);return}
     if(name.length<2||login.length<3||employeeForm.password.length<8||!employeeForm.storeId||!isValidUzPhone(phone)){setEmployeeError("Ism, telefon, filial, kamida 3 belgili login va 8 belgili vaqtinchalik parol kiriting.");return}
     if(employees.some((item)=>item.active!==false&&sameUzPhone(item.phone,phone))){setEmployeeError("Bu telefon raqami boshqa faol xodimda ishlatilgan.");return}
     if(employeeForm.role===ROLES.OWNER&&currentUser?.appRole!==ROLES.OWNER){setEmployeeError("Egasi rolini faqat Egasi bera oladi.");return}
@@ -221,7 +223,7 @@ function Settings(){
   const resetEmployeePassword=(emp)=>{setPasswordEmployee(emp);setPasswordValue("");setPasswordError("")};
   const saveEmployeePassword=async()=>{
     if(!passwordEmployee||passwordBusy)return;
-    if(passwordValue.length<8){setPasswordError("Parol kamida 8 ta belgidan iborat bo‘lsin");return}
+    const policyError=newPasswordError(passwordValue);if(policyError){setPasswordError(policyError);return}
     setPasswordBusy(true);setPasswordError("");
     const result=await resetWorkspaceUserPassword(passwordEmployee.id,passwordValue);
     setPasswordBusy(false);

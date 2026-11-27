@@ -1,3 +1,4 @@
+import {newPasswordError} from '../../utils/passwordPolicy';
 import { useEffect, useRef, useState } from "react";
 import { FiClock, FiEdit2, FiKey, FiLock, FiLogOut, FiMonitor, FiPhone, FiShield, FiSmartphone, FiUser } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
@@ -34,6 +35,7 @@ export default function Profile() {
   useEffect(()=>{void refreshSessions();const interval=window.setInterval(()=>{void refreshSessions()},60_000);return()=>window.clearInterval(interval)},[refreshSessions,currentUser?.id,currentUser?.sessionId]);
   const store=stores.find((item)=>item.id===currentUser?.storeId)||currentStore;
   const savePassword=async()=>{
+    const policyError=newPasswordError(passwords.next);if(policyError){notify({tone:'danger',title:'Yangi parol',message:policyError});return}
     if(passwords.next!==passwords.confirm){notify({tone:"danger",title:"Parollar mos emas",message:"Yangi parolni qayta tekshiring."});return}
     setBusy(true);const result=await changeCurrentPassword({currentPassword:passwords.current,newPassword:passwords.next});setBusy(false);
     if(!result.success){notify({tone:"danger",title:"Parol o‘zgartirilmadi",message:result.message});return}
