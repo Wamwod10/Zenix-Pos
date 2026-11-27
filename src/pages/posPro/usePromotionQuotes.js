@@ -1,13 +1,13 @@
 import {useEffect,useMemo,useState} from 'react';
-import {lineAmount,sumMoney} from '../../utils/posMoney.js';
 import {api} from '../../services/apiClient';
 import {promotionItems,applyPromotionQuotes} from './promotionQuotes';
-export async function quoteCart(cart,cartPct,storeId,signal){
+async function requestQuotes(cart,cartPct,storeId,signal){
  const items=promotionItems(cart,cartPct);
- if(!items.length)return cart;
+ if(!items.length)return [];
  const data=await api.post('/api/sales/promotion-quotes',{storeId,items},{signal});
- return applyPromotionQuotes(cart,cartPct,data.quotes);
+ return data.quotes;
 }
+export async function quoteCart(cart,cartPct,storeId,signal){return applyPromotionQuotes(cart,cartPct,await requestQuotes(cart,cartPct,storeId,signal))}
 export function usePromotionQuotes(cart,cartPct,storeId,enabled){
  const [state,setState]=useState(null),[retry,setRetry]=useState(0);
  const eligible=useMemo(()=>enabled?promotionItems(cart,cartPct):[],[cart,cartPct,enabled]);
@@ -16,7 +16,7 @@ export function usePromotionQuotes(cart,cartPct,storeId,enabled){
  useEffect(()=>{
   if(!needed)return;
   const abort=new AbortController();let alive=true;
-  const timer=setTimeout(()=>quoteCart(cart,cartPct,storeId,abort.signal).then(lines=>{if(alive)setState({key,retry,quotes:lines.filter(p=>p.promotionQuote).map(p=>({productId:p.id,...p.promotionQuote,net:p.promotionNet,gross:lineAmount(p.cartQty,p.sellPrice),discount:sumMoney([lineAmount(p.cartQty,p.sellPrice),-p.promotionNet])}))})}).catch(e=>{if(alive)setState({key,retry,error:e.message||'Aksiya hisobi yuklanmadi'})}),120);
+  const timer=setTimeout(()=>requestQuotes(cart,cartPct,storeId,abort.signal).then(quotes=>{applyPromotionQuotes(cart,cartPct,quotes);if(alive)setState({key,retry,quotes})}).catch(e=>{if(alive)setState({key,retry,error:e.message||'Aksiya hisobi yuklanmadi'})}),120);
   return()=>{alive=false;clearTimeout(timer);abort.abort()};
  },[key,needed,storeId,retry]);
  const current=state?.key===key&&state?.retry===retry?state:null;
