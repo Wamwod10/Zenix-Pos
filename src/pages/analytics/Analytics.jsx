@@ -123,6 +123,8 @@ function Analytics() {
     result.cash += breakdown.cash; result.card += breakdown.card; result.transfer += breakdown.transfer;
     return result;
   }, { cash:0, card:0, transfer:0 });
+  if(category==="all"&&summary.aggregate?.cashflow)Object.assign(payment,summary.aggregate.cashflow);
+  const loyaltyTender=category==="all"?summary.aggregate?.loyaltyTender:null;
   const paymentData = [["Naqd",payment.cash],["Karta",payment.card],["O‘tkazma",payment.transfer]].filter(([,value]) => value > 0).map(([name,value]) => ({ name,value }));
 
   const trend = useMemo(() => {
@@ -195,7 +197,7 @@ function Analytics() {
 
     <div className="analytics-grid-main">
       <section className="pro-card chart-card wide"><div className="pro-card-head"><div><h2>Savdo va foyda trendi</h2><p>{period} · {storeLabel}</p></div></div><div className="chart-wrap"><ResponsiveChart><LineChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="label" tick={{fontSize:10}}/><YAxis tick={{fontSize:9}} tickFormatter={(value) => `${Math.round(value/1000)}k`}/><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/><Line type="monotone" dataKey="sales" name="Sof savdo" stroke="var(--primary)" strokeWidth={2.2}/><Line type="monotone" dataKey="profit" name="Yalpi foyda" stroke="#16a34a" strokeWidth={2}/>{canCalculateNet && <Line type="monotone" dataKey="expenses" name="Xarajat" stroke="#ef4444" strokeWidth={1.5}/>}</LineChart></ResponsiveChart></div></section>
-      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Qaytarishdan keyingi sof taqsimot</p></div></div><div className="chart-wrap pie">{paymentData.length ? <ResponsiveChart><PieChart><Pie data={paymentData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={78}>{paymentData.map((_,index) => <Cell key={index} fill={["#3b82f6","#8b5cf6","#f59e0b"][index % 3]}/>)}</Pie><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/></PieChart></ResponsiveChart> : <div className="pro-empty">To‘lov ma’lumoti yo‘q</div>}</div></section>
+      <section className="pro-card chart-card"><div className="pro-card-head"><div><h2>To‘lovlar</h2><p>Pul tushumi; bonus alohida.</p></div></div>{loyaltyTender&&<p>Bonus: {formatPrice(loyaltyTender.net)} · Qaytarildi: {formatPrice(loyaltyTender.refunded)}</p>}<div className="chart-wrap pie">{paymentData.length ? <ResponsiveChart><PieChart><Pie data={paymentData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={78}>{paymentData.map((_,index) => <Cell key={index} fill={["#3b82f6","#8b5cf6","#f59e0b"][index % 3]}/>)}</Pie><Tooltip formatter={(value) => formatPrice(value)}/><Legend wrapperStyle={{fontSize:10}}/></PieChart></ResponsiveChart> : <div className="pro-empty">To‘lov ma’lumoti yo‘q</div>}</div></section>
     </div>
 
     <div className="analytics-grid-2">
