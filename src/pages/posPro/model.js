@@ -21,10 +21,11 @@ export function addCartProduct(cart,product,quantity=1){
  if(!existing&&cart.length>=MAX_CART_LINES)throw Error(`Chekda ko‘pi bilan ${MAX_CART_LINES} mahsulot`);
  return existing?cart.map(p=>p.id===product.id?{...p,...product,cartQty:nextQty,discountPercent:p.discountPercent,tracking:p.tracking}:p):[...cart,{...product,cartQty:q,discountPercent:0}];
 }
+export const payableLineTotal=(line,cartPct=0)=>line.promotionNet!==undefined&&Number(cartPct)===0?line.promotionNet:lineAmount(line.cartQty,finalUnitPrice(line,cartPct));
 export function cartTotals(cart,cartPct=0){
  if(!Number.isFinite(Number(cartPct))||cartPct<0||cartPct>100)throw Error('Chegirma noto‘g‘ri');
  const subtotal=sumMoney(cart.map(p=>lineAmount(p.cartQty,p.sellPrice)));
- const total=sumMoney(cart.map(p=>lineAmount(p.cartQty,finalUnitPrice(p,cartPct))));
+ const total=sumMoney(cart.map(p=>payableLineTotal(p,cartPct)));
  return {subtotal,total,discount:sumMoney([subtotal,-total]),lines:cart.length};
 }
 const amount=value=>{const n=Number(value||0);if(!Number.isFinite(n)||n<0||roundMoney(n)!==n||n>9000000000000)throw Error('To‘lov summasi noto‘g‘ri');return n};
