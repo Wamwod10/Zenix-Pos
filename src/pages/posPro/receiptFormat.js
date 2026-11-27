@@ -4,11 +4,11 @@ import {printReportDocument} from '../../utils/printReportDocument.js';
 import {thermalLogoSource} from '../../utils/thermalLogo.js';
 
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const labels={cash:'Naqd',card:'Karta (qo‘lda tasdiqlangan)',transfer:'O‘tkazma (qo‘lda tasdiqlangan)',split:'Aralash',credit:'Nasiya'};
+const labels={cash:'Naqd',card:'Karta (qo‘lda tasdiqlangan)',transfer:'O‘tkazma (qo‘lda tasdiqlangan)',split:'Aralash',credit:'Nasiya',loyalty:'Bonus'};
 const money=value=>Number.isFinite(Number(value))?Number(value):0;
 const exists=value=>value!==null&&value!==undefined&&value!=='';
 function paymentAmounts(sale){
- if(sale.paymentBreakdown&&typeof sale.paymentBreakdown==='object')return sale.paymentBreakdown;
+ if(sale.paymentBreakdown&&typeof sale.paymentBreakdown==='object')return {...sale.paymentBreakdown,...(sale.loyaltyRedemption?{loyalty:sale.loyaltyRedemption.amount}:{})};
  if(Array.isArray(sale.payments))return sale.payments.reduce((total,row)=>{
   const method=String(row.method||'unknown');
   total[method]=sumMoney([total[method]||0,row.amount??0]);return total;
