@@ -1,6 +1,6 @@
 import {sumMoney,roundMoney} from '../../utils/posMoney.js';
 export function validateRedemptionQuote(quote,total,points){
- if(!quote?.enabled||!Number.isSafeInteger(quote.maxPoints)||quote.maxPoints<0||quote.points!==points||points>quote.maxPoints||!Number.isFinite(quote.amount)||quote.amount<0||roundMoney(quote.amount)!==quote.amount||points>0&&quote.amount===0||points===0&&quote.amount!==0||quote.amount>total||sumMoney([quote.amount,quote.remaining])!==total)throw Error('Bonus hisobi noto‘g‘ri. Yangilang.');
+ if(!quote?.enabled||!Number.isSafeInteger(quote.maxPoints)||quote.maxPoints<0||quote.points!==points||points>quote.maxPoints||!Number.isFinite(quote.amount)||quote.amount<0||roundMoney(quote.amount)!==quote.amount||points>0&&quote.amount===0||points===0&&quote.amount!==0||quote.amount>total||!Number.isFinite(quote.remaining)||quote.remaining<0||roundMoney(quote.remaining)!==quote.remaining||sumMoney([quote.amount,quote.remaining])!==total)throw Error('Bonus hisobi noto‘g‘ri. Yangilang.');
  return quote;
 }
 export function loyaltyPaymentAmount(total,redemption,method){
