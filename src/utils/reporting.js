@@ -169,6 +169,13 @@ export const saleNetPaymentBreakdown = (sale) => {
   const net = saleNetRevenue(normalized);
   const result = { cash: 0, card: 0, transfer: 0 };
   if (net <= 0) return result;
+  const loyalty=Number(normalized.paymentBreakdown?.loyalty||normalized.payments?.find(p=>p.method==='loyalty')?.amount||0);
+  if(loyalty>0){
+    const gross=Number(normalized.saleTotal||normalized.total||0),captured=capturedPayment(normalized);
+    // Lifetime estimates only; dated financial events use actual server captures/refunds.
+    for(const method of Object.keys(result))result[method]=gross>0?captured[method]*Math.min(1,net/gross):0;
+    return result;
+  }
   if (normalized.paymentMethod !== "split") {
     if (Object.prototype.hasOwnProperty.call(result, normalized.paymentMethod)) result[normalized.paymentMethod] = net;
     return result;
