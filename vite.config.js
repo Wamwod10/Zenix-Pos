@@ -36,5 +36,7 @@ const lazyPageGroups={includeDependenciesRecursively:false,groups:[
   {name:'catalog-center',test:/[\\/]src[\\/]pages[\\/](products|inventory)[\\/].*\.jsx$/},
   {name:'settings-center',test:/[\\/]src[\\/]pages[\\/](settings|profile|activityLog|help)[\\/]/},
   {name:'report-center',test:/[\\/]src[\\/]pages[\\/](analytics|sellerAnalytics)[\\/].*\.jsx$/},
+    {name:'operations-center',test:/[\\/]src[\\/]pages[\\/](history|expenses|shifts|suppliers|customers)[\\/]/},
+    {name:'chart-engine',test:/[\\/]node_modules[\\/](recharts|victory-vendor|d3-[^\\/]+)[\\/]/},
 ]};
 export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})

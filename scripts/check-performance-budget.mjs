@@ -39,7 +39,7 @@ if(process.argv.includes('--bundle')){
   assert.ok(chunk.gzipBytes<limit,`${prefix} gzip ${chunk.gzipBytes} exceeds ${limit} bytes`);
  }
  const entryHtml=fs.readFileSync('dist/index.html','utf8');
- assert.doesNotMatch(entryHtml,/\/assets\/(?:settings-center|report-center|catalog-center)-[^"']+\.js/,'administrative/report pages must stay lazy');
+ assert.doesNotMatch(entryHtml,/\/assets\/(?:settings-center|report-center|catalog-center|operations-center|chart-engine)-[^"']+\.js/,'administrative/report pages must stay lazy');
  const entryNames=new Set([...entryHtml.matchAll(/\/assets\/([^"'\s]+\.js)/g)].map(m=>m[1]));
  const startupGzip=chunks.filter(c=>entryNames.has(c.name)).reduce((sum,c)=>sum+c.gzipBytes,0);
  assert.ok(startupGzip<140000,`initial JS gzip ${startupGzip} exceeds 140000 bytes`);

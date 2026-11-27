@@ -145,7 +145,7 @@ export const saleGrossPaymentBreakdown = (sale) => {
   if(!sale)return result;
   // Server payment rows are actual captures; a credit sale's display method
   // may be cash even when only a deposit (or no payment) was collected.
-  if(Array.isArray(sale.payments))return capturedPayment(sale);
+  if(Array.isArray(sale.payments)||Number(sale.paymentBreakdown?.loyalty||sale.loyaltyRedemption?.amount||0)>0&&sale.paymentBreakdown)return capturedPayment(sale);
   const gross=Math.max(0,Number(sale.saleTotal??sale.total??0));
   if(sale.paymentMethod==='credit'){
     const captured=sale.paymentBreakdown||{};
@@ -169,6 +169,13 @@ export const saleNetPaymentBreakdown = (sale) => {
   const net = saleNetRevenue(normalized);
   const result = { cash: 0, card: 0, transfer: 0 };
   if (net <= 0) return result;
+  const loyalty=Number(normalized.paymentBreakdown?.loyalty||normalized.payments?.find(p=>p.method==='loyalty')?.amount||0);
+  if(loyalty>0){
+    const gross=Number(normalized.saleTotal||normalized.total||0),captured=capturedPayment(normalized);
+    // Lifetime estimates only; dated financial events use actual server captures/refunds.
+    for(const method of Object.keys(result))result[method]=gross>0?captured[method]*Math.min(1,net/gross):0;
+    return result;
+  }
   if (normalized.paymentMethod !== "split") {
     if (Object.prototype.hasOwnProperty.call(result, normalized.paymentMethod)) result[normalized.paymentMethod] = net;
     return result;
@@ -183,7 +190,7 @@ export const saleNetPaymentBreakdown = (sale) => {
   result.card = Number(source.card || 0) * ratio;
   result.transfer = Number(source.transfer || 0) * ratio;
   const allocated = result.cash + result.card + result.transfer;
-  if (allocated > 0 && Math.abs(allocated - net) > 0.01) {
+  if (allocated > 0 && !Number(source.loyalty||0) && Math.abs(allocated - net) > 0.01) {
     const scale = net / allocated;
     result.cash *= scale; result.card *= scale; result.transfer *= scale;
   }

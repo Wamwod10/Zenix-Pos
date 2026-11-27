@@ -1,4 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
+import {usePromotionQuotes,quoteCart} from './usePromotionQuotes';
+import {getLoyaltyQuote} from './useLoyaltyQuote';
+import {loyaltyPaymentAmount} from './loyaltyPayment';
+import {promotionSignature} from './promotionQuotes';
 import {validateSerialChoice} from './serialSelection';
 import {api} from '../../services/apiClient';
 import {posDraftKey,readPosDraft,savePosDraft,clearPosDraft,persistedCartIntent} from '../../utils/posDraft';
@@ -18,6 +22,8 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
  const [held,setHeld]=useState([]);
  const [freshReceipt,setFreshReceipt]=useState(null);
  const active=useRef(true),busyRef=useRef(false),reference=useRef(initial?.checkoutReference||`PRO-${crypto.randomUUID()}`),current=useRef(null);
+ const promotionsEnabled=store.effectiveWorkspaceSettings?.promotions?.enabled===true;
+ const promotions=usePromotionQuotes(cart,cartPct,storeId,promotionsEnabled);
  current.current={cart,cartPct,customerId,customer};
  const reconcile=(lines,products,pct=cartPct)=>{
   const result=reconcilePersistedCart({lines,products,storeId,discountAllowed:canDiscount,discountLimit});
@@ -80,15 +86,27 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
    const checked=reconcile(cart,resolved.products);
    if(checked.changes.length||checked.hasBlockingStockIssue){setCart(checked.lines);setCartPct(checked.cartPct);setNotice(cartReconciliationMessage(checked.changes));setError('Savat yangilandi. Tekshirib, to‘lovni qayta oching.');return false}
    if(checked.lines.some(p=>effectiveDiscount(p.discountPercent,cartPct)>discountLimit+0.00001||!canDiscount&&(p.discountPercent>0||cartPct>0)))throw Error('Chegirmani mavjud ruxsat va limitga moslang');
-   const totals=cartTotals(checked.lines,cartPct),plan=paymentPlan({...payment,total:totals.total,customerId,creditAllowed});
+   if(!promotions.ready)throw Error('Aksiya hisobini yangilang');
+   const quoted=promotionsEnabled?await quoteCart(checked.lines,cartPct,storeId):checked.lines;
+   if(promotionSignature(quoted)!==promotionSignature(promotions.lines)){promotions.refresh();throw Error('Aksiya o‘zgardi. To‘lovni yoping va yangi summani tekshiring.')}
+   const totals=cartTotals(quoted,cartPct);
+   const loyalty=payment.loyaltyRedemption;
+   if(loyalty){
+    if(store.effectiveWorkspaceSettings?.loyalty?.redemption?.enabled!==true||!customerId||payment.method==='credit')throw Error('Bonus to‘lovi mavjud emas');
+    const quote=await getLoyaltyQuote({storeId,customerId,total:totals.total,points:loyalty.points});
+    if(quote.amount!==loyalty.amount)throw Error('Bonus hisobi o‘zgardi. To‘lovni qayta oching.');
+   }
+   const payable=loyaltyPaymentAmount(totals.total,loyalty,payment.method);
+   if(payment.total!==payable)throw Error('To‘lov summasi o‘zgardi. Qayta tasdiqlang.');
+   const plan=paymentPlan({...payment,total:payable,customerId,creditAllowed});
    const saleId=reference.current;
-   const items=checked.lines.map(p=>{
+   const items=quoted.map(p=>{
     validateSerialChoice(p,storeId);
     const tracking=allocateTrackedStock(p,storeId,p.cartQty,{saleId,soldAt:new Date().toISOString(),selection:p.tracking});
     if(!tracking.success)throw Error(tracking.message);
-    return {...p,quantity:p.cartQty,finalPrice:finalUnitPrice(p,cartPct),cartDiscountPercent:cartPct,tracking:tracking.tracking};
+    return {...p,quantity:p.cartQty,finalPrice:p.promotionQuote?p.promotionNet/p.cartQty:finalUnitPrice(p,cartPct),...(p.promotionQuote?{lineTotal:p.promotionNet}:{}),cartDiscountPercent:cartPct,tracking:tracking.tracking};
    });
-   const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:plan.breakdown,creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
+   const sale={id:saleId,source:'pos-pro',storeId,store:store.currentStore?.name,shiftId:activeShift.id,sellerName:user.name,createdAt:new Date().toISOString(),items,total:totals.total,subtotal:totals.subtotal,discountTotal:totals.discount,cartDiscountPercent:cartPct,paymentMethod:payment.method,paymentBreakdown:loyalty?{...plan.breakdown,loyalty:loyalty.amount}:plan.breakdown,...(loyalty?{loyaltyRedemption:loyalty}:{}),creditAmount:plan.credit,creditDueDate:payment.dueDate||null,cashTendered:plan.tendered,change:plan.change,customer,customerId:customerId||null,externalPaymentConfirmation:payment.externalConfirmed?'manual-confirmed':null};
    if(!savePosDraft(localStorage,key,{...current.current,cartDiscountPct:cartPct,checkoutReference:saleId}))throw Error('Savdo oldidan draft saqlanmadi');
    const result=await commitSaleTransaction({sale,storeId});
    if(result.success){await withAttemptLock(journal,()=>{const packet=readAttempt(localStorage,journal);if(packet?.clientReference===saleId)finish(result.sale,packet,!result.reconciled);else if(active.current){reset();setFreshReceipt(null);setReceipt(result.sale)}});return true}
@@ -133,5 +151,5 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
   }catch(e){if(active.current)setError(e.message);return false}
   finally{busyRef.current=false;if(active.current)setBusy(false)}
  };
- return {cart,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,freshReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds,hasPendingCheckout:()=>Boolean(readAttempt(localStorage,journal))};
+ return {cart,promotions,cartPct,customer,customerId,setCustomer,setCustomerId,error,setError,notice,setNotice,busy,ready,locked,receipt,setReceipt,freshReceipt,recovery,holdRecovery,held,add,quantity,discount,tracking:(id,selection)=>{if(!locked)setCart(rows=>rows.map(p=>p.id===id?{...p,tracking:selection}:p))},remove:id=>!locked&&setCart(rows=>rows.filter(p=>p.id!==id)),reset,checkout,recover,hold,resume,loadHolds,hasPendingCheckout:()=>Boolean(readAttempt(localStorage,journal))};
 }

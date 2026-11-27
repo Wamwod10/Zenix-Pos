@@ -695,13 +695,13 @@ export const StoreProvider = ({ children }) => {
     if(pending&&pending.clientReference!==String(sale.id))return {success:false,state:'unknown',message:'Avval oldingi savdo natijasini tekshiring.'};
     try{sale=beginAttempt(window.localStorage,journalKey,{clientReference:String(sale.id),payload:sale}).payload}
     catch{return {success:false,status:400,message:'Savdo qurilmaga saqlanmadi. Saqlash joyini tekshiring.'}}
-    const paymentMix=sale.paymentMethod==="split"?(sale.paymentBreakdown||{}):sale.paymentMethod==="credit"?(sale.paymentBreakdown||{cash:0,card:0,transfer:0}):{[sale.paymentMethod||"cash"]:number(sale.total,0)};
+    const paymentMix=sale.loyaltyRedemption?(sale.paymentBreakdown||{}):sale.paymentMethod==="split"?(sale.paymentBreakdown||{}):sale.paymentMethod==="credit"?(sale.paymentBreakdown||{cash:0,card:0,transfer:0}):{[sale.paymentMethod||"cash"]:number(sale.total,0)};
     const payments=["cash","card","transfer"].map((method)=>({method,amount:Math.max(0,number(paymentMix?.[method],0))})).filter((row)=>row.amount>0);
     try{
       const data=await api.post("/api/sales",{
         storeId,shiftId:sale.shiftId||null,clientReference:String(sale.id||""),businessDate:sale.businessDateISO||sale.dateISO,
-        items:(sale.items||[]).map((item)=>({productId:item.productId||item.id,quantity:Math.max(0,number(item.quantity??item.qty,0)),unitPrice:Math.max(0,number(item.finalPrice??item.price??item.sellPrice,0)),discountPercent:0,metadata:{packUnit:item.packUnit||null,tracking:item.tracking||null,originalUnitPrice:number(item.sellPrice??item.price,0),itemDiscountPercent:number(item.discountPercent,0),cartDiscountPercent:number(item.cartDiscountPercent??sale.cartDiscountPercent,0)}})),
-        payments,customer:typeof sale.customer==="object"&&sale.customer!==null?sale.customer:{name:String(sale.customer||"")},customerId:sale.customerId||null,creditAmount:number(sale.creditAmount,0),creditDueDate:sale.creditDueDate||null,metadata:{note:sale.note||"",frontendSubtotal:number(sale.subtotal,0),frontendDiscountTotal:number(sale.discountTotal,0),paymentMethod:sale.paymentMethod||"cash",cashTendered:sale.cashTendered,change:sale.change,...(sale.source==='pos-pro'?{source:'pos-pro',externalPaymentConfirmation:sale.externalPaymentConfirmation||null}:{})},
+        items:(sale.items||[]).map((item)=>({productId:item.productId||item.id,quantity:Math.max(0,number(item.quantity??item.qty,0)),unitPrice:Math.max(0,number(item.promotionQuote?item.sellPrice:item.finalPrice??item.price??item.sellPrice,0)),discountPercent:0,...(item.promotionQuote?{promotionQuote:item.promotionQuote}:{}),metadata:{packUnit:item.packUnit||null,tracking:item.tracking||null,originalUnitPrice:number(item.sellPrice??item.price,0),itemDiscountPercent:number(item.discountPercent,0),cartDiscountPercent:number(item.cartDiscountPercent??sale.cartDiscountPercent,0)}})),
+        payments,...(sale.loyaltyRedemption?{loyaltyRedemption:sale.loyaltyRedemption}:{}),customer:typeof sale.customer==="object"&&sale.customer!==null?sale.customer:{name:String(sale.customer||"")},customerId:sale.customerId||null,creditAmount:number(sale.creditAmount,0),creditDueDate:sale.creditDueDate||null,metadata:{note:sale.note||"",frontendSubtotal:number(sale.subtotal,0),frontendDiscountTotal:number(sale.discountTotal,0),paymentMethod:sale.paymentMethod||"cash",cashTendered:sale.cashTendered,change:sale.change,...(sale.source==='pos-pro'?{source:'pos-pro',externalPaymentConfirmation:sale.externalPaymentConfirmation||null}:{})},
       });
       const server=data?.sale||data;
       if(!isConfirmedSale(server))throw new Error("Savdo javobi toliq emas; natijani tekshiring.");
@@ -736,7 +736,7 @@ export const StoreProvider = ({ children }) => {
       const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,payload);
       if(!isConfirmedRefund(data?.return))throw new Error('Qaytarish javobi to‘liq emas. Aynan shu qaytarishni qayta tekshiring.');
       scheduleWorkspaceRefresh();
-      return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount)}};
+      return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount),refundBreakdown:data.return?.refundBreakdown||data.return?.metadata?.refundBreakdown||returnRecord.refundBreakdown,loyaltyRefund:data.return?.loyaltyRefund||data.return?.metadata?.loyaltyRefund||null}};
     }catch(error){return apiFailure(error,"Qaytarishni saqlab bo‘lmadi")}
   },[currentStoreId,currentUser?.organizationId,currentUser?.id,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
