@@ -736,7 +736,7 @@ export const StoreProvider = ({ children }) => {
       const data=await api.post(`/api/sales/${encodeURIComponent(saleId)}/returns`,payload);
       if(!isConfirmedRefund(data?.return))throw new Error('Qaytarish javobi to‘liq emas. Aynan shu qaytarishni qayta tekshiring.');
       scheduleWorkspaceRefresh();
-      return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount)}};
+      return {success:true,sale:updatedSale,returnRecord:{...returnRecord,id:data.return?.id||returnRecord.id,amount:number(data.return?.amount,returnRecord.amount),refundBreakdown:data.return?.refundBreakdown||data.return?.metadata?.refundBreakdown||returnRecord.refundBreakdown,loyaltyRefund:data.return?.loyaltyRefund||data.return?.metadata?.loyaltyRefund||null}};
     }catch(error){return apiFailure(error,"Qaytarishni saqlab bo‘lmadi")}
   },[currentStoreId,currentUser?.organizationId,currentUser?.id,activeShift?.id,hydrateWorkspace,scheduleWorkspaceRefresh]);
 
