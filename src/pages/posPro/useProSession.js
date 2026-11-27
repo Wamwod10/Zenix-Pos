@@ -96,7 +96,9 @@ export default function useProSession({user,store,catalog,canDiscount,discountLi
     const quote=await getLoyaltyQuote({storeId,customerId,total:totals.total,points:loyalty.points});
     if(quote.amount!==loyalty.amount)throw Error('Bonus hisobi o‘zgardi. To‘lovni qayta oching.');
    }
-   const plan=paymentPlan({...payment,total:loyaltyPaymentAmount(totals.total,loyalty,payment.method),customerId,creditAllowed});
+   const payable=loyaltyPaymentAmount(totals.total,loyalty,payment.method);
+   if(payment.total!==payable)throw Error('To‘lov summasi o‘zgardi. Qayta tasdiqlang.');
+   const plan=paymentPlan({...payment,total:payable,customerId,creditAllowed});
    const saleId=reference.current;
    const items=quoted.map(p=>{
     validateSerialChoice(p,storeId);
