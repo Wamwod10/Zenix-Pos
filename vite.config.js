@@ -32,9 +32,15 @@ export const previewBuildDefines=(source=process.env)=>source.VERCEL_ENV==='prev
 
 // Related lazy administration/report pages share compressed code, while their
 // dependencies remain in automatic chunks. Never capture startup dependencies.
+const grouping=process.env.ZENIX_CHUNK_PROFILE||'related';
 const lazyPageGroups={includeDependenciesRecursively:false,groups:[
   {name:'catalog-center',test:/[\\/]src[\\/]pages[\\/](products|inventory)[\\/].*\.jsx$/},
   {name:'settings-center',test:/[\\/]src[\\/]pages[\\/](settings|profile|activityLog|help)[\\/]/},
   {name:'report-center',test:/[\\/]src[\\/]pages[\\/](analytics|sellerAnalytics)[\\/].*\.jsx$/},
+  ...(grouping==='original'?[]:[
+    {name:'operations-center',test:/[\\/]src[\\/]pages[\\/](history|expenses|shifts|suppliers|customers)[\\/]/},
+    {name:'chart-engine',test:/[\\/]node_modules[\\/](recharts|victory-vendor|d3-[^\\/]+)[\\/]/},
+  ]),
+  ...(grouping==='compact'?[{name:'account-center',test:/[\\/]src[\\/]pages[\\/](billing|platformAdmin)[\\/]/}]:[]),
 ]};
-export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{...(process.env.ZENIX_COMPARE_TERSER==='1'?{minify:'terser',terserOptions:{compress:{passes:2}}}:{}),rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})
+export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})
