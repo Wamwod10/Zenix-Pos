@@ -74,6 +74,7 @@ export const DEFAULT_WORKSPACE_SETTINGS = {
     printMode: "browser",
     copies: 1,
   },
+  loyalty: { enabled: false, spendPerPoint: 10000 },
   notifications: {
     lowStock: true,
     outOfStock: true,
