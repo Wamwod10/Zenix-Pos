@@ -1,10 +1,10 @@
 import {useEffect,useMemo,useState} from 'react';
-import {api} from '../../services/apiClient';
+import {apiRequest} from '../../services/apiClient';
 import {promotionItems,applyPromotionQuotes} from './promotionQuotes';
 async function requestQuotes(cart,cartPct,storeId,signal){
  const items=promotionItems(cart,cartPct);
  if(!items.length)return [];
- const data=await api.post('/api/sales/promotion-quotes',{storeId,items},{signal});
+ const data=await apiRequest('/api/sales/promotion-quotes',{method:'POST',body:{storeId,items},signal});
  return data.quotes;
 }
 export async function quoteCart(cart,cartPct,storeId,signal){return applyPromotionQuotes(cart,cartPct,await requestQuotes(cart,cartPct,storeId,signal))}
