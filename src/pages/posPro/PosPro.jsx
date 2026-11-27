@@ -63,8 +63,8 @@ function Workspace({user,store}){
  const [autoPrintError,setAutoPrintError]=useState('');
  const [activeProductId,setActiveProductId]=useState(null),[barcodeFocused,setBarcodeFocused]=useState(false);
  const searchRef=useRef(null),barcodeRef=useRef(null),queue=useRef(Promise.resolve()),pendingScans=useRef(0),active=useRef(true),actions=useRef(null),lastSale=useRef(null),summaryRequest=useRef(false);
- const totals=useMemo(()=>cartTotals(session.cart,session.cartPct),[session.cart,session.cartPct]);
- const display=useCustomerDisplay({business:settings.organization?.businessName||user.organizationName,branch:store.currentStore?.name,cart:session.cart,cartPct:session.cartPct,confirmedSale:session.receipt});
+ const totals=useMemo(()=>cartTotals(session.promotions.lines,session.cartPct),[session.promotions.lines,session.cartPct]);
+ const display=useCustomerDisplay({business:settings.organization?.businessName||user.organizationName,branch:store.currentStore?.name,cart:session.promotions.lines,cartPct:session.cartPct,confirmedSale:session.receipt});
  const options=workspaceReceiptOptions(settings,{width,business:settings.organization?.businessName||user.organizationName||'ZENIX POS',branch:store.currentStore?.name,cashier:user.name});
  useEffect(()=>{const changed=()=>setKiosk(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed)},[]);
  useEffect(()=>{if(session.ready&&!modal&&!payment&&!camera&&!trackingId&&!session.receipt)barcodeRef.current?.focus()},[session.ready,modal,payment,camera,trackingId,session.receipt]);
@@ -147,6 +147,7 @@ function Workspace({user,store}){
   if(!online){session.setError('Internet yo‘q: savdo yozilmaydi, draft saqlangan.');return}
   if(!store.activeShift){session.setError('Avval smena oching');return}
   if(!session.cart.length){session.setError('Chek bo‘sh');return}
+  if(!session.promotions.ready){session.promotions.refresh();session.setError('Aksiya hisobi yangilanmoqda. Qayta urining.');return}
   if(settings.pos.paymentMethods?.[method]===false){session.setError('Ushbu to‘lov usuli filialda o‘chirilgan');return}
   if(method==='credit'&&!session.customerId){openCustomer();session.setError('Nasiya uchun mijoz tanlang');return}
   session.setError('');setPayment(method);
