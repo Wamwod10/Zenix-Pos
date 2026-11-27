@@ -7,6 +7,7 @@ export async function getLoyaltyQuote({storeId,customerId,total,points=0},signal
 }
 export function useLoyaltyQuote({enabled,storeId,customerId,total}){
  const [points,setPoints]=useState(''),[state,setState]=useState(null);
+ useEffect(()=>{setPoints('')},[enabled,storeId,customerId]);
  const n=Number(points||0),valid=Number.isSafeInteger(n)&&n>=0&&n<=999999999999;
  const key=JSON.stringify([enabled,storeId,customerId,total,n]);
  useEffect(()=>{
