@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {loyaltyPaymentAmount} from '../src/pages/posPro/loyaltyPayment.js';
 import {remainingPayment,sumMoney} from '../src/utils/posMoney.js';
 
 // Protect legacy Sales checkout from binary floating point drift when
@@ -29,9 +30,16 @@ test('Sales POS credit remainder and split change stay exact cents',()=>{
 test('legacy Sales checkout uses cent-aware arithmetic for payload and UI',()=>{
   const source=readFileSync(new URL('../src/pages/sales/Sales.jsx',import.meta.url),'utf8');
   for(const expression of [
-    'remainingPayment(total,[splitCardN,splitTransferN])',
+    'remainingPayment(payable,[splitCardN,splitTransferN])',
     'remainingPayment(total,[Number(creditPaid||0)])',
     'remainingPayment(splitCashTenderedN,[splitCash])',
-    'splitValid=sumMoney([splitCardN,splitTransferN])<=total',
+    'splitValid=sumMoney([splitCardN,splitTransferN])<=payable',
   ])assert.ok(source.includes(expression),expression);
+});
+
+test('legacy POS split tender reconciles exact cents after bonus',()=>{
+ const total=1000.30,bonus={points:3,amount:300};
+ const payable=loyaltyPaymentAmount(total,bonus,'split');
+ const cash=remainingPayment(payable,[0.10,0.20]);
+ assert.equal(cash,700);assert.equal(sumMoney([cash,0.10,0.20,bonus.amount]),total);
 });
