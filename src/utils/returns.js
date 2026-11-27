@@ -1,4 +1,5 @@
 import { formatWorkspaceDate, workspaceDateISO, workspaceTime } from "./workspaceDate.js";
+import {refundAmount,sumMoney,roundMoney} from "./posMoney.js";
 export const RETURN_REASONS = [
   "Mahsulot ishlamadi",
   "Model mos kelmadi",
@@ -173,7 +174,7 @@ export const applyReturnToSale = (sale, productId, requestedQty) => {
   }
 
   const quantity = clampReturnQty(targetItem, requestedQty);
-  const amount = getItemFinalPrice(targetItem) * quantity;
+  const amount = quantity>0?targetItem.lineTotal!=null?refundAmount(targetItem.lineTotal,Number(targetItem.quantity),getReturnedQty(targetItem),quantity):roundMoney(getItemFinalPrice(targetItem)*quantity):0;
 
   if (quantity <= 0) {
     return {
@@ -207,7 +208,7 @@ export const applyReturnToSale = (sale, productId, requestedQty) => {
       items: updatedItems,
       total: Number(normalizedSale.total || 0),
       saleTotal: Number(normalizedSale.saleTotal || normalizedSale.total || 0),
-      returnedTotal: Number(normalizedSale.returnedTotal || 0) + amount,
+      returnedTotal: sumMoney([Number(normalizedSale.returnedTotal || 0),amount]),
     },
     returnedItem: targetItem,
     quantity,
