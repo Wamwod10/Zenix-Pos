@@ -38,7 +38,7 @@ function receiptRows(sale){
   const paid=item.lineTotal??lineAmount(qty,price);
   const itemDiscount=Number(item.discountPercent||item.metadata?.itemDiscountPercent||0);
   const basketDiscount=Number(item.cartDiscountPercent??sale.cartDiscountPercent??item.metadata?.cartDiscountPercent??0);
-  const discount=[itemDiscount>0?`Mahsulot ${itemDiscount}%`:null,basketDiscount>0?`Savat ${basketDiscount}%`:null].filter(Boolean).join(' · ');
+  const discount=[item.promotionQuote||item.metadata?.promotion?'Aksiya':null,itemDiscount>0?`Mahsulot ${itemDiscount}%`:null,basketDiscount>0?`Savat ${basketDiscount}%`:null].filter(Boolean).join(' · ');
   return `<tr class="item-name"><td colspan="2">${escape(item.name||'Mahsulot')}</td></tr><tr class="item-detail"><td>${escape(qty)} ${escape(unit)} × ${escape(formatPrice(price))}${discount?`<br><span class="discount">${escape(discount)}</span>`:''}</td><td>${escape(formatPrice(paid))}</td></tr>`;
  }).join('');
 }
