@@ -37,4 +37,4 @@ const lazyPageGroups={includeDependenciesRecursively:false,groups:[
   {name:'settings-center',test:/[\\/]src[\\/]pages[\\/](settings|profile|activityLog|help)[\\/]/},
   {name:'report-center',test:/[\\/]src[\\/]pages[\\/](analytics|sellerAnalytics)[\\/].*\.jsx$/},
 ]};
-export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})
+export default defineConfig({plugins:[react(),pwaAssetPrecache()],define:previewBuildDefines(),build:{...(process.env.ZENIX_COMPARE_TERSER==='1'?{minify:'terser',terserOptions:{compress:{passes:2}}}:{}),rolldownOptions:{output:{codeSplitting:lazyPageGroups}}}})
