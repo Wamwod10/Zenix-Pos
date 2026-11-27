@@ -10,8 +10,9 @@ export async function quoteCart(cart,cartPct,storeId,signal){
 }
 export function usePromotionQuotes(cart,cartPct,storeId,enabled){
  const [state,setState]=useState(null),[retry,setRetry]=useState(0);
- const key=useMemo(()=>enabled?JSON.stringify(promotionItems(cart,cartPct).map(p=>[p.productId,p.quantity,cart.find(x=>x.id===p.productId)?.sellPrice])):'',[cart,cartPct,enabled]);
- const needed=enabled&&key!=='[]';
+ const eligible=useMemo(()=>enabled?promotionItems(cart,cartPct):[],[cart,cartPct,enabled]);
+ const key=useMemo(()=>{const prices=new Map(cart.map(p=>[p.id,p.sellPrice]));return JSON.stringify([storeId,eligible.map(p=>[p.productId,p.quantity,prices.get(p.productId)])])},[eligible,cart,storeId]);
+ const needed=eligible.length>0;
  useEffect(()=>{
   if(!needed)return;
   const abort=new AbortController();let alive=true;
