@@ -13,7 +13,7 @@ const product=i=>({id:`44444444-4444-4444-8444-${String(i+1).padStart(12,'0')}`,
 const cspCounts=Object.create(null);
 const errors=[],results=[],output=process.env.POS_DEEP_PHASE?`../artifacts/pos-pro-deep/${process.env.POS_DEEP_PHASE}`:'../artifacts/phase2';await mkdir(output,{recursive:true});await mkdir('../artifacts/phase3-polish',{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||(process.platform==='win32'?'C:/Users/User/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe':undefined)});
-async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER',paymentMethods=null}={}){
+async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=false,oldBackend=false,unit='kg',touch=false,longName='',serial=false,presentation=false,stress=false,shiftConflict='',otherShiftCashier='',appRole='OWNER',paymentMethods=null,loyaltyOffers=false}={}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();let sales=[],holds=[],posts=0,delay=0,fail=false,holdStatus=0,barcodeDelay=0,searchDelay=0,reconcileUnavailable=false,rejectStatus=0,priceOverride=0,activeShiftId=shift;
  if(auditEnabled)await observeCsp(context,cspCounts);
  await page.addInitScript(()=>{window.print=()=>{document.documentElement.dataset.printInvoked='true'}});
@@ -25,7 +25,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   if(url.pathname==='/api/auth/me')data={user:{id:'owner',organizationId:org,appRole,storeId:store,name:stress?'Juda uzoq ism va familiyali supermarket kassiri':'Test kassir'}};
   if(url.pathname==='/api/bootstrap')data={catalogComplete:false,stores:[{id:store,name:stress?'Supermarketning juda uzoq nomli markaziy filiali':'Asosiy filial',active:true}],inventory:[],suppliers:[],activeShifts:closed?{}:{[store]:{id:activeShiftId,storeId:store,status:'open'}},organization:{id:org,name:'Test market',planCode:'BUSINESS',expiryDate:'2099-01-01',licenseStatus:'ACTIVE',storeLimit:2}};
   if(url.pathname==='/api/bootstrap'&&otherShiftCashier){const otherStore='77777777-7777-4777-8777-777777777777';data.stores.push({id:otherStore,name:'2-Filial',active:true});data.activeShifts[otherStore]={id:shift,storeId:otherStore,storeName:'2-Filial',cashierId:otherShiftCashier,cashierAccountId:otherShiftCashier,status:'open',openedAtISO:'2026-10-11T09:10:43.000Z',openedAt:'14:10',openingCash:0,cashMovements:[]}}
-  if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20,...(paymentMethods?{paymentMethods}:{})}}};
+  if(url.pathname==='/api/settings')data={selectedStoreId:store,workspaceSettings:{organization:{timezone:'Asia/Tashkent'},pos:{cashierDiscountAllowed:true,discountLimit:20,...(paymentMethods?{paymentMethods}:{})},...(loyaltyOffers?{loyalty:{enabled:true,redemption:{enabled:true,valuePerPoint:1000,maxShareBps:5000}},promotions:{enabled:true,rules:[]}}:{})}};
   if(url.pathname==='/api/finance')data={sales:[],returns:[],expenses:[],pagination:{hasMore:false,offset:0,limit:500}};
   if(url.pathname==='/api/ai/status')data={enabled:false};
   if(url.pathname==='/api/bootstrap/catalog'){
@@ -39,6 +39,12 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
    data={products:products.map(p=>({...p,unit,...(presentation?{name:['Olma','Tuxum','Guruch','Sut','Ichimlik suvi'][Number(p.id.slice(-12))-1]||p.name,unit:['kg','dona','g','l','ml'][(Number(p.id.slice(-12))-1)%5],sellPrice:[12000,1500,18,14000,4][(Number(p.id.slice(-12))-1)%5],stockByStore:{[store]:[18.75,120,5000,24,10000][(Number(p.id.slice(-12))-1)%5]}}:{}),...(longName&&p.id===product(0).id?{name:longName}:{}),...(stress?{barcode:'12345678901234567890123456789012345678901234567890'}:{}),...(serial&&p.id===product(0).id?{unit:'dona',serializedUnits:[{id:'s1',serial:'S1',storeId:store,productId:p.id,status:'IN_STOCK'},{id:'s2',serial:'S2',storeId:store,productId:p.id,status:'IN_STOCK'}]}:{})})),categories:['Oziq-ovqat'],hasMore:!ids&&!barcode&&!search,nextCursor:'next',...(ids?{missingIds:[]}:{})};
   }
   if(url.pathname==='/api/bootstrap/catalog'&&priceOverride)data.products=data.products.map(p=>p.id===product(0).id?{...p,sellPrice:priceOverride}:p);
+  if(url.pathname==='/api/sales/promotion-quotes'&&loyaltyOffers){
+   const body=req.postDataJSON();data={quotes:body.items.filter(i=>i.quantity>=3).map(i=>({productId:i.productId,ruleId:'77777777-7777-4777-8777-777777777777',gross:i.quantity*12000,discount:Math.floor(i.quantity/3)*12000,net:(i.quantity-Math.floor(i.quantity/3))*12000}))};
+  }
+  if(url.pathname==='/api/sales/loyalty-quote'&&loyaltyOffers){
+   const total=Number(url.searchParams.get('total')),points=Number(url.searchParams.get('points'));data={quote:{enabled:true,maxPoints:Math.floor(total/2000),points,amount:points*1000,remaining:total-points*1000}};
+  }
   if(url.pathname==='/api/sales/pos-pro/summary'){
    if(oldBackend)return route.fulfill({status:404,json:{ok:false,error:{code:'NOT_FOUND'}}});
    data={shift:closed?null:{id:activeShiftId},count:sales.length,total:sales.reduce((s,p)=>s+Number(p.total),0),cash:0,card:0,recent:[],popular:[{product_id:product(2).id}]};
@@ -52,7 +58,7 @@ async function setup({cartSize=0,catalogSize=10000,width=1366,height=768,closed=
   if(url.pathname.startsWith('/api/sales/holds/')&&req.method()==='DELETE'){holds=holds.filter(h=>h.id!==url.pathname.split('/').at(-1));data={deleted:true}}
   if(url.pathname==='/api/sales'&&req.method()==='POST'){
    posts++;if(rejectStatus)return route.fulfill({status:rejectStatus,json:{ok:false,error:{code:'INSUFFICIENT_STOCK',message:'Server: qoldiq yetarli emas'}}});const body=req.postDataJSON();let sale=sales.find(p=>p.client_reference===body.clientReference);
-   if(!sale){sale={id:'66666666-6666-4666-8666-'+String(sales.length+1).padStart(12,'0'),sale_number:'S-'+(sales.length+1),client_reference:body.clientReference,total:body.payments.reduce((s,p)=>s+p.amount,0)+body.creditAmount,created_at:new Date().toISOString(),request:body};sales.push(sale)}
+   if(!sale){sale={id:'66666666-6666-4666-8666-'+String(sales.length+1).padStart(12,'0'),sale_number:'S-'+(sales.length+1),client_reference:body.clientReference,total:body.payments.reduce((s,p)=>s+p.amount,0)+body.creditAmount+(body.loyaltyRedemption?.amount||0),created_at:new Date().toISOString(),request:body};sales.push(sale)}
    if(delay)await new Promise(r=>setTimeout(r,delay));if(fail)return route.abort();data={sale};
   }
   if(url.pathname==='/api/sales/reconciliation'){if(reconcileUnavailable)return route.fulfill({status:503,json:{ok:false,error:{code:'API_ERROR'}}});data=sales.length?{state:'confirmed',sale:sales.at(-1)}:{state:'unknown'}}
@@ -494,6 +500,26 @@ try{
   await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
   await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
   assert.equal(r.posts,1);assert.equal(r.sales[0].request.payments[0].amount,13000);
+  await r.context.close();
+ }
+ if(!uxOnly||uxOnly==='loyalty-offers'){
+  const r=await setup({unit:'dona',loyaltyOffers:true}),p=r.page;
+  await p.locator('.pp-product').first().click();
+  const qty=p.getByLabel('Olma miqdori',{exact:true});await qty.fill('3');await qty.press('Enter');
+  await expect(p.getByTestId('pos-pro-total')).toContainText(/24[ ,]000/);
+  await p.getByRole('button',{name:'Mijoz tanlash',exact:true}).click();
+  await p.getByRole('dialog').getByRole('button',{name:/Ali/}).click();
+  await p.keyboard.press('F7');const dialog=p.getByRole('dialog',{name:'To‘lov — Naqd'});
+  await dialog.getByLabel('Sarflanadigan bonus ballari',{exact:false}).fill('5');
+  await expect(dialog).toContainText(/19[ ,]000/);
+  await dialog.getByLabel('Mijoz bergan naqd',{exact:true}).fill('19000');
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button',{name:'Tasdiqlab yakunlash',exact:true}).click();
+  await expect(p.getByRole('dialog',{name:'Savdo tasdiqlandi'})).toBeVisible();
+  assert.equal(r.posts,1);assert.equal(r.sales[0].total,24000);
+  assert.equal(r.sales[0].request.payments[0].amount,19000);
+  assert.deepEqual(r.sales[0].request.loyaltyRedemption,{points:5,amount:5000});
+  assert.equal(r.sales[0].request.items[0].promotionQuote.net,24000);
   await r.context.close();
  }
  if(!uxOnly||uxOnly==='receipt'){
