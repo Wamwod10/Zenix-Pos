@@ -1,7 +1,6 @@
 import {FiTrash2,FiPackage,FiPlus,FiArrowRight,FiShoppingBag} from 'react-icons/fi';
 import {displayUnit} from './presentation';
 import {memo,useState,useRef,useCallback,useEffect} from 'react';
-import {lineAmount} from '../../utils/posMoney';
 import {payableLineTotal,finalUnitPrice,quantityStep,formatProMoney as formatPrice} from './model';
 const CartLine=memo(function CartLine({line,index,cartPct,locked,canDiscount,onQuantity,onDiscount,onRemove,onTracking,touch,selected,onSelect}){
  const [qty,setQty]=useState(null),[discount,setDiscount]=useState(null);
